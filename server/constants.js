@@ -1,0 +1,73 @@
+// ============================================
+// 🐺 MA SÓI - Hằng số trò chơi
+// ============================================
+
+/** Các vai trò trong game */
+const ROLES = {
+  WOLF: 'wolf',        // 🐺 Sói
+  SEER: 'seer',        // 🔮 Tiên Tri
+  VILLAGER: 'villager', // 🧑‍🌾 Dân Làng
+};
+
+/** Tên hiển thị tiếng Việt */
+const ROLE_NAMES = {
+  [ROLES.WOLF]: 'Sói',
+  [ROLES.SEER]: 'Tiên Tri',
+  [ROLES.VILLAGER]: 'Dân Làng',
+};
+
+/** Emoji đại diện cho vai trò */
+const ROLE_EMOJIS = {
+  [ROLES.WOLF]: '🐺',
+  [ROLES.SEER]: '🔮',
+  [ROLES.VILLAGER]: '🧑‍🌾',
+};
+
+/** Màu đại diện cho vai trò */
+const ROLE_COLORS = {
+  [ROLES.WOLF]: '#DC2626',
+  [ROLES.SEER]: '#3B82F6',
+  [ROLES.VILLAGER]: '#10B981',
+};
+
+/** Các pha trong trò chơi */
+const PHASES = {
+  WAITING: 'waiting',              // Chờ trong phòng
+  NIGHT: 'night',                  // Ban đêm
+  DAY_ANNOUNCE: 'day_announce',    // Thông báo người chết
+  DAY_DISCUSSION: 'day_discussion',// Thảo luận ban ngày
+  DAY_VOTE: 'day_vote',           // Bỏ phiếu
+  GAME_OVER: 'game_over',         // Kết thúc
+};
+
+/** Thời gian mỗi pha (giây) */
+const TIMERS = {
+  NIGHT: 25,
+  DAY_ANNOUNCE: 6,
+  DAY_DISCUSSION: 60,
+  DAY_VOTE: 25,
+  ROLE_REVEAL: 4,
+};
+
+/** Avatar emoji cho người chơi */
+const AVATARS = ['🐱', '🐶', '🐰', '🦊', '🐸', '🐼', '🐨', '🦁', '🐮', '🐷', '🐵', '🐔'];
+
+/** Màu nền avatar */
+const AVATAR_COLORS = [
+  '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
+  '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F',
+  '#BB8FCE', '#85C1E9', '#F8C471', '#82E0AA',
+];
+
+/** Cài đặt phòng mặc định */
+const DEFAULT_SETTINGS = {
+  maxPlayers: 6,
+  numWolves: 2,
+  numSeers: 1,
+  // numVillagers sẽ tự tính = maxPlayers - numWolves - numSeers
+};
+
+module.exports = {
+  ROLES, ROLE_NAMES, ROLE_EMOJIS, ROLE_COLORS,
+  PHASES, TIMERS, AVATARS, AVATAR_COLORS, DEFAULT_SETTINGS,
+};
