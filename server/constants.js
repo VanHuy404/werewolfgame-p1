@@ -33,7 +33,9 @@ const ROLE_COLORS = {
 /** Các pha trong trò chơi */
 const PHASES = {
   WAITING: 'waiting',              // Chờ trong phòng
-  NIGHT: 'night',                  // Ban đêm
+  NIGHT_WOLF: 'night_wolf',        // Ban đêm - Sói cắn (2 phút)
+  NIGHT_SEER: 'night_seer',        // Ban đêm - Tiên tri soi
+  NIGHT: 'night',                  // Fallback ban đêm
   DAY_ANNOUNCE: 'day_announce',    // Thông báo người chết
   DAY_DISCUSSION: 'day_discussion',// Thảo luận ban ngày
   DAY_VOTE: 'day_vote',           // Bỏ phiếu
@@ -42,7 +44,9 @@ const PHASES = {
 
 /** Thời gian mỗi pha (giây) */
 const TIMERS = {
-  NIGHT: 25,
+  NIGHT_WOLF: 90,      // 🐺 Sói chọn người 1p30s (90 giây)
+  NIGHT_SEER: 30,      // 🔮 Tiên Tri soi (30 giây, tự động rút xuống 5s sau khi soi)
+  NIGHT: 90,           // Fallback
   DAY_ANNOUNCE: 6,
   DAY_DISCUSSION: 60,
   DAY_VOTE: 25,
@@ -61,10 +65,10 @@ const AVATAR_COLORS = [
 
 /** Cài đặt phòng mặc định */
 const DEFAULT_SETTINGS = {
-  maxPlayers: 6,
   numWolves: 2,
   numSeers: 1,
-  // numVillagers sẽ tự tính = maxPlayers - numWolves - numSeers
+  dayDiscussionTime: 60, // Thời gian bàn luận (giây)
+  dayVoteTime: 25,       // Thời gian bỏ phiếu (giây)
 };
 
 module.exports = {

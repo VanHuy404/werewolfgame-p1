@@ -33,7 +33,7 @@ function generateStars(count = 55) {
 export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error }) {
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
-  const [mode, setMode] = useState(null); // null | 'create' | 'join'
+  const [localError, setLocalError] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [settings, setSettings] = useState({ maxPlayers: 6, numWolves: 2, numSeers: 1 });
   const [customAvatar, setCustomAvatar] = useState(null);
@@ -149,10 +149,26 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
   };
 
   const handleCreateRoom = () => {
-    if (!playerName.trim() || !socket) return;
-    // Nhảy sang phòng chờ ngay lập tức (dùng settings mặc định, host chỉnh trong lobby)
+    const trimmed = playerName.trim();
+    if (!trimmed) {
+      setLocalError('Vui lòng nhập tên của bạn trước khi tạo phòng!');
+      setTimeout(() => setLocalError(null), 3500);
+      return;
+    }
+    if (trimmed.length < 2) {
+      setLocalError('Tên phải có ít nhất 2 ký tự!');
+      setTimeout(() => setLocalError(null), 3500);
+      return;
+    }
+    if (!socket || !socket.connected) {
+      if (socket) socket.connect();
+      setLocalError('⚠️ Đang kết nối tới Server game (Port 3001). Vui lòng thử lại sau giây lát!');
+      setTimeout(() => setLocalError(null), 5000);
+      return;
+    }
+    setLocalError(null);
     socket.emit('create-room', {
-      playerName: playerName.trim(),
+      playerName: trimmed,
       settings,
       customAvatar,
     });
@@ -161,28 +177,50 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
   const handleConfirmCreate = (newSettings) => {
     setSettings(newSettings);
     setShowSettings(false);
-    if (socket) {
-      socket.emit('create-room', {
-        playerName: playerName.trim(),
-        settings: newSettings,
-        customAvatar,
-      });
+    if (!socket || !socket.connected) {
+      if (socket) socket.connect();
+      setLocalError('⚠️ Đang kết nối tới Server game (Port 3001). Vui lòng thử lại sau giây lát!');
+      setTimeout(() => setLocalError(null), 5000);
+      return;
     }
+    socket.emit('create-room', {
+      playerName: playerName.trim(),
+      settings: newSettings,
+      customAvatar,
+    });
   };
 
   const handleJoinRoom = () => {
-    if (!playerName.trim() || !roomCode.trim()) return;
-    if (socket) {
-      socket.emit('join-room', {
-        playerName: playerName.trim(),
-        roomCode: roomCode.trim(),
-        customAvatar,
-      });
+    const trimmed = playerName.trim();
+    const code = roomCode.trim().toUpperCase();
+    if (!trimmed) {
+      setLocalError('Vui lòng nhập tên của bạn trước!');
+      setTimeout(() => setLocalError(null), 3500);
+      return;
     }
+    if (!code) {
+      setLocalError('Vui lòng nhập mã phòng ở ô giữa 2 nút!');
+      setTimeout(() => setLocalError(null), 3500);
+      return;
+    }
+    if (code.length < 4) {
+      setLocalError('Mã phòng phải có ít nhất 4 ký tự!');
+      setTimeout(() => setLocalError(null), 3500);
+      return;
+    }
+    if (!socket || !socket.connected) {
+      if (socket) socket.connect();
+      setLocalError('⚠️ Đang kết nối tới Server game (Port 3001). Vui lòng thử lại sau giây lát!');
+      setTimeout(() => setLocalError(null), 5000);
+      return;
+    }
+    setLocalError(null);
+    socket.emit('join-room', {
+      playerName: trimmed,
+      roomCode: code,
+      customAvatar,
+    });
   };
-
-  const canCreate = playerName.trim().length >= 2;
-  const canJoin = playerName.trim().length >= 2 && roomCode.trim().length >= 4;
 
   return (
     <KeyboardAvoidingView
@@ -311,7 +349,10 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
               <TextInput
                 style={styles.input}
                 value={playerName}
-                onChangeText={setPlayerName}
+                onChangeText={(text) => {
+                  setPlayerName(text);
+                  if (localError) setLocalError(null);
+                }}
                 placeholder="Nhập tên hiển thị..."
                 placeholderTextColor={COLORS.grayDark}
                 maxLength={15}
@@ -320,71 +361,76 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
             </View>
 
             {/* Hiển thị lỗi */}
-            {error && (
+            {(localError || error) && (
               <View style={styles.errorBox}>
-                <Text style={styles.errorText}>⚠️ {error}</Text>
+                <Text style={styles.errorText}>⚠️ {localError || error}</Text>
               </View>
             )}
 
-            {/* Mode buttons hoặc form */}
-            {mode === null ? (
-              <View style={styles.buttonGroup}>
-                <TouchableOpacity
-                  style={[styles.mainBtn, styles.createBtn, !canCreate && styles.btnDisabled]}
-                  onPress={() => {
-                    if (canCreate) handleCreateRoom();
-                  }}
-                  disabled={!canCreate}
-                >
-                  <Text style={styles.mainBtnEmoji}>🏠</Text>
-                  <Text style={styles.mainBtnText}>Tạo Phòng</Text>
-                  <Text style={styles.mainBtnHint}>Tạo phòng mới & mời bạn bè</Text>
-                </TouchableOpacity>
+            {/* Khối hành động: Tạo Phòng -> Nhập mã ở giữa -> Vào Phòng */}
+            <View style={styles.actionGroup}>
+              {/* Nút 1: TẠO PHÒNG */}
+              <TouchableOpacity
+                style={[styles.mainBtn, styles.createBtn]}
+                onPress={handleCreateRoom}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.mainBtnEmoji}>🏠</Text>
+                <Text style={styles.mainBtnText}>Tạo Phòng Mới</Text>
+                <Text style={styles.mainBtnHint}>Tạo phòng & mời bạn bè tham gia</Text>
+              </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.mainBtn, styles.joinBtn, !canCreate && styles.btnDisabled]}
-                  onPress={() => canCreate && setMode('join')}
-                  disabled={!canCreate}
-                >
-                  <Text style={styles.mainBtnEmoji}>🚪</Text>
-                  <Text style={styles.mainBtnText}>Vào Phòng</Text>
-                  <Text style={styles.mainBtnHint}>Nhập mã code để vào</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              // Join room form
-              <View style={styles.joinForm}>
-                <TouchableOpacity
-                  style={styles.backBtn}
-                  onPress={() => { setMode(null); setRoomCode(''); }}
-                >
-                  <Text style={styles.backBtnText}>← Quay lại</Text>
-                </TouchableOpacity>
+              {/* Ô NHẬP MÃ PHÒNG Ở GIỮA 2 NÚT (Theo yêu cầu) */}
+              <View style={styles.middleCodeSection}>
+                <View style={styles.dividerRow}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerLabel}>HOẶC NHẬP MÃ ĐỂ VÀO PHÒNG</Text>
+                  <View style={styles.dividerLine} />
+                </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>🔑 Mã phòng</Text>
+                <View style={styles.codeInputWrapper}>
+                  <Text style={styles.codeIcon}>🔑</Text>
                   <TextInput
-                    style={[styles.input, styles.codeInput]}
+                    style={styles.inlineCodeInput}
                     value={roomCode}
-                    onChangeText={(text) => setRoomCode(text.toUpperCase())}
-                    placeholder="VD: ABC12"
-                    placeholderTextColor={COLORS.grayDark}
+                    onChangeText={(text) => {
+                      setRoomCode(text.toUpperCase());
+                      if (localError) setLocalError(null);
+                    }}
+                    placeholder="NHẬP MÃ PHÒNG (VD: ABC12)"
+                    placeholderTextColor="#64748B"
                     maxLength={6}
                     autoCapitalize="characters"
                     autoCorrect={false}
                     onSubmitEditing={handleJoinRoom}
                   />
+                  {roomCode.length > 0 && (
+                    <TouchableOpacity
+                      onPress={() => setRoomCode('')}
+                      style={styles.clearBtn}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.clearBtnText}>✕</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
-
-                <TouchableOpacity
-                  style={[styles.submitBtn, !canJoin && styles.btnDisabled]}
-                  onPress={handleJoinRoom}
-                  disabled={!canJoin}
-                >
-                  <Text style={styles.submitBtnText}>🚪 Vào Phòng</Text>
-                </TouchableOpacity>
               </View>
-            )}
+
+              {/* Nút 2: VÀO PHÒNG */}
+              <TouchableOpacity
+                style={[
+                  styles.mainBtn,
+                  styles.joinBtn,
+                  (!roomCode || roomCode.trim().length === 0) && styles.joinBtnDimmed,
+                ]}
+                onPress={handleJoinRoom}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.mainBtnEmoji}>🚪</Text>
+                <Text style={styles.mainBtnText}>Vào Phòng</Text>
+                <Text style={styles.mainBtnHint}>Tham gia phòng bằng mã ở trên</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* ================= FOOTER THEO YÊU CẦU ================= */}
@@ -639,73 +685,111 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Buttons
-  buttonGroup: {
+  // Buttons & Middle Code Input
+  actionGroup: {
     gap: 12,
   },
   mainBtn: {
     borderRadius: 16,
-    padding: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     alignItems: 'center',
     elevation: 4,
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.28,
     shadowRadius: 8,
   },
   createBtn: {
     backgroundColor: COLORS.primary,
     shadowColor: COLORS.primary,
+    borderWidth: 1,
+    borderColor: 'rgba(167, 139, 250, 0.4)',
   },
   joinBtn: {
     backgroundColor: COLORS.secondaryDark,
     shadowColor: COLORS.secondary,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.4)',
   },
-  btnDisabled: {
-    opacity: 0.4,
-    elevation: 0,
+  joinBtnDimmed: {
+    opacity: 0.85,
   },
   mainBtnEmoji: {
-    fontSize: 26,
-    marginBottom: 4,
+    fontSize: 24,
+    marginBottom: 2,
   },
   mainBtnText: {
     fontSize: 18,
     fontWeight: '800',
     color: COLORS.white,
+    letterSpacing: 0.5,
   },
   mainBtnHint: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.75)',
+    color: 'rgba(255,255,255,0.78)',
     marginTop: 2,
   },
 
-  // Join form
-  joinForm: {
-    gap: 4,
-  },
-  backBtn: {
-    marginBottom: 8,
-  },
-  backBtnText: {
-    fontSize: 14,
-    color: '#A78BFA',
-    fontWeight: '700',
-  },
-  submitBtn: {
-    backgroundColor: COLORS.secondary,
-    borderRadius: 14,
-    paddingVertical: 16,
+  // Phần ô mã phòng ở giữa 2 nút
+  middleCodeSection: {
+    marginVertical: 4,
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: COLORS.secondary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
+    width: '100%',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 10,
+    gap: 10,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(148, 163, 184, 0.22)',
+  },
+  dividerLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 1.2,
+  },
+  codeInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0A0818',
+    borderWidth: 1.5,
+    borderColor: 'rgba(245, 158, 11, 0.5)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    width: '100%',
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
     shadowRadius: 6,
   },
-  submitBtnText: {
-    fontSize: 17,
+  codeIcon: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  inlineCodeInput: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 16,
     fontWeight: '800',
-    color: COLORS.white,
+    color: '#FBBF24',
+    letterSpacing: 3,
+    textAlign: 'center',
+  },
+  clearBtn: {
+    padding: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clearBtnText: {
+    color: '#94A3B8',
+    fontSize: 14,
+    fontWeight: '700',
   },
 
   // Footer mới theo yêu cầu người dùng

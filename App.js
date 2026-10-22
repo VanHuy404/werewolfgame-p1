@@ -14,6 +14,7 @@ import { COLORS } from './utils/colors';
 import HomeScreen from './screens/HomeScreen';
 import LobbyScreen from './screens/LobbyScreen';
 import GameScreen from './screens/GameScreen';
+import GameOverScreen from './screens/GameOverScreen';
 import RoleCard from './components/RoleCard';
 
 export default function App() {
@@ -80,15 +81,20 @@ export default function App() {
 
     // Có người chơi rời phòng
     s.on('player-left', ({ players, hostId }) => {
-      setPlayers(players);
+      if (players) setPlayers(players);
       if (hostId) setHostId(hostId);
     });
 
     // Người chơi mất kết nối tạm thời trong trận
     s.on('player-disconnected', ({ playerId, playerName }) => {
       setPlayers((prev) =>
-        prev.map((p) => (p.id === playerId ? { ...p, connected: false } : p))
+        prev.map((p) => (p.id === playerId ? { ...p, connected: false, alive: false } : p))
       );
+    });
+
+    // Cập nhật danh sách người chơi (VD: có người out game giữa trận)
+    s.on('players-update', ({ players }) => {
+      if (players) setPlayers(players);
     });
 
     // Cài đặt phòng được cập nhật
@@ -141,6 +147,23 @@ export default function App() {
       resetGameState();
     });
 
+    // Trở về phòng chờ sau khi kết thúc game
+    s.on('returned-to-lobby', ({ roomCode, players, settings, hostId }) => {
+      setRoomCode(roomCode);
+      setPlayers(players);
+      setSettings(settings);
+      setHostId(hostId);
+      setMyRole(null);
+      setPhase('waiting');
+      setDeadPlayer(null);
+      setWinner(null);
+      setWinMessage('');
+      setMessages([]);
+      setShowRoleReveal(false);
+      setCurrentScreen('lobby');
+      setError(null);
+    });
+
     return () => {
       s.disconnect();
     };
@@ -167,18 +190,27 @@ export default function App() {
     resetGameState();
   };
 
-  // Gửi tin nhắn chat
-  const handleSendMessage = (message) => {
+  // Trở về phòng chờ khi kết thúc game
+  const handleReturnToLobby = () => {
     if (socketRef.current) {
-      socketRef.current.emit('send-message', { message });
+      socketRef.current.emit('return-to-lobby');
     }
   };
+
+  // Gửi tin nhắn chat (hỗ trợ kênh riêng của Sói)
+  const handleSendMessage = (message, isWolfChat = false) => {
+    if (socketRef.current) {
+      socketRef.current.emit('send-message', { message, isWolfChat });
+    }
+  };
+
+  const isNightTheme = currentScreen === 'game' && (phase === 'night' || phase === 'night_wolf' || phase === 'night_seer');
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar
-        barStyle={currentScreen === 'game' && phase === 'night' ? 'light-content' : 'dark-content'}
-        backgroundColor={currentScreen === 'game' && phase === 'night' ? COLORS.nightBg : COLORS.dayBg}
+        barStyle={isNightTheme ? 'light-content' : 'dark-content'}
+        backgroundColor={isNightTheme ? COLORS.nightBg : COLORS.dayBg}
       />
 
       {/* Màn hình chính (Home) */}
@@ -203,8 +235,24 @@ export default function App() {
         />
       )}
 
+      {/* Màn hình kết thúc trận (Trang riêng biệt, không thao tác vào game) */}
+      {currentScreen === 'game' && phase === 'game_over' && (
+        <GameOverScreen
+          socket={socket}
+          roomCode={roomCode}
+          players={players}
+          winner={winner}
+          winMessage={winMessage}
+          myRole={myRole}
+          myId={myId}
+          hostId={hostId}
+          onReturnToLobby={handleReturnToLobby}
+          onLeaveGame={handleLeaveRoom}
+        />
+      )}
+
       {/* Màn hình trong trận (Game) */}
-      {currentScreen === 'game' && (
+      {currentScreen === 'game' && phase !== 'game_over' && (
         <GameScreen
           socket={socket}
           roomCode={roomCode}
@@ -218,6 +266,7 @@ export default function App() {
           winMessage={winMessage}
           messages={messages}
           onSendMessage={handleSendMessage}
+          onReturnToLobby={handleReturnToLobby}
           onLeaveGame={handleLeaveRoom}
           myId={myId}
         />

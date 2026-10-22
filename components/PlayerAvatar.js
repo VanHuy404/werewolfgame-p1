@@ -4,7 +4,7 @@
 // ============================================
 
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, Animated, TouchableOpacity, Image, Platform } from 'react-native';
 import { COLORS } from '../utils/colors';
 
 /**
@@ -20,6 +20,7 @@ import { COLORS } from '../utils/colors';
 export default function PlayerAvatar({
   player,
   selected = false,
+  isIlluminated = false,
   onPress,
   showRole = false,
   size = 'medium',
@@ -29,6 +30,8 @@ export default function PlayerAvatar({
 }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
+  const illuminateAnim = useRef(new Animated.Value(0.4)).current;
+  const illuminateScale = useRef(new Animated.Value(1)).current;
 
   // Hiệu ứng pulse khi selected
   useEffect(() => {
@@ -45,6 +48,27 @@ export default function PlayerAvatar({
       glowAnim.setValue(0);
     }
   }, [selected]);
+
+  // Hiệu ứng hào quang khi được Tiên Tri soi sáng
+  useEffect(() => {
+    if (isIlluminated) {
+      Animated.loop(
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(illuminateAnim, { toValue: 1, duration: 600, useNativeDriver: false }),
+            Animated.timing(illuminateAnim, { toValue: 0.35, duration: 600, useNativeDriver: false }),
+          ]),
+          Animated.sequence([
+            Animated.timing(illuminateScale, { toValue: 1.18, duration: 600, useNativeDriver: true }),
+            Animated.timing(illuminateScale, { toValue: 1.0, duration: 600, useNativeDriver: true }),
+          ]),
+        ])
+      ).start();
+    } else {
+      illuminateAnim.setValue(0.4);
+      illuminateScale.setValue(1);
+    }
+  }, [isIlluminated]);
 
   const isAlive = player.alive !== false;
   const isConnected = player.connected !== false;
@@ -74,6 +98,22 @@ export default function PlayerAvatar({
         { width: s.container, transform: [{ scale: scaleAnim }] },
       ]}
     >
+      {/* Vòng hào quang phát sáng khi được Tiên Tri soi */}
+      {isIlluminated && (
+        <Animated.View
+          style={[
+            styles.illuminationRing,
+            {
+              width: s.avatar + 16,
+              height: s.avatar + 16,
+              borderRadius: (s.avatar + 16) / 2,
+              opacity: illuminateAnim,
+              transform: [{ scale: illuminateScale }],
+            },
+          ]}
+        />
+      )}
+
       {/* Avatar circle */}
       <Animated.View
         style={[
@@ -260,5 +300,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -6,
     left: -2,
+  },
+  illuminationRing: {
+    position: 'absolute',
+    top: -8,
+    borderWidth: 3,
+    borderColor: '#38BDF8',
+    backgroundColor: 'rgba(56, 189, 248, 0.25)',
+    ...(Platform.OS === 'web'
+      ? { boxShadow: '0 0 25px #38BDF8, inset 0 0 15px #60A5FA' }
+      : { shadowColor: '#38BDF8', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 15 }),
+    zIndex: 1,
+    alignSelf: 'center',
   },
 });

@@ -44,8 +44,12 @@ export default function LobbyScreen({
   const [copied, setCopied] = useState(false);
 
   const isHost = myId === hostId;
-  const numVillagers = (settings.maxPlayers || 6) - (settings.numWolves || 2) - (settings.numSeers || 1);
-  const canStart = players.length >= 4 && (settings.numWolves || 2) < (players.length - (settings.numWolves || 2));
+  const numWolves = settings.numWolves !== undefined ? settings.numWolves : 2;
+  const numSeers = settings.numSeers !== undefined ? settings.numSeers : 1;
+  const numVillagers = Math.max(0, players.length - numWolves - numSeers);
+
+  // Điều kiện bắt đầu game: Có tối thiểu 4 người chơi
+  const canStart = players.length >= 4;
 
   // Stars for background
   const stars = useMemo(() => generateStars(55), []);
@@ -66,7 +70,11 @@ export default function LobbyScreen({
   };
 
   const handleStartGame = () => {
-    socket.emit('start-game');
+    if (!canStart) return;
+    if (socket) {
+      if (!socket.connected) socket.connect();
+      socket.emit('start-game');
+    }
   };
 
   const handleCopyCode = () => {
@@ -115,7 +123,14 @@ export default function LobbyScreen({
             <Text style={styles.leaveBtnText}>← Rời phòng</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>🐺 Phòng Chờ</Text>
-          <View style={{ width: 80 }} />
+          <TouchableOpacity
+            nativeID="lobby-settings-gear"
+            style={styles.gearBtn}
+            onPress={() => setShowSettings(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.gearIcon}>⚙️</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ================= MÃ PHÒNG NHỎ GỌN ================= */}
@@ -135,57 +150,11 @@ export default function LobbyScreen({
           </TouchableOpacity>
         </View>
 
-        {/* ================= CÀI ĐẶT PHÒNG (SETTINGS CARD) ================= */}
-        <View style={styles.settingsCard}>
-          <View style={styles.settingsHeader}>
-            <View style={styles.settingsTitleRow}>
-              <Text style={styles.settingsIcon}>⚙️</Text>
-              <Text style={styles.settingsTitle}>Cấu hình phòng</Text>
-            </View>
-            {isHost && (
-              <TouchableOpacity
-                style={styles.editBtn}
-                onPress={() => setShowSettings(true)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.editBtnText}>✏️ Tùy chỉnh</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={styles.settingsGrid}>
-            <SettingBadge
-              emoji="👥"
-              label="Người chơi"
-              value={`${players.length}/${settings.maxPlayers || 6}`}
-              color={COLORS.primaryLight}
-            />
-            <SettingBadge
-              emoji="🐺"
-              label="Sói"
-              value={settings.numWolves !== undefined ? settings.numWolves : 2}
-              color={COLORS.wolf}
-            />
-            <SettingBadge
-              emoji="🔮"
-              label="Tiên Tri"
-              value={settings.numSeers !== undefined ? settings.numSeers : 1}
-              color={COLORS.seer}
-            />
-            <SettingBadge
-              emoji="🧑‍🌾"
-              label="Dân làng"
-              value={numVillagers >= 0 ? numVillagers : 0}
-              color={COLORS.villager}
-            />
-          </View>
-        </View>
-
         {/* ================= DANH SÁCH NGƯỜI CHƠI ================= */}
         <View style={styles.playersCard}>
           <View style={styles.playersHeader}>
             <Text style={styles.playersTitle}>
-              👥 Thành viên ({players.length}/{settings.maxPlayers || 6})
+              👥 Thành viên ({players.length} người)
             </Text>
             <Text style={styles.minPlayersHint}>Tối thiểu 4 người để bắt đầu</Text>
           </View>
@@ -211,16 +180,6 @@ export default function LobbyScreen({
                 )}
               </View>
             ))}
-
-            {/* Slot trống */}
-            {Array.from({ length: Math.max(0, (settings.maxPlayers || 6) - players.length) }).map((_, i) => (
-              <View key={`empty-${i}`} style={styles.playerSlot}>
-                <View style={styles.emptySlot}>
-                  <Text style={styles.emptySlotText}>⏳</Text>
-                </View>
-                <Text style={styles.emptySlotLabel}>Chờ vào...</Text>
-              </View>
-            ))}
           </View>
         </View>
 
@@ -242,15 +201,17 @@ export default function LobbyScreen({
             <Text style={styles.startBtnEmoji}>🎮</Text>
             <Text style={styles.startBtnText}>
               {canStart
-                ? 'Bắt đầu Game ngay!'
-                : `Cần tối thiểu 4 người (${players.length}/${settings.maxPlayers || 6})`}
+                ? `Bắt đầu Game ngay! (${players.length} người)`
+                : `Chờ thêm người (${players.length}/4 người tối thiểu)`}
             </Text>
           </TouchableOpacity>
         ) : (
           <View style={styles.waitingBox}>
             <Text style={styles.waitingEmoji}>⏳</Text>
             <Text style={styles.waitingText}>
-              Đang chờ chủ phòng bắt đầu trận đấu...
+              {canStart
+                ? `Đã đủ ${players.length} người! Chờ chủ phòng bắt đầu trận đấu...`
+                : `Đang chờ người chơi khác vào phòng (${players.length}/4 người tối thiểu)...`}
             </Text>
           </View>
         )}
@@ -273,6 +234,7 @@ export default function LobbyScreen({
         onConfirm={handleUpdateSettings}
         onClose={() => setShowSettings(false)}
         isCreating={false}
+        readOnly={!isHost}
         currentPlayerCount={players.length}
       />
     </View>
@@ -291,6 +253,19 @@ function SettingBadge({ emoji, label, value, color }) {
 }
 
 const styles = StyleSheet.create({
+  gearBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(167, 139, 250, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(167, 139, 250, 0.4)',
+  },
+  gearIcon: {
+    fontSize: 20,
+  },
   container: {
     flex: 1,
     backgroundColor: '#0A0819', // Nền đen không gian huyền bí đồng bộ với HomeScreen

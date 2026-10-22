@@ -25,41 +25,42 @@ export default function RoomSettings({
   onClose,
   isCreating = true,
   currentPlayerCount = 1,
+  readOnly = false,
 }) {
-  const [maxPlayers, setMaxPlayers] = useState(6);
   const [numWolves, setNumWolves] = useState(2);
   const [numSeers, setNumSeers] = useState(1);
+  const [dayDiscussionTime, setDayDiscussionTime] = useState(60);
+  const [dayVoteTime, setDayVoteTime] = useState(25);
 
   // Sync settings khi mở modal
   useEffect(() => {
     if (initialSettings && visible) {
-      setMaxPlayers(initialSettings.maxPlayers || 6);
       setNumWolves(initialSettings.numWolves !== undefined ? initialSettings.numWolves : 2);
       setNumSeers(initialSettings.numSeers !== undefined ? initialSettings.numSeers : 1);
+      setDayDiscussionTime(initialSettings.dayDiscussionTime || 60);
+      setDayVoteTime(initialSettings.dayVoteTime || 25);
     }
   }, [initialSettings, visible]);
 
-  // Tính số Dân Làng
-  const numVillagers = maxPlayers - numWolves - numSeers;
+  // Tính số Dân Làng dựa trên số lượng người tham gia thực tế
+  const numVillagers = Math.max(0, currentPlayerCount - numWolves - numSeers);
 
   // === VALIDATION ===
-  // Sói phải nhỏ hơn tổng dân (Tiên Tri + Dân Làng)
-  const isWolfValid = numWolves < (numSeers + numVillagers);
-  const isVillagersValid = numVillagers >= 0;
-  const isMaxPlayersValid = maxPlayers >= Math.max(4, currentPlayerCount);
-  const isValid = isWolfValid && isVillagersValid && isMaxPlayersValid && numWolves >= 0 && numSeers >= 0;
+  // Sói phải nhỏ hơn tổng dân khi đã có từ 4 người chơi trở lên
+  const isWolfValid = currentPlayerCount < 4 || numWolves < (numSeers + numVillagers);
+  const isValid = numWolves >= 0 && numSeers >= 0;
 
   // Hàm thay đổi số an toàn
-  const adjustValue = (setter, current, delta, min, max) => {
+  const adjustValue = (setter, current, delta, min = 0) => {
     const newVal = current + delta;
-    if (newVal >= min && newVal <= max) {
+    if (newVal >= min) {
       setter(newVal);
     }
   };
 
   const handleConfirm = () => {
-    if (!isValid) return;
-    onConfirm({ maxPlayers, numWolves, numSeers });
+    if (!isValid || readOnly) return;
+    onConfirm({ numWolves, numSeers, dayDiscussionTime, dayVoteTime });
   };
 
   return (
@@ -75,64 +76,94 @@ export default function RoomSettings({
           <View style={styles.header}>
             <Text style={styles.headerEmoji}>⚙️</Text>
             <Text style={styles.headerTitle}>
-              {isCreating ? 'Cài đặt phòng mới' : 'Chỉnh sửa phòng'}
+              {readOnly ? 'Cấu hình phòng' : isCreating ? 'Cài đặt phòng mới' : 'Chỉnh sửa phòng'}
             </Text>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Số người chơi */}
-            <SettingRow
-              emoji="👥"
-              label="Số người chơi"
-              value={maxPlayers}
-              onDecrease={() => adjustValue(setMaxPlayers, maxPlayers, -1, Math.max(4, currentPlayerCount), 16)}
-              onIncrease={() => adjustValue(setMaxPlayers, maxPlayers, 1, Math.max(4, currentPlayerCount), 16)}
-              min={Math.max(4, currentPlayerCount)}
-              max={16}
-              color={COLORS.primary}
-            />
+            {/* Người tham gia hiện tại (Không giới hạn số người) */}
+            <View style={[styles.settingRow, styles.participantsRow]}>
+              <View style={styles.settingLeft}>
+                <Text style={styles.settingEmoji}>👥</Text>
+                <View>
+                  <Text style={styles.settingLabel}>Người tham gia</Text>
+                  <Text style={styles.settingHint}>Không giới hạn số người vào</Text>
+                </View>
+              </View>
+              <View style={[styles.valueBadge, { backgroundColor: COLORS.primary + '20' }]}>
+                <Text style={[styles.valueText, { color: COLORS.primary }]}>{currentPlayerCount} người</Text>
+              </View>
+            </View>
 
-            {/* Số Sói - MIN 0 */}
+            {/* Số Sói */}
             <SettingRow
               emoji="🐺"
               label="Số Sói"
               value={numWolves}
-              onDecrease={() => adjustValue(setNumWolves, numWolves, -1, 0, maxPlayers - 1)}
-              onIncrease={() => adjustValue(setNumWolves, numWolves, 1, 0, maxPlayers - 1)}
+              onDecrease={() => adjustValue(setNumWolves, numWolves, -1, 0)}
+              onIncrease={() => adjustValue(setNumWolves, numWolves, 1, 0)}
               min={0}
-              max={maxPlayers - 1}
               color={COLORS.wolf}
               error={!isWolfValid && numWolves > 0}
+              readOnly={readOnly}
             />
 
-            {/* Số Tiên Tri - MIN 0 */}
+            {/* Số Tiên Tri */}
             <SettingRow
               emoji="🔮"
               label="Số Tiên Tri"
               value={numSeers}
-              onDecrease={() => adjustValue(setNumSeers, numSeers, -1, 0, maxPlayers)}
-              onIncrease={() => adjustValue(setNumSeers, numSeers, 1, 0, maxPlayers)}
+              onDecrease={() => adjustValue(setNumSeers, numSeers, -1, 0)}
+              onIncrease={() => adjustValue(setNumSeers, numSeers, 1, 0)}
               min={0}
-              max={maxPlayers}
               color={COLORS.seer}
+              readOnly={readOnly}
             />
 
-            {/* Số Dân Làng (auto-calculated) */}
+            {/* Thời gian thảo luận */}
+            <SettingRow
+              emoji="🗣️"
+              label="Thời gian bàn luận"
+              value={dayDiscussionTime}
+              suffix="s"
+              onDecrease={() => setDayDiscussionTime(Math.max(30, dayDiscussionTime - 15))}
+              onIncrease={() => setDayDiscussionTime(Math.min(300, dayDiscussionTime + 15))}
+              min={30}
+              max={300}
+              color={COLORS.primary}
+              readOnly={readOnly}
+            />
+
+            {/* Thời gian bỏ phiếu */}
+            <SettingRow
+              emoji="⚖️"
+              label="Thời gian vote"
+              value={dayVoteTime}
+              suffix="s"
+              onDecrease={() => setDayVoteTime(Math.max(15, dayVoteTime - 5))}
+              onIncrease={() => setDayVoteTime(Math.min(180, dayVoteTime + 5))}
+              min={15}
+              max={180}
+              color={COLORS.secondary}
+              readOnly={readOnly}
+            />
+
+            {/* Số Dân Làng (tính theo số người tham gia thực tế) */}
             <View style={[styles.settingRow, styles.autoRow]}>
               <View style={styles.settingLeft}>
                 <Text style={styles.settingEmoji}>🧑‍🌾</Text>
                 <View>
                   <Text style={styles.settingLabel}>Số Dân Làng</Text>
-                  <Text style={styles.settingHint}>Tự động tính</Text>
+                  <Text style={styles.settingHint}>Tự động tính theo người tham gia</Text>
                 </View>
               </View>
               <View style={[
                 styles.autoValue,
-                { backgroundColor: numVillagers >= 0 ? COLORS.villager + '20' : COLORS.danger + '20' },
+                { backgroundColor: COLORS.villager + '20' },
               ]}>
                 <Text style={[
                   styles.autoValueText,
-                  { color: numVillagers >= 0 ? COLORS.villager : COLORS.danger },
+                  { color: COLORS.villager },
                 ]}>
                   {numVillagers}
                 </Text>
@@ -141,27 +172,20 @@ export default function RoomSettings({
 
             {/* Tổng kết vai trò */}
             <View style={styles.summaryBox}>
-              <Text style={styles.summaryTitle}>📋 Phân bổ vai trò</Text>
+              <Text style={styles.summaryTitle}>📋 Phân bổ vai trò (Theo {currentPlayerCount} người)</Text>
               <View style={styles.summaryGrid}>
                 <SummaryItem emoji="🐺" label="Sói" count={numWolves} color={COLORS.wolf} />
                 <SummaryItem emoji="🔮" label="T.Tri" count={numSeers} color={COLORS.seer} />
                 <SummaryItem emoji="🧑‍🌾" label="Dân" count={numVillagers} color={COLORS.villager} />
-                <SummaryItem emoji="👥" label="Tổng" count={maxPlayers} color={COLORS.primary} />
+                <SummaryItem emoji="👥" label="Tổng" count={currentPlayerCount} color={COLORS.primary} />
               </View>
             </View>
 
-            {/* Hiển thị lỗi validation */}
+            {/* Hiển thị lưu ý nếu số Sói quá nhiều */}
             {!isWolfValid && numWolves > 0 && (
               <View style={styles.errorBox}>
                 <Text style={styles.errorText}>
-                  ⚠️ Số Sói ({numWolves}) phải nhỏ hơn tổng Dân ({numSeers + numVillagers})!
-                </Text>
-              </View>
-            )}
-            {!isVillagersValid && (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>
-                  ⚠️ Tổng Sói + Tiên Tri vượt quá số người chơi!
+                  ⚠️ Lưu ý: Khi bắt đầu trận, số Sói ({numWolves}) nên nhỏ hơn tổng Dân ({numSeers + numVillagers})!
                 </Text>
               </View>
             )}
@@ -170,8 +194,9 @@ export default function RoomSettings({
           {/* Nút hành động */}
           <View style={styles.actions}>
             <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
-              <Text style={styles.cancelBtnText}>Hủy</Text>
+              <Text style={styles.cancelBtnText}>{readOnly ? 'Đóng' : 'Hủy'}</Text>
             </TouchableOpacity>
+            {!readOnly && (
             <TouchableOpacity
               style={[styles.confirmBtn, !isValid && styles.confirmBtnDisabled]}
               onPress={handleConfirm}
@@ -181,6 +206,7 @@ export default function RoomSettings({
                 {isCreating ? '🏠 Tạo phòng' : '✅ Lưu thay đổi'}
               </Text>
             </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
@@ -191,17 +217,17 @@ export default function RoomSettings({
 // ==================== SUB-COMPONENTS ====================
 
 /** Hàng cài đặt với nút +/- */
-function SettingRow({ emoji, label, value, onDecrease, onIncrease, min, max, color, error = false }) {
+function SettingRow({ emoji, label, value, onDecrease, onIncrease, min = 0, max = 99, color, error = false, suffix = '', readOnly = false }) {
   return (
     <View style={[styles.settingRow, error && styles.settingRowError]}>
       <View style={styles.settingLeft}>
         <Text style={styles.settingEmoji}>{emoji}</Text>
         <View>
           <Text style={styles.settingLabel}>{label}</Text>
-          <Text style={styles.settingRange}>Min: {min} — Max: {max}</Text>
         </View>
       </View>
       <View style={styles.settingRight}>
+        {!readOnly && (
         <TouchableOpacity
           style={[styles.adjustBtn, value <= min && styles.adjustBtnDisabled]}
           onPress={onDecrease}
@@ -209,9 +235,11 @@ function SettingRow({ emoji, label, value, onDecrease, onIncrease, min, max, col
         >
           <Text style={[styles.adjustBtnText, value <= min && styles.adjustBtnTextDisabled]}>−</Text>
         </TouchableOpacity>
+        )}
         <View style={[styles.valueBadge, { backgroundColor: color + '18' }]}>
-          <Text style={[styles.valueText, { color }]}>{value}</Text>
+          <Text style={[styles.valueText, { color }]}>{value}{suffix}</Text>
         </View>
+        {!readOnly && (
         <TouchableOpacity
           style={[styles.adjustBtn, value >= max && styles.adjustBtnDisabled]}
           onPress={onIncrease}
@@ -219,6 +247,7 @@ function SettingRow({ emoji, label, value, onDecrease, onIncrease, min, max, col
         >
           <Text style={[styles.adjustBtnText, value >= max && styles.adjustBtnTextDisabled]}>+</Text>
         </TouchableOpacity>
+        )}
       </View>
     </View>
   );

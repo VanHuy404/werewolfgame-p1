@@ -47,21 +47,18 @@ function createRoom(hostId, hostName, settings = {}, customAvatar = null) {
     code = generateRoomCode();
   } while (rooms.has(code));
 
-  // Merge với default settings
-  const roomSettings = {
-    maxPlayers: settings.maxPlayers || DEFAULT_SETTINGS.maxPlayers,
-    numWolves: settings.numWolves !== undefined ? settings.numWolves : DEFAULT_SETTINGS.numWolves,
-    numSeers: settings.numSeers !== undefined ? settings.numSeers : DEFAULT_SETTINGS.numSeers,
-  };
+  // Cài đặt phòng: tính theo số lượng người tham gia thực tế (không giới hạn người vào)
+  const numWolves = settings.numWolves !== undefined 
+    ? settings.numWolves 
+    : DEFAULT_SETTINGS.numWolves;
+  const numSeers = settings.numSeers !== undefined ? settings.numSeers : DEFAULT_SETTINGS.numSeers;
 
-  // === VALIDATE: Sói phải < tổng dân (Tiên Tri + Dân Làng) ===
-  const numVillagers = roomSettings.maxPlayers - roomSettings.numWolves - roomSettings.numSeers;
-  if (numVillagers < 0) {
-    return { error: 'Tổng vai trò vượt quá số người chơi!' };
-  }
-  if (roomSettings.numWolves >= (roomSettings.numSeers + numVillagers)) {
-    return { error: 'Số Sói phải nhỏ hơn tổng số Dân (Tiên Tri + Dân Làng)!' };
-  }
+  const roomSettings = {
+    numWolves,
+    numSeers,
+    dayDiscussionTime: settings.dayDiscussionTime !== undefined ? settings.dayDiscussionTime : DEFAULT_SETTINGS.dayDiscussionTime,
+    dayVoteTime: settings.dayVoteTime !== undefined ? settings.dayVoteTime : DEFAULT_SETTINGS.dayVoteTime,
+  };
 
   // Tạo cấu trúc phòng
   const room = {
@@ -71,8 +68,9 @@ function createRoom(hostId, hostName, settings = {}, customAvatar = null) {
     players: new Map(),
     phase: PHASES.WAITING,
     nightActions: {
-      wolfVotes: new Map(),  // Map<wolfId, targetId>
-      seerCheck: null,       // { seerId, targetId }
+      wolfVotes: new Map(),      // Map<wolfId, targetId>
+      wolfConfirmed: new Set(),  // Set<wolfId> - đã bấm nút xác nhận
+      seerCheck: null,           // { seerId, targetId }
     },
     dayVotes: new Map(),     // Map<voterId, targetId>
     deadThisNight: null,     // ID người chết ban đêm
@@ -98,14 +96,14 @@ function createRoom(hostId, hostName, settings = {}, customAvatar = null) {
 }
 
 /**
- * Người chơi vào phòng
+ * Người chơi vào phòng (Không giới hạn số lượng người)
  * @returns {{ room?: Room, error?: string }}
  */
 function joinRoom(code, playerId, playerName, customAvatar = null) {
   const room = rooms.get(code);
   if (!room) return { error: 'Phòng không tồn tại!' };
   if (room.phase !== PHASES.WAITING) return { error: 'Game đã bắt đầu rồi!' };
-  if (room.players.size >= room.settings.maxPlayers) return { error: 'Phòng đã đầy!' };
+  // SỐ LƯỢNG NGƯỜI THAM GIA KHÔNG BỊ GIỚI HẠN (Theo yêu cầu)
   if (room.players.has(playerId)) return { error: 'Bạn đã ở trong phòng!' };
 
   // Kiểm tra tên trùng
@@ -207,20 +205,24 @@ function processNightActions(room) {
     }
   });
 
-  // Nếu hòa phiếu -> random 1 trong những người hòa
+  // YÊU CẦU: Khi sói chọn cắn thì đến trời sáng sẽ chết, kể cả ko xác nhận nhưng đã vote thì số vote cao nhất sẽ chết!
   let deadPlayerId = null;
-  if (targets.length > 0) {
+  if (targets.length === 1 && maxVotes > 0) {
+    deadPlayerId = targets[0];
+  } else if (targets.length > 1 && maxVotes > 0) {
+    // Nếu có nhiều người cùng số vote cao nhất thì chọn ngẫu nhiên 1 người trong nhóm cao nhất
     deadPlayerId = targets[Math.floor(Math.random() * targets.length)];
-    const deadPlayer = room.players.get(deadPlayerId);
-    if (deadPlayer) {
-      deadPlayer.alive = false;
-    }
   }
 
   room.deadThisNight = deadPlayerId;
+  if (!room.nightActions) room.nightActions = {};
+  room.nightActions.deadPlayerId = deadPlayerId;
 
   // Reset hành động đêm
   room.nightActions.wolfVotes.clear();
+  if (room.nightActions.wolfConfirmed) {
+    room.nightActions.wolfConfirmed.clear();
+  }
   room.nightActions.seerCheck = null;
 
   return deadPlayerId;
@@ -340,23 +342,28 @@ function getRoomByPlayerId(playerId) {
   return null;
 }
 
-/** Validate settings phòng */
-function validateSettings(settings) {
-  const { maxPlayers, numWolves, numSeers } = settings;
+/** Validate settings phòng (tính theo số người tham gia) */
+function validateSettings(settings, currentParticipants = 0) {
+  const { numWolves, numSeers, dayDiscussionTime, dayVoteTime } = settings;
   
-  if (maxPlayers < 4 || maxPlayers > 16) {
-    return { valid: false, error: 'Số người chơi phải từ 4 đến 16!' };
-  }
   if (numWolves < 0 || numSeers < 0) {
     return { valid: false, error: 'Số vai trò không được âm!' };
   }
-  
-  const numVillagers = maxPlayers - numWolves - numSeers;
-  if (numVillagers < 0) {
-    return { valid: false, error: 'Tổng Sói + Tiên Tri vượt quá số người chơi!' };
+  if (dayDiscussionTime !== undefined && (dayDiscussionTime < 10 || dayDiscussionTime > 300)) {
+    return { valid: false, error: 'Thời gian thảo luận phải từ 10s đến 300s!' };
   }
-  if (numWolves >= (numSeers + numVillagers)) {
-    return { valid: false, error: 'Số Sói phải nhỏ hơn tổng Dân (Tiên Tri + Dân Làng)!' };
+  if (dayVoteTime !== undefined && (dayVoteTime < 10 || dayVoteTime > 180)) {
+    return { valid: false, error: 'Thời gian bỏ phiếu phải từ 10s đến 180s!' };
+  }
+  
+  if (currentParticipants >= 4) {
+    const numVillagers = currentParticipants - numWolves - numSeers;
+    if (numVillagers < 0) {
+      return { valid: false, error: 'Tổng Sói + Tiên Tri vượt quá số người tham gia!' };
+    }
+    if (numWolves >= (numSeers + numVillagers)) {
+      return { valid: false, error: 'Số Sói phải nhỏ hơn tổng Dân (Tiên Tri + Dân Làng)!' };
+    }
   }
   
   return { valid: true };

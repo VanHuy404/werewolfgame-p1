@@ -5,13 +5,16 @@
 import { io } from 'socket.io-client';
 import { Platform } from 'react-native';
 
-// Cấu hình URL server
-// - Web: dùng localhost
-// - Mobile: đổi thành IP máy tính của bạn (ví dụ: 192.168.1.100)
-const SERVER_URL = Platform.select({
-  web: 'http://localhost:3001',
-  default: 'http://localhost:3001', // ← Đổi thành IP LAN nếu test trên điện thoại
-});
+// Cấu hình URL server:
+// Tự động nhận diện hostname trên Web (localhost hoặc IP LAN)
+const getBackendUrl = () => {
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location && window.location.hostname) {
+    return `http://${window.location.hostname}:3001`;
+  }
+  return 'http://localhost:3001';
+};
+
+const SERVER_URL = getBackendUrl();
 
 /** Tạo kết nối socket */
 export function createSocket() {
