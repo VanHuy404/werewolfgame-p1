@@ -17,7 +17,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
  * @param {Object} props.socket
  * @param {string} props.roomCode
  * @param {Array} props.players
- * @param {string} props.winner - 'villagers' | 'wolves'
+ * @param {string} props.winner - 'village' | 'wolves' (khớp với server/gameLogic.js)
  * @param {string} props.winMessage
  * @param {string} props.myRole
  * @param {string} props.myId
@@ -29,7 +29,7 @@ export default function GameOverScreen({
   socket,
   roomCode,
   players = [],
-  winner = 'villagers',
+  winner = 'village',
   winMessage = '',
   myRole,
   myId,
@@ -37,7 +37,7 @@ export default function GameOverScreen({
   onReturnToLobby,
   onLeaveGame,
 }) {
-  const isVillagerWin = winner === 'villagers';
+  const isVillagerWin = winner !== 'wolves';
   const scaleAnim = useRef(new Animated.Value(0.7)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 

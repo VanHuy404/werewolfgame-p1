@@ -107,6 +107,11 @@ export default function App() {
       setMyRole(role);
       setPlayers(players);
       setMessages([]);
+      setPhase('night');
+      setRound(1);
+      setDeadPlayer(null);
+      setWinner(null);
+      setWinMessage('');
       setShowRoleReveal(true);
       setCurrentScreen('game');
 
@@ -269,6 +274,7 @@ export default function App() {
           onReturnToLobby={handleReturnToLobby}
           onLeaveGame={handleLeaveRoom}
           myId={myId}
+          hostId={hostId}
         />
       )}
 

@@ -251,9 +251,9 @@ function processDayVote(room) {
     }
   });
 
-  // Hòa phiếu -> Không ai bị loại
+  // Hòa phiếu hoặc mục tiêu cao nhất là 'skip' (bỏ phiếu trắng) -> Không ai bị loại
   let eliminatedId = null;
-  if (targets.length === 1 && maxVotes > 0) {
+  if (targets.length === 1 && maxVotes > 0 && targets[0] !== 'skip') {
     eliminatedId = targets[0];
     const player = room.players.get(eliminatedId);
     if (player) {

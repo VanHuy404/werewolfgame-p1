@@ -225,29 +225,41 @@ function startDayVote(room) {
 
   const voteTime = room.settings.dayVoteTime || TIMERS.DAY_VOTE;
   startPhaseTimer(room, voteTime, () => {
-    // Xử lý kết quả vote
-    const { eliminatedId, voteDetails } = processDayVote(room);
-    const eliminated = eliminatedId ? room.players.get(eliminatedId) : null;
-
-    // KO TIẾT LỘ VAI TRÒ KHI BỊ TREO CỔ (Theo yêu cầu)
-    io.to(room.code).emit('vote-result', {
-      eliminated: eliminated
-        ? { id: eliminated.id, name: eliminated.name, avatar: eliminated.avatar }
-        : null,
-      votes: voteDetails,
-      players: getPlayersData(room),
-    });
-
-    // Kiểm tra win condition sau vote
-    const winCheck = checkWinCondition(room);
-    if (winCheck.gameOver) {
-      setTimeout(() => endGame(room, winCheck), 3000);
-      return;
-    }
-
-    // Tiếp tục -> Ban Đêm
-    setTimeout(() => startNightPhase(room), 3000);
+    concludeDayVote(room);
   });
+}
+
+/** Kết thúc và xử lý kết quả bỏ phiếu ban ngày */
+function concludeDayVote(room) {
+  if (room.phase !== PHASES.DAY_VOTE) return;
+
+  if (room.timer) {
+    clearInterval(room.timer);
+    room.timer = null;
+  }
+
+  // Xử lý kết quả vote
+  const { eliminatedId, voteDetails } = processDayVote(room);
+  const eliminated = eliminatedId ? room.players.get(eliminatedId) : null;
+
+  // KO TIẾT LỘ VAI TRÒ KHI BỊ TREO CỔ (Theo yêu cầu)
+  io.to(room.code).emit('vote-result', {
+    eliminated: eliminated
+      ? { id: eliminated.id, name: eliminated.name, avatar: eliminated.avatar }
+      : null,
+    votes: voteDetails,
+    players: getPlayersData(room),
+  });
+
+  // Kiểm tra win condition sau vote
+  const winCheck = checkWinCondition(room);
+  if (winCheck.gameOver) {
+    setTimeout(() => endGame(room, winCheck), 3000);
+    return;
+  }
+
+  // Tiếp tục -> Ban Đêm
+  setTimeout(() => startNightPhase(room), 3000);
 }
 
 /** Kết thúc game - Lật bài, hiển thị kết quả */
@@ -385,9 +397,10 @@ io.on('connection', (socket) => {
 
   // ---------- BẮT ĐẦU GAME (Chỉ host) ----------
   socket.on('start-game', () => {
-    const room = getRoom(socket.roomCode);
+    const room = getRoom(socket.roomCode) || getRoomByPlayerId(socket.id);
     if (!room || room.hostId !== socket.id) return;
     if (room.phase !== PHASES.WAITING) return;
+    socket.roomCode = room.code;
 
     const playerCount = room.players.size;
 
@@ -395,6 +408,8 @@ io.on('connection', (socket) => {
       socket.emit('error-msg', { message: 'Cần ít nhất 4 người chơi để bắt đầu!' });
       return;
     }
+
+    room.phase = PHASES.ROLE_REVEAL;
 
     // Tự động cân bằng số Sói cho phù hợp với số người chơi thực tế
     // Đảm bảo số Sói luôn nhỏ hơn tổng dân (Tiên Tri + Dân Làng)
@@ -554,11 +569,17 @@ io.on('connection', (socket) => {
     const player = room.players.get(socket.id);
     if (!player || !player.alive) return;
 
-    // Cho phép vote chính mình hoặc người khác còn sống
-    const target = room.players.get(targetId);
-    if (!target || !target.alive) return;
-
-    room.dayVotes.set(socket.id, targetId);
+    if (targetId === null) {
+      room.dayVotes.delete(socket.id);
+    } else if (targetId === 'skip') {
+      // Bỏ phiếu trắng (Skip Vote)
+      room.dayVotes.set(socket.id, 'skip');
+    } else {
+      // Cho phép vote chính mình hoặc người khác còn sống
+      const target = room.players.get(targetId);
+      if (!target || !target.alive) return;
+      room.dayVotes.set(socket.id, targetId);
+    }
 
     // Broadcast số phiếu và danh sách người vote cho từng mục tiêu
     const voteCount = {};
@@ -572,12 +593,30 @@ io.on('connection', (socket) => {
       }
     });
 
+    const aliveCount = getAlivePlayers(room).length;
     io.to(room.code).emit('vote-update', {
       voteCount,
       voterMap,
+      skipCount: voteCount['skip'] || 0,
       totalVoted: room.dayVotes.size,
-      totalAlive: getAlivePlayers(room).length,
+      totalAlive: aliveCount,
     });
+
+    // Nếu tất cả người chơi còn sống đều đã vote xong -> chuyển tiếp nhanh
+    if (room.dayVotes.size >= aliveCount && aliveCount > 0) {
+      setTimeout(() => {
+        concludeDayVote(room);
+      }, 800);
+    }
+  });
+
+  // ---------- CHỦ PHÒNG BỎ QUA GIAI ĐOẠN VOTE ----------
+  socket.on('host-skip-vote', () => {
+    const room = getRoom(socket.roomCode);
+    if (!room || room.hostId !== socket.id || room.phase !== PHASES.DAY_VOTE) return;
+
+    console.log(`⏩ [Host] ${socket.playerName || 'Chủ phòng'} đã bỏ qua giai đoạn Vote (Phòng ${room.code})`);
+    concludeDayVote(room);
   });
 
   // ---------- CHAT ----------

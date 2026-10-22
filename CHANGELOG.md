@@ -4,6 +4,30 @@ Tất cả các thay đổi, cập nhật kiến trúc và tính năng của d�
 
 ---
 
+## [1.5.0] - 2026-10-23
+
+### 🎨 Cập Nhật Giao Diện & Trải Nghiệm (UI/UX Updates)
+- **Nút Xem Danh Sách Nhân Vật & Hướng Dẫn Chơi (LobbyScreen):** Bổ sung nút bấm sang trọng cùng biểu tượng `📖` trên thanh header phòng chờ, mở Modal cẩm nang vai trò chi tiết (`RoleGuideModal`) bao gồm mục tiêu, hành động ngày/đêm, khẩu hiệu và mẹo chiến thuật cho Ma Sói, Tiên Tri và Dân Làng.
+- **Cơ chế Bỏ Phiếu Trắng (Skip Vote Checkbox):** Trong giờ biểu quyết treo cổ (`day_vote`), bổ sung checkbox `☑️ / ⬜ Bỏ phiếu trắng (Skip Vote)`. Nếu số phiếu trắng nhiều nhất hoặc hòa phiếu, làng an toàn đón đêm mới và không ai bị treo cổ.
+- **Chủ phòng bỏ qua giai đoạn Vote (Host Skip Vote Button):** Chủ phòng có thêm nút `⏩ Bỏ qua Vote` ở góc trên bên phải màn hình để linh hoạt chuyển nhanh qua giai đoạn vote mà không cần đợi hết đồng hồ đếm ngược.
+- **Tự động chuyển tiếp khi đủ phiếu:** Khi tất cả thành viên còn sống đều đã bỏ phiếu xong (cho người khác hoặc bỏ phiếu trắng), hệ thống tự động chốt kết quả và chuyển pha sau 0.8s.
+- **Nút Tạo Phòng & Vào Phòng nhỏ gọn (HomeScreen):** Thu gọn kích thước nút về bằng 50% chiều rộng thẻ trung tâm và căn giữa đều đặn, hiển thị icon và chữ trên cùng một hàng ngang thanh thoát.
+- **Sửa thông điệp chân trang (Footer Slogan):** Chuẩn hóa thành `"HAVE FUN KILLING EACH OTHER!!!"` ở cả HomeScreen và LobbyScreen.
+- **Khẩu hiệu thẻ vai trò mới (RoleCard Slogans):** Cập nhật câu mô tả vai trò đậm chất hành động khi nhận thẻ bài bắt đầu trận:
+  - 👨‍🌾 **Dân Làng:** `SURVIVE AND FIND THE WOLFS`
+  - 🐺 **Ma Sói:** `KILL OR BE KILLED`
+  - 🔮 **Tiên Tri:** `HELP YOUR TEAM WITH YOUR MAGIC`
+- **Hiển thị lý do chết thay thế thông báo thân phận (Death Reasons):** Xóa dòng chữ `"❓ Thân phận: Giữ bí mật"`, thay thế bằng lý do chết trực quan:
+  - Khi Sói cắn đêm: `"🐺 Lý do: Bị Ma Sói cắn chết"`
+  - Khi Dân Làng biểu quyết ngày: `"⚖️ Lý do: Bị Dân Làng treo cổ"`
+  - Khi hòa phiếu / bỏ phiếu trắng: `"🕊️ Hòa phiếu hoặc đa số bỏ phiếu trắng — Không ai bị treo cổ hôm nay!"`
+
+### 🧹 Tối Ưu Hệ Thống
+- **Gỡ bỏ hệ thống âm thanh:** Xóa bỏ hoàn toàn module âm thanh Web Audio (`utils/soundEffects.js`) và gỡ bỏ các triggers âm thanh khỏi GameScreen để tối giản ứng dụng.
+- **Sửa lỗi hiển thị phe thắng cuộc (GameOverScreen):** Đồng bộ mã phe chiến thắng giữa client và server (`village` / `wolves`), giải quyết triệt để lỗi hiển thị sai tiêu đề phe thắng.
+
+---
+
 ## [1.4.0] - 2026-10-22
 
 ### 🎮 Cập Nhật Quy Tắc & Logic Trò Chơi
@@ -22,6 +46,14 @@ Tất cả các thay đổi, cập nhật kiến trúc và tính năng của d�
 - **UPDATE UI: Checkbox chọn mục tiêu (GameScreen):** Bổ sung huy hiệu checkbox `☑️ / ⬜` trực quan trên từng ô thẻ người chơi trong các pha Bỏ phiếu ban ngày và Sói cắn ban đêm.
 - **UPDATE UI: Bảng điều khiển Sói săn mồi (GameScreen):** Bổ sung thanh trạng thái tiến độ đàn Sói và nút `🎯 CHỐT MỤC TIÊU CẮN` / `✅ BẠN ĐÃ CHỐT (Bấm để đổi mồi)`.
 - **UPDATE UI: Màn hình kết thúc trận riêng biệt (GameOverScreen):** Chuyển màn hình Game Over thành 1 trang độc lập riêng biệt, khóa hoàn toàn mọi thao tác vào ván đấu cũ, hiển thị hoành tráng biểu tượng chiến thắng, lý do thắng cuộc, bảng danh tính tất cả người chơi và các nút điều hướng.
+
+### 🔊 Hiệu Ứng Âm Thanh (Sound Effects)
+- **Tiếng Sói hú khi trời tối:** Tự động phát tiếng Sói hú trong sương đêm mỗi khi chuyển sang pha Sói săn mồi (`night_wolf`).
+- **Tiếng Gà gáy khi trời sáng:** Tự động phát tiếng Gà gáy khi bước vào pha thông báo bình minh (`day_announce`).
+- **Tổng hợp âm thanh bằng Web Audio API (`utils/soundEffects.js`):** Âm thanh được tạo trực tiếp trên trình duyệt bằng oscillator, không cần file âm thanh ngoài, nhẹ và tải tức thì. Tự động bỏ qua an toàn trên môi trường không hỗ trợ.
+
+### 🐛 Sửa Lỗi (Bug Fixes)
+- **Sửa lỗi màn hình kết thúc hiển thị sai phe thắng (GameOverScreen):** Server gửi `winner: 'village'` nhưng màn hình so sánh với `'villagers'`, khiến khi Dân Làng thắng vẫn hiện tiêu đề đỏ `PHE MA SÓI CHIẾN THẮNG!` (trong khi dòng mô tả lại ghi Dân Làng thắng). Đã đồng bộ lại điều kiện kiểm tra phe thắng.
 
 ---
 

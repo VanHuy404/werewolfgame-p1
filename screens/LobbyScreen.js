@@ -11,6 +11,7 @@ import {
 import { COLORS } from '../utils/colors';
 import PlayerAvatar from '../components/PlayerAvatar';
 import RoomSettings from '../components/RoomSettings';
+import RoleGuideModal from '../components/RoleGuideModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -41,6 +42,7 @@ export default function LobbyScreen({
   onLeave,
 }) {
   const [showSettings, setShowSettings] = useState(false);
+  const [showRoleGuide, setShowRoleGuide] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const isHost = myId === hostId;
@@ -123,14 +125,23 @@ export default function LobbyScreen({
             <Text style={styles.leaveBtnText}>← Rời phòng</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>🐺 Phòng Chờ</Text>
-          <TouchableOpacity
-            nativeID="lobby-settings-gear"
-            style={styles.gearBtn}
-            onPress={() => setShowSettings(true)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.gearIcon}>⚙️</Text>
-          </TouchableOpacity>
+          <View style={styles.headerRightActions}>
+            <TouchableOpacity
+              style={styles.guideIconBtn}
+              onPress={() => setShowRoleGuide(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.guideIconText}>📖</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              nativeID="lobby-settings-gear"
+              style={styles.gearBtn}
+              onPress={() => setShowSettings(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.gearIcon}>⚙️</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* ================= MÃ PHÒNG NHỎ GỌN ================= */}
@@ -183,6 +194,20 @@ export default function LobbyScreen({
           </View>
         </View>
 
+        {/* Nút Xem Danh Sách Nhân Vật & Hướng Dẫn Chơi */}
+        <TouchableOpacity
+          style={styles.guideActionBtn}
+          onPress={() => setShowRoleGuide(true)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.guideActionEmoji}>📖</Text>
+          <View style={styles.guideActionTextCol}>
+            <Text style={styles.guideActionTitle}>Xem Nhân Vật & Hướng Dẫn Chơi</Text>
+            <Text style={styles.guideActionSub}>Khám phá kỹ năng Ma Sói, Tiên Tri & Dân Làng</Text>
+          </View>
+          <Text style={styles.guideActionArrow}>→</Text>
+        </TouchableOpacity>
+
         {/* Hiển thị lỗi nếu có */}
         {error && (
           <View style={styles.errorBox}>
@@ -219,7 +244,7 @@ export default function LobbyScreen({
         {/* ================= FOOTER ================= */}
         <View style={styles.footerContainer}>
           <Text style={styles.footerMainText}>
-            HAVING FUN KILLING EACH OTHERS!!!
+            HAVE FUN KILLING EACH OTHER!!!
           </Text>
           <Text style={styles.footerCreditText}>
             cre-William/Nerd/404
@@ -236,6 +261,12 @@ export default function LobbyScreen({
         isCreating={false}
         readOnly={!isHost}
         currentPlayerCount={players.length}
+      />
+
+      {/* Modal hướng dẫn vai trò */}
+      <RoleGuideModal
+        visible={showRoleGuide}
+        onClose={() => setShowRoleGuide(false)}
       />
     </View>
   );
@@ -327,6 +358,37 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#F87171',
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  guideIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(139, 92, 246, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(167, 139, 250, 0.4)',
+  },
+  guideIconText: {
+    fontSize: 18,
+  },
+  gearBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  gearIcon: {
+    fontSize: 18,
   },
   headerTitle: {
     fontSize: 22,
@@ -616,6 +678,47 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#C4B5FD',
+  },
+
+  // Guide Action Button
+  guideActionBtn: {
+    backgroundColor: 'rgba(46, 29, 84, 0.75)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(167, 139, 250, 0.4)',
+    borderRadius: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  guideActionEmoji: {
+    fontSize: 24,
+  },
+  guideActionTextCol: {
+    flex: 1,
+  },
+  guideActionTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#F8FAFC',
+    letterSpacing: 0.3,
+  },
+  guideActionSub: {
+    fontSize: 11.5,
+    color: '#CBD5E1',
+    marginTop: 2,
+  },
+  guideActionArrow: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#A78BFA',
   },
 
   // Footer

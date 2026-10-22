@@ -376,8 +376,7 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
                 activeOpacity={0.8}
               >
                 <Text style={styles.mainBtnEmoji}>🏠</Text>
-                <Text style={styles.mainBtnText}>Tạo Phòng Mới</Text>
-                <Text style={styles.mainBtnHint}>Tạo phòng & mời bạn bè tham gia</Text>
+                <Text style={styles.mainBtnText}>Tạo Phòng</Text>
               </TouchableOpacity>
 
               {/* Ô NHẬP MÃ PHÒNG Ở GIỮA 2 NÚT (Theo yêu cầu) */}
@@ -428,7 +427,6 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
               >
                 <Text style={styles.mainBtnEmoji}>🚪</Text>
                 <Text style={styles.mainBtnText}>Vào Phòng</Text>
-                <Text style={styles.mainBtnHint}>Tham gia phòng bằng mã ở trên</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -436,7 +434,7 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
           {/* ================= FOOTER THEO YÊU CẦU ================= */}
           <View style={styles.footerContainer}>
             <Text style={styles.footerMainText}>
-              HAVING FUN KILLING EACH OTHERS!!!
+              HAVE FUN KILLING EACH OTHER!!!
             </Text>
             <Text style={styles.footerCreditText}>
               cre-William/Nerd/404
@@ -690,9 +688,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   mainBtn: {
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    width: '50%',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     alignItems: 'center',
     elevation: 4,
     shadowOffset: { width: 0, height: 3 },
@@ -715,11 +718,10 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   mainBtnEmoji: {
-    fontSize: 24,
-    marginBottom: 2,
+    fontSize: 18,
   },
   mainBtnText: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '800',
     color: COLORS.white,
     letterSpacing: 0.5,

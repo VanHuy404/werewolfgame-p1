@@ -19,7 +19,6 @@ import {
 import { COLORS, getRoleColor, getRoleName, getRoleEmoji } from '../utils/colors';
 import PlayerAvatar from '../components/PlayerAvatar';
 import ChatBox from '../components/ChatBox';
-import { playWolfHowl, playRoosterCrow } from '../utils/soundEffects';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -51,6 +50,7 @@ export default function GameScreen({
   onReturnToLobby,
   onLeaveGame,
   myId,
+  hostId,
 }) {
   // Trạng thái hành động
   const [selectedTarget, setSelectedTarget] = useState(null);
@@ -65,6 +65,8 @@ export default function GameScreen({
   const [dayVoterMap, setDayVoterMap] = useState({});
   const [totalVoted, setTotalVoted] = useState(0);
   const [lastVoteEliminated, setLastVoteEliminated] = useState(null);
+  const [voteNoOneHanged, setVoteNoOneHanged] = useState(false);
+  const [skipVoteCount, setSkipVoteCount] = useState(0);
   const [mobileChatVisible, setMobileChatVisible] = useState(false);
 
   // Animations
@@ -81,6 +83,7 @@ export default function GameScreen({
   const me = players.find((p) => p.id === myId) || { alive: true };
   const amAlive = me.alive !== false;
   const alivePlayers = players.filter((p) => p.alive !== false);
+  const isHost = myId === hostId;
 
   // Lắng nghe socket events trong trận
   useEffect(() => {
@@ -109,14 +112,19 @@ export default function GameScreen({
       setDayVoteCount(data.voteCount || {});
       setDayVoterMap(data.voterMap || {});
       setTotalVoted(data.totalVoted || 0);
+      setSkipVoteCount(data.skipCount || 0);
     };
 
     // Nhận kết quả vote bị loại (Không lộ role)
     const handleVoteResult = (data) => {
       setLastVoteEliminated(data.eliminated);
+      if (!data.eliminated) {
+        setVoteNoOneHanged(true);
+        setTimeout(() => setVoteNoOneHanged(false), 4500);
+      }
       setTimeout(() => {
         setLastVoteEliminated(null);
-      }, 4000);
+      }, 4500);
     };
 
     socket.on('wolf-vote-update', handleWolfVoteUpdate);
@@ -144,19 +152,7 @@ export default function GameScreen({
       setSeerResult(null);
       setDayVoteCount({});
       setDayVoterMap({});
-    }
-  }, [phase]);
-
-  // Âm thanh: Sói hú khi trời tối, Gà gáy khi trời sáng
-  const prevPhaseRef = useRef(null);
-  useEffect(() => {
-    const prev = prevPhaseRef.current;
-    prevPhaseRef.current = phase;
-    if (prev === phase) return;
-    if (phase === PHASES.NIGHT_WOLF || (phase === PHASES.NIGHT && prev !== PHASES.NIGHT)) {
-      playWolfHowl();
-    } else if (phase === PHASES.DAY_ANNOUNCE) {
-      playRoosterCrow();
+      setSkipVoteCount(0);
     }
   }, [phase]);
 
@@ -214,11 +210,18 @@ export default function GameScreen({
     socket.emit('seer-check', { targetId });
   };
 
-  // Vote treo cổ ban ngày
+  // Vote treo cổ ban ngày (hỗ trợ chọn mục tiêu hoặc 'skip' để bỏ phiếu trắng)
   const handleDayVote = (targetId) => {
     if (!amAlive || phase !== PHASES.DAY_VOTE) return;
-    setDayVoteTarget(targetId);
-    socket.emit('day-vote', { targetId });
+    const newTarget = dayVoteTarget === targetId ? null : targetId;
+    setDayVoteTarget(newTarget);
+    socket.emit('day-vote', { targetId: newTarget });
+  };
+
+  // Chủ phòng bỏ qua nhanh giai đoạn Vote
+  const handleHostSkipVote = () => {
+    if (!isHost || phase !== PHASES.DAY_VOTE) return;
+    socket.emit('host-skip-vote');
   };
 
   const getPhaseTitle = () => {
@@ -274,8 +277,20 @@ export default function GameScreen({
               )}
             </View>
 
-            {/* Nút bật tắt chat trên Mobile hoặc Rời trận */}
+            {/* Nút thao tác góc phải */}
             <View style={styles.headerRightActions}>
+              {/* Nút dành riêng cho chủ phòng để bỏ qua giai đoạn Vote */}
+              {isHost && phase === PHASES.DAY_VOTE && (
+                <TouchableOpacity
+                  style={styles.hostSkipVoteBtn}
+                  onPress={handleHostSkipVote}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.hostSkipVoteIcon}>⏩</Text>
+                  <Text style={styles.hostSkipVoteText}>Bỏ qua Vote</Text>
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
                 style={styles.mobileChatToggleBtn}
                 onPress={() => setMobileChatVisible(!mobileChatVisible)}
@@ -301,16 +316,23 @@ export default function GameScreen({
               showsVerticalScrollIndicator={false}
             >
               {/* --- KẾT QUẢ VOTE TREO CỔ (KHÔNG TIẾT LỘ VAI TRÒ) --- */}
-              {lastVoteEliminated && (
+              {lastVoteEliminated ? (
                 <View style={styles.eliminationNotice}>
                   <Text style={styles.elimNoticeTitle}>⚰️ KẾT QUẢ BIỂU QUYẾT</Text>
                   <Text style={styles.elimNoticeText}>
                     Dân làng đã quyết định treo cổ{' '}
                     <Text style={{ fontWeight: 'bold', color: '#FCD34D' }}>{lastVoteEliminated.name}</Text>!
                   </Text>
-                  <Text style={styles.elimNoticeSecret}>❓ Thân phận: Giữ bí mật</Text>
+                  <Text style={styles.elimNoticeSecret}>⚖️ Lý do: Bị Dân Làng treo cổ</Text>
                 </View>
-              )}
+              ) : voteNoOneHanged ? (
+                <View style={[styles.eliminationNotice, styles.peacefulNotice]}>
+                  <Text style={styles.elimNoticeTitle}>🕊️ KẾT QUẢ BIỂU QUYẾT</Text>
+                  <Text style={styles.elimNoticeText}>
+                    Hòa phiếu hoặc đa số bỏ phiếu trắng — Không ai bị treo cổ hôm nay!
+                  </Text>
+                </View>
+              ) : null}
 
               {/* --- THÔNG BÁO BÌNH MINH (KHÔNG TIẾT LỘ VAI TRÒ) --- */}
               {phase === PHASES.DAY_ANNOUNCE && (
@@ -323,7 +345,7 @@ export default function GameScreen({
                       <Text style={styles.deadPlayerName}>{deadPlayer.name}</Text>
                       <Text style={styles.deadNoticeText}>đã bị Ma Sói sát hại đêm qua!</Text>
                       <View style={styles.secretRoleBadge}>
-                        <Text style={styles.secretRoleText}>❓ Thân phận: Giữ bí mật</Text>
+                        <Text style={styles.secretRoleText}>🐺 Lý do: Bị Ma Sói cắn chết</Text>
                       </View>
                     </View>
                   ) : (
@@ -547,13 +569,46 @@ export default function GameScreen({
                   {/* Banner bỏ phiếu ban ngày */}
                   {phase === PHASES.DAY_VOTE && (
                     <View style={styles.votePhaseBanner}>
-                      <Text style={styles.votePhaseEmoji}>⚖️</Text>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.votePhaseTitle}>GIỜ BIỂU QUYẾT TREO CỔ</Text>
-                        <Text style={styles.votePhaseSub}>
-                          Đã có {totalVoted}/{alivePlayers.length} người bỏ phiếu. Bấm trực tiếp vào ô người bạn nghi là Sói:
-                        </Text>
+                      <View style={styles.votePhaseTopRow}>
+                        <Text style={styles.votePhaseEmoji}>⚖️</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.votePhaseTitle}>GIỜ BIỂU QUYẾT TREO CỔ</Text>
+                          <Text style={styles.votePhaseSub}>
+                            Đã có {totalVoted}/{alivePlayers.length} người bỏ phiếu. Bấm vào ô người chơi hoặc chọn Bỏ phiếu trắng:
+                          </Text>
+                        </View>
                       </View>
+
+                      {/* Checkbox Skip Vote */}
+                      {amAlive && (
+                        <TouchableOpacity
+                          style={[
+                            styles.skipVoteRow,
+                            dayVoteTarget === 'skip' && styles.skipVoteRowChecked,
+                          ]}
+                          onPress={() => handleDayVote('skip')}
+                          activeOpacity={0.8}
+                        >
+                          <View style={[styles.skipVoteCheckbox, dayVoteTarget === 'skip' && styles.skipVoteCheckboxChecked]}>
+                            <Text style={styles.skipVoteCheckboxIcon}>
+                              {dayVoteTarget === 'skip' ? '☑️' : '⬜'}
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.skipVoteTitle, dayVoteTarget === 'skip' && styles.skipVoteTitleChecked]}>
+                              🏳️ Bỏ phiếu trắng (Skip Vote)
+                            </Text>
+                            <Text style={styles.skipVoteDesc}>
+                              Không muốn treo cổ bất kỳ ai hôm nay
+                            </Text>
+                          </View>
+                          {skipVoteCount > 0 && (
+                            <View style={styles.skipVoteBadge}>
+                              <Text style={styles.skipVoteBadgeText}>🗳️ {skipVoteCount} phiếu</Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      )}
                     </View>
                   )}
                 </View>
@@ -713,6 +768,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  hostSkipVoteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(245, 158, 11, 0.28)',
+    borderWidth: 1.5,
+    borderColor: '#F59E0B',
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 10,
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  hostSkipVoteIcon: {
+    fontSize: 13,
+  },
+  hostSkipVoteText: {
+    color: '#FCD34D',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
   mobileChatToggleBtn: {
     display: Platform.OS === 'web' && SCREEN_WIDTH > 860 ? 'none' : 'flex',
     backgroundColor: '#7C3AED',
@@ -811,6 +891,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#EF4444',
     alignItems: 'center',
+  },
+  peacefulNotice: {
+    backgroundColor: 'rgba(6, 78, 59, 0.85)',
+    borderColor: '#10B981',
   },
   elimNoticeTitle: {
     fontSize: 14,
@@ -1050,14 +1134,18 @@ const styles = StyleSheet.create({
 
   // Vote Phase Banner
   votePhaseBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(120, 53, 15, 0.88)',
-    borderRadius: 14,
-    padding: 12,
+    flexDirection: 'column',
+    backgroundColor: 'rgba(120, 53, 15, 0.90)',
+    borderRadius: 16,
+    padding: 14,
     marginBottom: 16,
     borderWidth: 1.5,
     borderColor: '#F59E0B',
+    gap: 12,
+  },
+  votePhaseTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
   },
   votePhaseEmoji: {
@@ -1073,6 +1161,64 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FEF3C7',
     marginTop: 2,
+  },
+
+  // Skip Vote Checkbox Row
+  skipVoteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    gap: 10,
+  },
+  skipVoteRowChecked: {
+    backgroundColor: 'rgba(245, 158, 11, 0.25)',
+    borderColor: '#F59E0B',
+  },
+  skipVoteCheckbox: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  skipVoteCheckboxChecked: {
+    backgroundColor: '#F59E0B',
+    borderColor: '#FCD34D',
+  },
+  skipVoteCheckboxIcon: {
+    fontSize: 16,
+  },
+  skipVoteTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#F8FAFC',
+  },
+  skipVoteTitleChecked: {
+    color: '#FDE68A',
+  },
+  skipVoteDesc: {
+    fontSize: 11,
+    color: '#CBD5E1',
+    marginTop: 1,
+  },
+  skipVoteBadge: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  skipVoteBadgeText: {
+    color: '#1E1B4B',
+    fontSize: 11,
+    fontWeight: '900',
   },
 
   // Discord Tiles Section

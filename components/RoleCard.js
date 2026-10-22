@@ -3,7 +3,7 @@
 // Thẻ vai trò hiển thị với animation lật bài
 // ============================================
 
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
 import { COLORS, getRoleColor, getRoleName, getRoleEmoji } from '../utils/colors';
 
@@ -15,11 +15,13 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
  * @param {boolean} props.visible - Hiển thị card
  */
 export default function RoleCard({ role, visible = false }) {
+  const [mounted, setMounted] = useState(visible);
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
+      setMounted(true);
       Animated.parallel([
         Animated.spring(scaleAnim, {
           toValue: 1,
@@ -37,20 +39,22 @@ export default function RoleCard({ role, visible = false }) {
       Animated.parallel([
         Animated.timing(scaleAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
         Animated.timing(opacityAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-      ]).start();
+      ]).start(() => {
+        setMounted(false);
+      });
     }
   }, [visible]);
 
-  if (!role) return null;
+  if (!role || !mounted) return null;
 
   const roleColor = getRoleColor(role);
   const roleName = getRoleName(role);
   const roleEmoji = getRoleEmoji(role);
 
   const roleDescriptions = {
-    wolf: 'Mỗi đêm, bạn chọn 1 người để tiêu diệt.\nHãy giấu danh tính và đánh lừa Dân Làng!',
-    seer: 'Mỗi đêm, bạn soi 1 người để biết vai trò.\nHãy dùng thông tin khôn ngoan!',
-    villager: 'Ban ngày, hãy thảo luận và tìm ra Sói.\nBỏ phiếu loại bỏ kẻ khả nghi!',
+    wolf: 'KILL OR BE KILLED',
+    seer: 'HELP YOUR TEAM WITH YOUR MAGIC',
+    villager: 'SURVIVE AND FIND THE WOLFS',
   };
 
   return (
