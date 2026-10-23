@@ -30,6 +30,9 @@ const io = new Server(server, {
   maxHttpBufferSize: 1e7, // 10MB để hỗ trợ tải ảnh avatar custom
 });
 
+// Bộ nhớ đệm tạm thời cho người chơi ngắt kết nối tạm (F5 / tải lại trang)
+const pendingDisconnects = new Map(); // key: socketId, value: { timer, roomCode }
+
 // Thư mục chứa giao diện web tĩnh đã export (dist)
 const distPath = path.join(__dirname, '../dist');
 if (fs.existsSync(distPath)) {
@@ -265,6 +268,26 @@ function startDayAnnounce(room, deadPlayerId) {
       : null,
     wasProtected: Boolean(room.nightActions && room.nightActions.wasProtected),
     players: getPlayersData(room),
+  });
+
+  // Ghi rõ tên người bị sói cắn và được bảo vệ thành công vào khung chat
+  let announceChat = '';
+  if (savedPlayer) {
+    announceChat = `🛡️ [BÌNH MINH]: Đêm qua, ${savedPlayer.name} đã bị Ma Sói cắn nhưng được BẢO VỆ che chở thành công! Không ai thiệt mạng.`;
+  } else if (deadPlayer) {
+    announceChat = `💀 [BÌNH MINH]: Đêm qua, ${deadPlayer.name} đã bị Ma Sói sát hại dã man!`;
+  } else {
+    announceChat = `🕊️ [BÌNH MINH]: Một đêm bình yên, không có ai hy sinh.`;
+  }
+
+  io.to(room.code).emit('new-message', {
+    playerId: 'system',
+    playerName: '📢 Hệ Thống',
+    avatar: '🐺',
+    message: announceChat,
+    timestamp: Date.now(),
+    isWolfChat: false,
+    isSystem: true,
   });
 
   startPhaseTimer(room, TIMERS.DAY_ANNOUNCE, () => {
@@ -818,6 +841,166 @@ io.on('connection', (socket) => {
     });
   });
 
+  // ---------- CHỦ PHÒNG XÓA NGƯỜI CHƠI KHỎI LOBBY ----------
+  socket.on('kick-player', ({ targetPlayerId }) => {
+    const room = getRoom(socket.roomCode);
+    if (!room) return;
+    if (room.hostId !== socket.id) {
+      socket.emit('error-msg', { message: 'Chỉ chủ phòng mới có quyền xóa người chơi!' });
+      return;
+    }
+    if (targetPlayerId === socket.id) {
+      socket.emit('error-msg', { message: 'Bạn không thể tự xóa chính mình!' });
+      return;
+    }
+    if (room.phase !== PHASES.WAITING) {
+      socket.emit('error-msg', { message: 'Không thể xóa người chơi khi trận đấu đã bắt đầu!' });
+      return;
+    }
+
+    const kickedPlayer = room.players.get(targetPlayerId);
+    if (!kickedPlayer) return;
+
+    console.log(`👢 [Kick] Chủ phòng ${socket.playerName || socket.id} đã xóa ${kickedPlayer.name} khỏi phòng ${room.code}`);
+
+    // Hủy pending disconnect nếu có
+    if (pendingDisconnects.has(targetPlayerId)) {
+      clearTimeout(pendingDisconnects.get(targetPlayerId).timer);
+      pendingDisconnects.delete(targetPlayerId);
+    }
+
+    // Gửi thông báo trực tiếp đến người bị kick
+    io.to(targetPlayerId).emit('kicked-from-room', {
+      message: 'Bạn đã bị chủ phòng mời ra khỏi phòng!',
+    });
+
+    // Rời socket khỏi room
+    const targetSocket = io.sockets.sockets.get(targetPlayerId);
+    if (targetSocket) {
+      targetSocket.leave(room.code);
+      targetSocket.roomCode = null;
+    }
+
+    // Xóa người chơi khỏi room
+    room.players.delete(targetPlayerId);
+
+    // Cập nhật danh sách người chơi cho cả phòng
+    io.to(room.code).emit('player-left', {
+      players: getPlayersData(room),
+      hostId: room.hostId,
+    });
+  });
+
+  // ---------- TỰ ĐỘNG KHÔI PHỤC KẾT NỐI KHI TẢI LẠI TRANG (F5) ----------
+  socket.on('reconnect-room', ({ roomCode, playerName, oldPlayerId, customAvatar }) => {
+    const room = getRoom(roomCode);
+    if (!room) {
+      socket.emit('reconnect-failed', { message: 'Phòng không còn tồn tại hoặc đã bị giải tán!' });
+      return;
+    }
+
+    // Hủy bộ đếm ngắt kết nối cũ nếu có
+    if (oldPlayerId && pendingDisconnects.has(oldPlayerId)) {
+      clearTimeout(pendingDisconnects.get(oldPlayerId).timer);
+      pendingDisconnects.delete(oldPlayerId);
+    }
+
+    socket.roomCode = room.code;
+    socket.playerName = playerName;
+    socket.join(room.code);
+
+    // 1. Nếu đang ở phòng chờ (WAITING)
+    if (room.phase === PHASES.WAITING) {
+      let existingPlayer = oldPlayerId ? room.players.get(oldPlayerId) : null;
+      if (!existingPlayer) {
+        for (const [id, p] of room.players) {
+          if (p.name.toLowerCase() === playerName.toLowerCase()) {
+            existingPlayer = p;
+            room.players.delete(id);
+            break;
+          }
+        }
+      } else {
+        room.players.delete(oldPlayerId);
+      }
+
+      const isHost = oldPlayerId === room.hostId || (existingPlayer && room.hostId === existingPlayer.id) || room.players.size === 0;
+
+      const playerObj = {
+        id: socket.id,
+        name: playerName,
+        role: null,
+        alive: true,
+        avatar: customAvatar || (existingPlayer ? existingPlayer.avatar : '🐺'),
+        avatarColor: existingPlayer ? existingPlayer.avatarColor : '#6366F1',
+        connected: true,
+      };
+
+      room.players.set(socket.id, playerObj);
+      if (isHost) {
+        room.hostId = socket.id;
+      }
+
+      socket.emit('room-joined', {
+        roomCode: room.code,
+        players: getPlayersData(room),
+        settings: room.settings,
+        hostId: room.hostId,
+      });
+
+      io.to(room.code).emit('players-update', {
+        players: getPlayersData(room),
+      });
+      return;
+    }
+
+    // 2. Nếu đang trong trận đấu
+    let existingPlayer = oldPlayerId ? room.players.get(oldPlayerId) : null;
+    if (!existingPlayer) {
+      for (const [id, p] of room.players) {
+        if (p.name.toLowerCase() === playerName.toLowerCase()) {
+          existingPlayer = p;
+          room.players.delete(id);
+          break;
+        }
+      }
+    } else {
+      room.players.delete(oldPlayerId);
+    }
+
+    if (existingPlayer) {
+      existingPlayer.id = socket.id;
+      existingPlayer.connected = true;
+      room.players.set(socket.id, existingPlayer);
+
+      if (room.hostId === oldPlayerId) {
+        room.hostId = socket.id;
+      }
+
+      // Khôi phục màn hình game cho người chơi
+      socket.emit('reconnected-in-game', {
+        roomCode: room.code,
+        players: getPlayersData(room, socket.id),
+        settings: room.settings,
+        hostId: room.hostId,
+        role: existingPlayer.role,
+        phase: room.phase,
+        round: room.round,
+        timeLeft: room.timeLeft,
+        deadPlayer: room.deadThisNight ? room.players.get(room.deadThisNight) : null,
+        savedPlayer: (room.nightActions && room.nightActions.wasProtected && room.savedThisNight) ? room.players.get(room.savedThisNight) : null,
+        wasProtected: Boolean(room.nightActions && room.nightActions.wasProtected),
+        lastProtectedTarget: room.nightActions ? room.nightActions.lastProtectedTarget : null,
+      });
+
+      io.to(room.code).emit('players-update', {
+        players: getPlayersData(room),
+      });
+    } else {
+      socket.emit('reconnect-failed', { message: 'Không thể khôi phục phiên trận đấu!' });
+    }
+  });
+
   // ---------- NGẮT KẾT NỐI ----------
   socket.on('disconnect', () => {
     console.log(`❌ Ngắt kết nối: ${socket.id}`);
@@ -825,25 +1008,43 @@ io.on('connection', (socket) => {
     if (!room) return;
 
     if (room.phase === PHASES.WAITING) {
-      // Lobby -> xóa người chơi
-      const updatedRoom = leaveRoom(room.code, socket.id);
-      if (updatedRoom) {
-        io.to(room.code).emit('player-left', {
-          players: getPlayersData(updatedRoom),
-          hostId: updatedRoom.hostId,
-        });
-      }
-    } else {
-      // Đang chơi -> đánh dấu mất kết nối và đã chết (out game)
+      // Đặt timeout 7 giây để nếu người chơi tải lại trang (F5) thì không bị xóa phòng hoặc mất chỗ
       const player = room.players.get(socket.id);
       if (player) {
         player.connected = false;
-        player.alive = false; // Out game -> xem như đã hy sinh/chết
+        io.to(room.code).emit('players-update', { players: getPlayersData(room) });
+
+        const timer = setTimeout(() => {
+          pendingDisconnects.delete(socket.id);
+          const updatedRoom = leaveRoom(room.code, socket.id);
+          if (updatedRoom) {
+            io.to(room.code).emit('player-left', {
+              players: getPlayersData(updatedRoom),
+              hostId: updatedRoom.hostId,
+            });
+          }
+        }, 7000);
+
+        pendingDisconnects.set(socket.id, { timer, roomCode: room.code });
+      }
+    } else {
+      // Đang chơi -> đánh dấu mất kết nối tạm thời
+      const player = room.players.get(socket.id);
+      if (player) {
+        player.connected = false;
         io.to(room.code).emit('player-disconnected', {
           playerId: socket.id,
           playerName: player.name,
         });
-        handleMidGameExit(room, socket.id);
+
+        // Cho phép 10 giây để reconnect nếu reload
+        const timer = setTimeout(() => {
+          pendingDisconnects.delete(socket.id);
+          player.alive = false; // Hết hạn reconnect -> coi như đã chết
+          handleMidGameExit(room, socket.id);
+        }, 10000);
+
+        pendingDisconnects.set(socket.id, { timer, roomCode: room.code });
       }
     }
   });
@@ -852,6 +1053,12 @@ io.on('connection', (socket) => {
   socket.on('leave-room', () => {
     const room = getRoom(socket.roomCode);
     if (!room) return;
+
+    // Hủy pending disconnect nếu có
+    if (pendingDisconnects.has(socket.id)) {
+      clearTimeout(pendingDisconnects.get(socket.id).timer);
+      pendingDisconnects.delete(socket.id);
+    }
 
     const wasInGame = room.phase !== PHASES.WAITING && room.phase !== PHASES.GAME_OVER;
 

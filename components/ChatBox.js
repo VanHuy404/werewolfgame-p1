@@ -27,6 +27,7 @@ export default function ChatBox({
   myRole = null,
   myId,
   phase = null,
+  onMinimize = null,
 }) {
   const isWolf = myRole === 'wolf';
 
@@ -97,6 +98,15 @@ export default function ChatBox({
   };
 
   const renderMessage = ({ item }) => {
+    // Tin nhắn hệ thống (thông báo bình minh, v.v.)
+    if (item.isSystem) {
+      return (
+        <View style={styles.systemBubble}>
+          <Text style={styles.systemBubbleText}>{item.message}</Text>
+        </View>
+      );
+    }
+
     const isMe = item.playerId === myId;
 
     return (
@@ -149,50 +159,64 @@ export default function ChatBox({
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
       {/* ================= CHAT HEADER & TABS ================= */}
-      {isWolf ? (
-        <View style={styles.channelBar}>
-          {/* Nút Chat Làng */}
-          <TouchableOpacity
-            style={[
-              styles.channelTab,
-              activeChannel === 'village' && styles.channelTabActive,
-            ]}
-            onPress={() => handleSwitchChannel('village')}
-            activeOpacity={0.7}
-          >
-            <Text style={[
-              styles.channelTabText,
-              activeChannel === 'village' && styles.channelTabTextActive,
-            ]}>
-              💬 Chat Làng
-            </Text>
-          </TouchableOpacity>
+      <View style={styles.topHeaderRow}>
+        {isWolf ? (
+          <View style={styles.channelBar}>
+            {/* Nút Chat Làng */}
+            <TouchableOpacity
+              style={[
+                styles.channelTab,
+                activeChannel === 'village' && styles.channelTabActive,
+              ]}
+              onPress={() => handleSwitchChannel('village')}
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                styles.channelTabText,
+                activeChannel === 'village' && styles.channelTabTextActive,
+              ]}>
+                💬 Làng
+              </Text>
+            </TouchableOpacity>
 
-          {/* Nút Chat Sói Bí Mật */}
+            {/* Nút Chat Sói Bí Mật */}
+            <TouchableOpacity
+              style={[
+                styles.channelTab,
+                activeChannel === 'wolf' && styles.channelTabWolfActive,
+              ]}
+              onPress={() => handleSwitchChannel('wolf')}
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                styles.channelTabText,
+                activeChannel === 'wolf' && styles.channelTabWolfTextActive,
+              ]}>
+                🐺 Hang Sói
+              </Text>
+              {hasUnreadWolf && <View style={styles.unreadDot} />}
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.header}>
+            <Text style={[styles.headerText, isNight && { color: COLORS.nightText }]}>
+              💬 Thảo luận dân làng
+            </Text>
+          </View>
+        )}
+
+        {/* Nút Thu nhỏ Chat */}
+        {onMinimize && (
           <TouchableOpacity
-            style={[
-              styles.channelTab,
-              activeChannel === 'wolf' && styles.channelTabWolfActive,
-            ]}
-            onPress={() => handleSwitchChannel('wolf')}
+            style={styles.minimizeChatBtn}
+            onPress={onMinimize}
             activeOpacity={0.7}
           >
-            <Text style={[
-              styles.channelTabText,
-              activeChannel === 'wolf' && styles.channelTabWolfTextActive,
-            ]}>
-              🐺 Hang Sói (Bí Mật)
-            </Text>
-            {hasUnreadWolf && <View style={styles.unreadDot} />}
+            <Text style={styles.minimizeChatIcon}>⬇️</Text>
+            <Text style={styles.minimizeChatText}>Thu nhỏ</Text>
           </TouchableOpacity>
-        </View>
-      ) : (
-        <View style={styles.header}>
-          <Text style={[styles.headerText, isNight && { color: COLORS.nightText }]}>
-            💬 Thảo luận dân làng
-          </Text>
-        </View>
-      )}
+        )}
+      </View>
 
       {/* Subtitle nhắc nhở Sói */}
       {isCurrentChannelWolf && (
@@ -273,26 +297,70 @@ const styles = StyleSheet.create({
     display: 'flex',
     flexDirection: 'column',
   },
-  header: {
+  topHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.06)',
-  },
-  headerText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.black,
-  },
-  channelBar: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    padding: 4,
+    backgroundColor: 'rgba(0,0,0,0.35)',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  minimizeChatBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  minimizeChatIcon: {
+    fontSize: 12,
+  },
+  minimizeChatText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#E2E8F0',
+  },
+  systemBubble: {
+    backgroundColor: 'rgba(245, 158, 11, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.45)',
+    borderRadius: 12,
+    padding: 10,
+    marginVertical: 6,
+    alignSelf: 'center',
+    maxWidth: '92%',
+  },
+  systemBubbleText: {
+    color: '#FDE68A',
+    fontSize: 12.5,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  header: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+  },
+  headerText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#F8FAFC',
+  },
+  channelBar: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 6,
+    padding: 2,
+    marginRight: 6,
   },
   channelTab: {
     flex: 1,

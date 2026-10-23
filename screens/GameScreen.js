@@ -401,9 +401,12 @@ export default function GameScreen({
                     <View style={styles.savedInfoBox}>
                       <Text style={styles.savedShield}>🛡️</Text>
                       <Text style={styles.savedHeader}>BẢO VỆ CỨU SỐNG THÀNH CÔNG!</Text>
-                      <Text style={styles.savedPlayerName}>{savedPlayer.name}</Text>
+                      <View style={styles.savedTargetBadge}>
+                        <Text style={styles.savedTargetLabel}>🐺 Bị Ma Sói cắn:</Text>
+                        <Text style={styles.savedPlayerName}>{savedPlayer.name}</Text>
+                      </View>
                       <Text style={styles.savedNoticeText}>
-                        đã bị Ma Sói tấn công đêm qua, nhưng được Bảo Vệ che chở an toàn!
+                        Đêm qua, Ma Sói đã chọn cắn <Text style={{ fontWeight: 'bold', color: '#38BDF8' }}>{savedPlayer.name}</Text>, nhưng đã được Bảo Vệ che chở an toàn tuyệt đối!
                       </Text>
                       <View style={styles.savedSecretBadge}>
                         <Text style={styles.savedSecretText}>✨ Đêm qua không một ai thiệt mạng!</Text>
@@ -747,7 +750,13 @@ export default function GameScreen({
             </View>
 
             {/* ---------------- CỘT BÊN PHẢI: KHUNG CHAT CỐ ĐỊNH (RIGHT SIDEBAR) ---------------- */}
-            <View style={[styles.chatColumn, mobileChatVisible && styles.chatColumnMobileVisible]}>
+            <View
+              style={[
+                styles.chatColumn,
+                mobileChatVisible && styles.chatColumnMobileVisible,
+                !mobileChatVisible && SCREEN_WIDTH <= 860 && styles.chatColumnHidden,
+              ]}
+            >
               <ChatBox
                 messages={messages}
                 onSend={onSendMessage}
@@ -756,6 +765,7 @@ export default function GameScreen({
                 myRole={myRole}
                 myId={myId}
                 phase={phase}
+                onMinimize={() => setMobileChatVisible(false)}
               />
             </View>
           </View>
@@ -804,6 +814,24 @@ export default function GameScreen({
               </Animated.View>
             </View>
           </Modal>
+
+          {/* NÚT THU NHỎ / MỞ RỘNG CHAT BẰNG ICON TRÊN MOBILE */}
+          {!mobileChatVisible && (
+            <TouchableOpacity
+              style={styles.floatingChatFab}
+              onPress={() => setMobileChatVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.floatingChatIcon}>💬</Text>
+              {messages.length > 0 && (
+                <View style={styles.chatFabBadge}>
+                  <Text style={styles.chatFabBadgeText}>
+                    {messages.length > 99 ? '99+' : messages.length}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
         </SafeAreaView>
       </View>
     </ImageBackground>
@@ -1003,6 +1031,9 @@ const styles = StyleSheet.create({
     display: 'flex',
     flexDirection: 'column',
   },
+  chatColumnHidden: {
+    display: 'none',
+  },
   chatColumnMobileVisible: {
     position: 'absolute',
     top: 0,
@@ -1011,6 +1042,108 @@ const styles = StyleSheet.create({
     left: 0,
     width: '100%',
     zIndex: 99,
+  },
+  floatingChatFab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#7C3AED',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 10,
+    zIndex: 90,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  floatingChatIcon: {
+    fontSize: 26,
+  },
+  chatFabBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EF4444',
+    borderRadius: 11,
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  chatFabBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10.5,
+    fontWeight: '900',
+  },
+  savedInfoBox: {
+    alignItems: 'center',
+    width: '100%',
+    paddingVertical: 4,
+  },
+  savedShield: {
+    fontSize: 38,
+    marginBottom: 4,
+  },
+  savedHeader: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#38BDF8',
+    letterSpacing: 1,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  savedTargetBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(14, 165, 233, 0.2)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#0EA5E9',
+    marginBottom: 6,
+  },
+  savedTargetLabel: {
+    fontSize: 13,
+    color: '#94A3B8',
+    fontWeight: '700',
+  },
+  savedPlayerName: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#38BDF8',
+  },
+  savedNoticeText: {
+    fontSize: 13.5,
+    color: '#E2E8F0',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginTop: 4,
+    paddingHorizontal: 10,
+  },
+  savedSecretBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#10B981',
+    marginTop: 8,
+  },
+  savedSecretText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#34D399',
   },
 
   // Notice & Announce Cards

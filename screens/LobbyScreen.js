@@ -6,7 +6,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Dimensions, Platform, Animated,
+  Dimensions, Platform, Animated, Modal,
 } from 'react-native';
 import { COLORS } from '../utils/colors';
 import PlayerAvatar from '../components/PlayerAvatar';
@@ -44,6 +44,13 @@ export default function LobbyScreen({
   const [showSettings, setShowSettings] = useState(false);
   const [showRoleGuide, setShowRoleGuide] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [kickTargetPlayer, setKickTargetPlayer] = useState(null);
+
+  const handleKickConfirm = () => {
+    if (!kickTargetPlayer || !socket) return;
+    socket.emit('kick-player', { targetPlayerId: kickTargetPlayer.id });
+    setKickTargetPlayer(null);
+  };
 
   const isHost = myId === hostId;
   const numWolves = settings.numWolves !== undefined ? settings.numWolves : 2;
@@ -190,6 +197,16 @@ export default function LobbyScreen({
                     <Text style={styles.youBadgeText}>Bạn</Text>
                   </View>
                 )}
+                {/* Nút xóa người chơi (Dành cho Chủ phòng) */}
+                {isHost && player.id !== hostId && (
+                  <TouchableOpacity
+                    style={styles.kickPlayerBtn}
+                    onPress={() => setKickTargetPlayer(player)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.kickPlayerText}>✕ Đá</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ))}
           </View>
@@ -269,6 +286,39 @@ export default function LobbyScreen({
         visible={showRoleGuide}
         onClose={() => setShowRoleGuide(false)}
       />
+
+      {/* Modal xác nhận xóa người chơi khỏi phòng */}
+      <Modal visible={!!kickTargetPlayer} transparent animationType="fade">
+        <View style={styles.kickModalOverlay}>
+          <View style={styles.kickModalCard}>
+            <Text style={styles.kickModalEmoji}>👢</Text>
+            <Text style={styles.kickModalTitle}>Xóa Người Chơi</Text>
+            <Text style={styles.kickModalDesc}>
+              Bạn có chắc chắn muốn xóa{' '}
+              <Text style={{ fontWeight: 'bold', color: '#FCD34D' }}>
+                {kickTargetPlayer?.name}
+              </Text>{' '}
+              khỏi phòng chờ không?
+            </Text>
+            <View style={styles.kickModalBtnRow}>
+              <TouchableOpacity
+                style={styles.kickModalCancelBtn}
+                onPress={() => setKickTargetPlayer(null)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.kickModalCancelText}>Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.kickModalConfirmBtn}
+                onPress={handleKickConfirm}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.kickModalConfirmText}>Xóa ngay</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -745,5 +795,82 @@ const styles = StyleSheet.create({
     marginTop: 5,
     letterSpacing: 1,
     textAlign: 'center',
+  },
+  kickPlayerBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.6)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  kickPlayerText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#F87171',
+  },
+  kickModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  kickModalCard: {
+    backgroundColor: '#1E1B4B',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    maxWidth: 360,
+    width: '100%',
+    borderWidth: 1.5,
+    borderColor: '#EF4444',
+  },
+  kickModalEmoji: {
+    fontSize: 48,
+    marginBottom: 8,
+  },
+  kickModalTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#F87171',
+    marginBottom: 8,
+  },
+  kickModalDesc: {
+    fontSize: 14,
+    color: '#E2E8F0',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  kickModalBtnRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  kickModalCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+  },
+  kickModalCancelText: {
+    color: '#CBD5E1',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  kickModalConfirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+  },
+  kickModalConfirmText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 14,
   },
 });

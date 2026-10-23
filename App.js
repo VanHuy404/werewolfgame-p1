@@ -16,6 +16,7 @@ import LobbyScreen from './screens/LobbyScreen';
 import GameScreen from './screens/GameScreen';
 import GameOverScreen from './screens/GameOverScreen';
 import RoleCard from './components/RoleCard';
+import { getSessionItem, setSessionItem, removeSessionItem, STORAGE_KEYS } from './utils/storage';
 
 export default function App() {
   const socketRef = useRef(null);
@@ -55,6 +56,26 @@ export default function App() {
     s.on('connect', () => {
       setMyId(s.id);
       setError(null);
+
+      // Tự động khôi phục phòng nếu người chơi F5 / tải lại trang
+      const savedActiveRoom = getSessionItem(STORAGE_KEYS.ACTIVE_ROOM);
+      const savedPlayerName = getSessionItem(STORAGE_KEYS.PLAYER_NAME);
+      const savedAvatar = getSessionItem(STORAGE_KEYS.PLAYER_AVATAR);
+      if (savedActiveRoom) {
+        try {
+          const parsed = JSON.parse(savedActiveRoom);
+          if (parsed && parsed.roomCode) {
+            s.emit('reconnect-room', {
+              roomCode: parsed.roomCode,
+              playerName: parsed.playerName || savedPlayerName || 'Dân Làng',
+              oldPlayerId: parsed.playerId,
+              customAvatar: parsed.customAvatar || savedAvatar,
+            });
+          }
+        } catch (e) {
+          console.warn('Lỗi đọc active room:', e);
+        }
+      }
     });
 
     // Tạo phòng thành công
@@ -65,6 +86,13 @@ export default function App() {
       setHostId(hostId);
       setCurrentScreen('lobby');
       setError(null);
+      const myPlayer = players.find((p) => p.id === s.id);
+      setSessionItem(STORAGE_KEYS.ACTIVE_ROOM, {
+        roomCode,
+        playerName: myPlayer?.name || getSessionItem(STORAGE_KEYS.PLAYER_NAME),
+        customAvatar: myPlayer?.avatar || getSessionItem(STORAGE_KEYS.PLAYER_AVATAR),
+        playerId: s.id,
+      });
     });
 
     // Vào phòng thành công
@@ -75,6 +103,43 @@ export default function App() {
       setHostId(hostId);
       setCurrentScreen('lobby');
       setError(null);
+      const myPlayer = players.find((p) => p.id === s.id);
+      setSessionItem(STORAGE_KEYS.ACTIVE_ROOM, {
+        roomCode,
+        playerName: myPlayer?.name || getSessionItem(STORAGE_KEYS.PLAYER_NAME),
+        customAvatar: myPlayer?.avatar || getSessionItem(STORAGE_KEYS.PLAYER_AVATAR),
+        playerId: s.id,
+      });
+    });
+
+    // Khôi phục vào trận đấu khi tải lại trang
+    s.on('reconnected-in-game', (data) => {
+      setRoomCode(data.roomCode);
+      setPlayers(data.players);
+      setSettings(data.settings);
+      setHostId(data.hostId);
+      setMyRole(data.role);
+      setPhase(data.phase);
+      setRound(data.round || 1);
+      setTimeLeft(data.timeLeft || 0);
+      setDeadPlayer(data.deadPlayer || null);
+      setSavedPlayer(data.savedPlayer || null);
+      setWasProtected(Boolean(data.wasProtected));
+      setLastProtectedTarget(data.lastProtectedTarget || null);
+      setCurrentScreen('game');
+      setError(null);
+    });
+
+    // Khôi phục thất bại (phòng đã hủy)
+    s.on('reconnect-failed', () => {
+      removeSessionItem(STORAGE_KEYS.ACTIVE_ROOM);
+    });
+
+    // Bị chủ phòng xóa khỏi phòng
+    s.on('kicked-from-room', ({ message }) => {
+      removeSessionItem(STORAGE_KEYS.ACTIVE_ROOM);
+      resetGameState();
+      setError(message || 'Bạn đã bị chủ phòng mời ra khỏi phòng!');
     });
 
     // Có người chơi mới vào phòng
@@ -188,6 +253,7 @@ export default function App() {
 
   // Reset về màn hình chính
   const resetGameState = () => {
+    removeSessionItem(STORAGE_KEYS.ACTIVE_ROOM);
     setCurrentScreen('home');
     setRoomCode('');
     setPlayers([]);

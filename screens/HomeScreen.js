@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { COLORS } from '../utils/colors';
 import RoomSettings from '../components/RoomSettings';
+import { getSessionItem, setSessionItem, STORAGE_KEYS } from '../utils/storage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -31,12 +32,24 @@ function generateStars(count = 55) {
 }
 
 export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error }) {
-  const [playerName, setPlayerName] = useState('');
+  const [playerName, setPlayerNameState] = useState(() => getSessionItem(STORAGE_KEYS.PLAYER_NAME, ''));
   const [roomCode, setRoomCode] = useState('');
   const [localError, setLocalError] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [settings, setSettings] = useState({ maxPlayers: 6, numWolves: 2, numSeers: 1, numBodyguards: 1 });
-  const [customAvatar, setCustomAvatar] = useState(null);
+  const [customAvatar, setCustomAvatarState] = useState(() => getSessionItem(STORAGE_KEYS.PLAYER_AVATAR, null));
+
+  // Tự động lưu tên vào session khi thay đổi
+  const setPlayerName = (val) => {
+    setPlayerNameState(val);
+    setSessionItem(STORAGE_KEYS.PLAYER_NAME, val);
+  };
+
+  // Tự động lưu avatar vào session khi thay đổi
+  const setCustomAvatar = (val) => {
+    setCustomAvatarState(val);
+    setSessionItem(STORAGE_KEYS.PLAYER_AVATAR, val);
+  };
 
   // Hidden file input ref for web
   const fileInputRef = useRef(null);
