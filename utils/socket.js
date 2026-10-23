@@ -6,10 +6,14 @@ import { io } from 'socket.io-client';
 import { Platform } from 'react-native';
 
 // Cấu hình URL server:
-// Tự động nhận diện hostname trên Web (localhost hoặc IP LAN)
+// Tự động nhận diện: nếu chạy Expo dev (port 8081) -> port 3001
+// Khi chạy production / deploy online (Render, Railway, v.v.) -> dùng chính window.location.origin
 const getBackendUrl = () => {
-  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location && window.location.hostname) {
-    return `http://${window.location.hostname}:3001`;
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
+    if (window.location.port === '8081') {
+      return `http://${window.location.hostname}:3001`;
+    }
+    return window.location.origin;
   }
   return 'http://localhost:3001';
 };

@@ -7,6 +7,8 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
 
 const {
   createRoom, joinRoom, leaveRoom, assignRoles,
@@ -28,9 +30,26 @@ const io = new Server(server, {
   maxHttpBufferSize: 1e7, // 10MB để hỗ trợ tải ảnh avatar custom
 });
 
-// Health check endpoint
-app.get('/', (req, res) => {
+// Thư mục chứa giao diện web tĩnh đã export (dist)
+const distPath = path.join(__dirname, '../dist');
+if (fs.existsSync(distPath)) {
+  console.log('📦 Đã phát hiện thư mục web tĩnh (dist), kích hoạt phục vụ Web Client!');
+  app.use(express.static(distPath));
+}
+
+// Health check endpoint riêng
+app.get('/api/health', (req, res) => {
   res.json({ status: '🐺 Ma Sói Server đang chạy!', timestamp: new Date().toISOString() });
+});
+
+// Phục vụ index.html cho mọi đường dẫn còn lại nếu có bản build web
+app.get('*', (req, res) => {
+  const indexPath = path.join(distPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.json({ status: '🐺 Ma Sói Server đang chạy! (Chưa có bản build dist)', timestamp: new Date().toISOString() });
+  }
 });
 
 // ==================== QUẢN LÝ TIMER ====================
