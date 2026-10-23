@@ -63,16 +63,71 @@ function startPhaseTimer(room, duration, onComplete) {
 
 // ==================== CHUYỂN PHA GAME ====================
 
-/** Bắt đầu chuỗi Ban Đêm: Lượt 1 - Sói đi săn (2 phút) */
+/** Bắt đầu chuỗi Ban Đêm: Lượt 1 - Bảo Vệ thức dậy (nếu có), sau đó đến Sói, rồi Tiên Tri */
 function startNightPhase(room) {
   if (room.phase === PHASES.GAME_OVER) return;
+  room.round++;
+
+  // Reset sạch sẽ các trạng thái của đêm trước
+  room.deadThisNight = null;
+  room.attackedThisNight = null;
+  room.savedThisNight = null;
+  room.nightActions.wolfVotes.clear();
+  if (!room.nightActions.wolfConfirmed) {
+    room.nightActions.wolfConfirmed = new Set();
+  } else {
+    room.nightActions.wolfConfirmed.clear();
+  }
+  room.nightActions.seerCheck = null;
+  room.nightActions.bodyguardTarget = null;
+  room.nightActions.wasProtected = false;
+
+  // Kiểm tra còn Bảo Vệ còn sống hay không
+  const aliveBodyguards = [...room.players.values()].filter(
+    (p) => p.role === ROLES.BODYGUARD && p.alive
+  );
+
+  if (aliveBodyguards.length > 0) {
+    startNightBodyguardPhase(room);
+  } else {
+    startNightWolfPhase(room);
+  }
+}
+
+/** Lượt Bảo Vệ hành động trong đêm (30s, tự động rút 5s khi chọn) */
+function startNightBodyguardPhase(room) {
+  room.phase = PHASES.NIGHT_BODYGUARD;
+
+  room.players.forEach((player, playerId) => {
+    io.to(playerId).emit('phase-change', {
+      phase: PHASES.NIGHT_BODYGUARD,
+      nightSubPhase: 'bodyguard',
+      round: room.round,
+      role: player.role,
+      alive: player.alive,
+      players: getPlayersData(room, playerId),
+      lastProtectedTarget: room.nightActions.lastProtectedTarget || null,
+    });
+  });
+
+  // Đếm ngược 30s cho Bảo Vệ
+  startPhaseTimer(room, TIMERS.NIGHT_BODYGUARD, () => {
+    finishBodyguardTurn(room);
+  });
+}
+
+/** Kết thúc lượt Bảo Vệ -> chuyển sang lượt Sói */
+function finishBodyguardTurn(room) {
+  if (room.timer) {
+    clearInterval(room.timer);
+    room.timer = null;
+  }
   startNightWolfPhase(room);
 }
 
-/** Lượt Sói hành động trong đêm (2 phút, có nút xác nhận) */
+/** Lượt Sói hành động trong đêm (1p30s, có nút xác nhận) */
 function startNightWolfPhase(room) {
   room.phase = PHASES.NIGHT_WOLF;
-  room.round++;
   room.nightActions.wolfVotes.clear();
   if (!room.nightActions.wolfConfirmed) {
     room.nightActions.wolfConfirmed = new Set();
@@ -100,7 +155,7 @@ function startNightWolfPhase(room) {
     });
   });
 
-  // Đếm ngược 2 phút (120 giây) cho Sói
+  // Đếm ngược 1p30s (90 giây) cho Sói
   startPhaseTimer(room, TIMERS.NIGHT_WOLF, () => {
     finishWolfTurn(room);
   });
@@ -113,11 +168,9 @@ function finishWolfTurn(room) {
     room.timer = null;
   }
 
-  // Xử lý vote Sói: kể cả ko xác nhận nhưng đã vote thì số vote cao nhất sẽ chết!
-  const deadPlayerId = processNightActions(room);
-  room.deadThisNight = deadPlayerId;
-  if (!room.nightActions) room.nightActions = {};
-  room.nightActions.deadPlayerId = deadPlayerId;
+  // Xử lý vote Sói kết hợp Bảo Vệ:
+  const nightResult = processNightActions(room);
+  const deadPlayerId = nightResult.deadPlayerId;
 
   // Kiểm tra còn Tiên Tri sống hay không
   const aliveSeers = [...room.players.values()].filter(
@@ -160,7 +213,7 @@ function startDayAnnounce(room, deadPlayerId) {
   room.phase = PHASES.DAY_ANNOUNCE;
 
   // CHỈ KHI TRỜI SÁNG MỚI TÍNH LÀ ĐÃ CHẾT VÀ OUT KHỎI TRÒ CHƠI
-  const victimId = deadPlayerId || room.deadThisNight || (room.nightActions && room.nightActions.deadPlayerId);
+  const victimId = deadPlayerId !== undefined ? deadPlayerId : room.deadThisNight;
   const deadPlayer = victimId ? room.players.get(victimId) : null;
   if (deadPlayer) {
     deadPlayer.alive = false;
@@ -173,13 +226,25 @@ function startDayAnnounce(room, deadPlayerId) {
     return;
   }
 
-  // KO TIẾT LỘ VAI TRÒ KHI BỊ GIẾT HOẶC TREO CỔ (Theo yêu cầu)
+  // YÊU CẦU: Trời sáng vẫn thông báo ai bị sói cắn và được bảo vệ (chỉ khi bảo vệ đúng người mới cần nói ai được bảo vệ)
+  const attackedPlayer = room.attackedThisNight ? room.players.get(room.attackedThisNight) : null;
+  const savedPlayer = (room.nightActions && room.nightActions.wasProtected && room.savedThisNight)
+    ? room.players.get(room.savedThisNight)
+    : null;
+
   io.to(room.code).emit('phase-change', {
     phase: PHASES.DAY_ANNOUNCE,
     round: room.round,
     deadPlayer: deadPlayer
       ? { id: deadPlayer.id, name: deadPlayer.name, avatar: deadPlayer.avatar }
       : null,
+    attackedPlayer: attackedPlayer
+      ? { id: attackedPlayer.id, name: attackedPlayer.name, avatar: attackedPlayer.avatar }
+      : null,
+    savedPlayer: savedPlayer
+      ? { id: savedPlayer.id, name: savedPlayer.name, avatar: savedPlayer.avatar }
+      : null,
+    wasProtected: Boolean(room.nightActions && room.nightActions.wasProtected),
     players: getPlayersData(room),
   });
 
@@ -387,6 +452,7 @@ io.on('connection', (socket) => {
     room.settings = {
       numWolves: settings.numWolves !== undefined ? settings.numWolves : room.settings.numWolves,
       numSeers: settings.numSeers !== undefined ? settings.numSeers : room.settings.numSeers,
+      numBodyguards: settings.numBodyguards !== undefined ? settings.numBodyguards : (room.settings.numBodyguards || 1),
       dayDiscussionTime: settings.dayDiscussionTime !== undefined ? settings.dayDiscussionTime : (room.settings.dayDiscussionTime || 60),
       dayVoteTime: settings.dayVoteTime !== undefined ? settings.dayVoteTime : (room.settings.dayVoteTime || 25),
     };
@@ -412,17 +478,20 @@ io.on('connection', (socket) => {
     room.phase = PHASES.ROLE_REVEAL;
 
     // Tự động cân bằng số Sói cho phù hợp với số người chơi thực tế
-    // Đảm bảo số Sói luôn nhỏ hơn tổng dân (Tiên Tri + Dân Làng)
+    // Đảm bảo số Sói luôn nhỏ hơn tổng dân (Tiên Tri + Bảo Vệ + Dân Làng)
     const maxAllowedWolves = Math.max(1, Math.floor((playerCount - 1) / 2));
     if (room.settings.numWolves > maxAllowedWolves) {
       console.log(`⚖️ Tự động cân bằng số Sói từ ${room.settings.numWolves} xuống ${maxAllowedWolves} cho ${playerCount} người chơi.`);
       room.settings.numWolves = maxAllowedWolves;
     }
 
-    // Đảm bảo số Tiên Tri hợp lệ
-    const maxAllowedSeers = Math.max(0, playerCount - room.settings.numWolves - 1);
-    if (room.settings.numSeers > maxAllowedSeers) {
-      room.settings.numSeers = maxAllowedSeers;
+    const remainingGood = playerCount - room.settings.numWolves;
+    if (room.settings.numSeers + (room.settings.numBodyguards || 0) > remainingGood) {
+      if (room.settings.numBodyguards > 1) room.settings.numBodyguards = 1;
+      if (room.settings.numSeers > 1) room.settings.numSeers = 1;
+      if (room.settings.numSeers + room.settings.numBodyguards > remainingGood) {
+        room.settings.numBodyguards = Math.max(0, remainingGood - room.settings.numSeers);
+      }
     }
 
     // Cập nhật maxPlayers = số người thực tế
@@ -443,6 +512,60 @@ io.on('connection', (socket) => {
 
     // Bắt đầu đêm đầu tiên sau delay để xem role
     setTimeout(() => startNightPhase(room), TIMERS.ROLE_REVEAL * 1000);
+  });
+
+  // ---------- BẢO VỆ CHỌN NGƯỜI ĐỂ CHE CHỞ ----------
+  socket.on('bodyguard-protect', ({ targetId }) => {
+    const room = getRoom(socket.roomCode);
+    if (!room || room.phase !== PHASES.NIGHT_BODYGUARD) return;
+
+    const player = room.players.get(socket.id);
+    if (!player || player.role !== ROLES.BODYGUARD || !player.alive) return;
+
+    const target = room.players.get(targetId);
+    if (!target || !target.alive) return;
+
+    // YÊU CẦU: Không thể bảo vệ cùng 1 người 2 đêm liên tiếp!
+    if (room.nightActions.lastProtectedTarget && targetId === room.nightActions.lastProtectedTarget) {
+      socket.emit('error-msg', { message: '🛡️ Bạn không thể bảo vệ cùng một người trong 2 đêm liên tiếp!' });
+      return;
+    }
+
+    room.nightActions.bodyguardTarget = targetId;
+
+    socket.emit('bodyguard-update', {
+      targetId,
+      targetName: target.name,
+      targetAvatar: target.avatar,
+    });
+
+    // YÊU CẦU: "khi chọn mà k thay đổi thì trong 5s sẽ chuyển"
+    startPhaseTimer(room, 5, () => {
+      finishBodyguardTurn(room);
+    });
+    io.to(room.code).emit('timer-update', { timeLeft: 5 });
+  });
+
+  // ---------- BẢO VỆ BỎ LƯỢT ĐÊM ĐÓ ----------
+  socket.on('bodyguard-skip', () => {
+    const room = getRoom(socket.roomCode);
+    if (!room || room.phase !== PHASES.NIGHT_BODYGUARD) return;
+
+    const player = room.players.get(socket.id);
+    if (!player || player.role !== ROLES.BODYGUARD || !player.alive) return;
+
+    room.nightActions.bodyguardTarget = null;
+
+    socket.emit('bodyguard-update', {
+      targetId: null,
+      isSkipped: true,
+    });
+
+    // Rút xuống 5s chuyển tiếp
+    startPhaseTimer(room, 5, () => {
+      finishBodyguardTurn(room);
+    });
+    io.to(room.code).emit('timer-update', { timeLeft: 5 });
   });
 
   // ---------- SÓI CHỌN MỤC TIÊU ----------
@@ -660,7 +783,7 @@ io.on('connection', (socket) => {
     }
 
     // Ban đêm: dân làng đang ngủ, không được chat công khai
-    const isNightTime = room.phase === PHASES.NIGHT_WOLF || room.phase === PHASES.NIGHT_SEER || room.phase === PHASES.NIGHT;
+    const isNightTime = room.phase === PHASES.NIGHT_BODYGUARD || room.phase === PHASES.NIGHT_WOLF || room.phase === PHASES.NIGHT_SEER || room.phase === PHASES.NIGHT;
     if (isNightTime) {
       return;
     }
@@ -747,11 +870,16 @@ io.on('connection', (socket) => {
     room.phase = PHASES.WAITING;
     room.round = 0;
     room.deadThisNight = null;
+    room.attackedThisNight = null;
+    room.savedThisNight = null;
     room.messages = [];
     room.nightActions = {
       wolfVotes: new Map(),
       wolfConfirmed: new Set(),
       seerCheck: null,
+      bodyguardTarget: null,
+      lastProtectedTarget: null,
+      wasProtected: false,
     };
     room.dayVotes.clear();
 

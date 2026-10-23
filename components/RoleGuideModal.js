@@ -53,6 +53,23 @@ const ROLES_INFO = [
     ],
   },
   {
+    id: 'bodyguard',
+    name: 'Bảo Vệ',
+    emoji: '🛡️',
+    team: 'Phe Dân Làng',
+    teamColor: '#0EA5E9',
+    teamEmoji: '🕊️',
+    slogan: 'SHIELD YOUR VILLAGE FROM CLAWS',
+    objective: 'Bảo vệ dân làng và các nhân vật quan trọng khỏi nanh vuốt của Ma Sói mỗi đêm.',
+    nightAction: 'Bảo Vệ thức dậy đầu tiên mỗi đêm (trước cả Ma Sói) và có 30 giây để chọn 1 người chơi che chở. Khi chọn mà không thay đổi thì trong 5s sẽ chuyển pha. Không chọn ai thì mất lượt bảo vệ đêm đó. Không thể bảo vệ cùng 1 người 2 đêm liên tiếp. Người được bảo vệ dù bị Sói cắn cũng sẽ được an toàn.',
+    dayAction: 'Giấu kín thân phận, tham gia thảo luận cùng Dân Làng và biểu quyết treo cổ Ma Sói.',
+    tips: [
+      'Có thể tự bảo vệ bản thân khi cảm thấy mình đang bị Ma Sói nhắm đến, nhưng nhớ rằng không thể bảo vệ mình 2 đêm liền.',
+      'Ưu tiên bảo vệ những người khả nghi là Tiên Tri hoặc người có ích cho làng.',
+      'Khi chọn xong, đồng hồ sẽ tự động rút xuống 5 giây để chuyển tiếp nhanh chóng.',
+    ],
+  },
+  {
     id: 'villager',
     name: 'Dân Làng',
     emoji: '👨‍🌾',

@@ -4,15 +4,17 @@
 
 /** Các vai trò trong game */
 const ROLES = {
-  WOLF: 'wolf',        // 🐺 Sói
-  SEER: 'seer',        // 🔮 Tiên Tri
-  VILLAGER: 'villager', // 🧑‍🌾 Dân Làng
+  WOLF: 'wolf',              // 🐺 Sói
+  SEER: 'seer',              // 🔮 Tiên Tri
+  BODYGUARD: 'bodyguard',    // 🛡️ Bảo Vệ
+  VILLAGER: 'villager',      // 🧑‍🌾 Dân Làng
 };
 
 /** Tên hiển thị tiếng Việt */
 const ROLE_NAMES = {
   [ROLES.WOLF]: 'Sói',
   [ROLES.SEER]: 'Tiên Tri',
+  [ROLES.BODYGUARD]: 'Bảo Vệ',
   [ROLES.VILLAGER]: 'Dân Làng',
 };
 
@@ -20,6 +22,7 @@ const ROLE_NAMES = {
 const ROLE_EMOJIS = {
   [ROLES.WOLF]: '🐺',
   [ROLES.SEER]: '🔮',
+  [ROLES.BODYGUARD]: '🛡️',
   [ROLES.VILLAGER]: '🧑‍🌾',
 };
 
@@ -27,23 +30,26 @@ const ROLE_EMOJIS = {
 const ROLE_COLORS = {
   [ROLES.WOLF]: '#DC2626',
   [ROLES.SEER]: '#3B82F6',
+  [ROLES.BODYGUARD]: '#0EA5E9',
   [ROLES.VILLAGER]: '#10B981',
 };
 
 /** Các pha trong trò chơi */
 const PHASES = {
-  WAITING: 'waiting',              // Chờ trong phòng
-  NIGHT_WOLF: 'night_wolf',        // Ban đêm - Sói cắn (2 phút)
-  NIGHT_SEER: 'night_seer',        // Ban đêm - Tiên tri soi
-  NIGHT: 'night',                  // Fallback ban đêm
-  DAY_ANNOUNCE: 'day_announce',    // Thông báo người chết
-  DAY_DISCUSSION: 'day_discussion',// Thảo luận ban ngày
-  DAY_VOTE: 'day_vote',           // Bỏ phiếu
-  GAME_OVER: 'game_over',         // Kết thúc
+  WAITING: 'waiting',                  // Chờ trong phòng
+  NIGHT_BODYGUARD: 'night_bodyguard',  // Ban đêm - Bảo Vệ thức dậy (30s)
+  NIGHT_WOLF: 'night_wolf',            // Ban đêm - Sói cắn (90s)
+  NIGHT_SEER: 'night_seer',            // Ban đêm - Tiên tri soi (30s)
+  NIGHT: 'night',                      // Fallback ban đêm
+  DAY_ANNOUNCE: 'day_announce',        // Thông báo kết quả đêm / người chết
+  DAY_DISCUSSION: 'day_discussion',    // Thảo luận ban ngày
+  DAY_VOTE: 'day_vote',               // Bỏ phiếu
+  GAME_OVER: 'game_over',             // Kết thúc
 };
 
 /** Thời gian mỗi pha (giây) */
 const TIMERS = {
+  NIGHT_BODYGUARD: 30, // 🛡️ Bảo Vệ chọn bảo vệ (30 giây, tự động rút xuống 5s khi chọn)
   NIGHT_WOLF: 90,      // 🐺 Sói chọn người 1p30s (90 giây)
   NIGHT_SEER: 30,      // 🔮 Tiên Tri soi (30 giây, tự động rút xuống 5s sau khi soi)
   NIGHT: 90,           // Fallback
@@ -67,6 +73,7 @@ const AVATAR_COLORS = [
 const DEFAULT_SETTINGS = {
   numWolves: 2,
   numSeers: 1,
+  numBodyguards: 1,      // 🛡️ Mặc định 1 Bảo Vệ
   dayDiscussionTime: 60, // Thời gian bàn luận (giây)
   dayVoteTime: 25,       // Thời gian bỏ phiếu (giây)
 };

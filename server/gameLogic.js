@@ -52,10 +52,12 @@ function createRoom(hostId, hostName, settings = {}, customAvatar = null) {
     ? settings.numWolves 
     : DEFAULT_SETTINGS.numWolves;
   const numSeers = settings.numSeers !== undefined ? settings.numSeers : DEFAULT_SETTINGS.numSeers;
+  const numBodyguards = settings.numBodyguards !== undefined ? settings.numBodyguards : DEFAULT_SETTINGS.numBodyguards;
 
   const roomSettings = {
     numWolves,
     numSeers,
+    numBodyguards,
     dayDiscussionTime: settings.dayDiscussionTime !== undefined ? settings.dayDiscussionTime : DEFAULT_SETTINGS.dayDiscussionTime,
     dayVoteTime: settings.dayVoteTime !== undefined ? settings.dayVoteTime : DEFAULT_SETTINGS.dayVoteTime,
   };
@@ -68,12 +70,16 @@ function createRoom(hostId, hostName, settings = {}, customAvatar = null) {
     players: new Map(),
     phase: PHASES.WAITING,
     nightActions: {
-      wolfVotes: new Map(),      // Map<wolfId, targetId>
-      wolfConfirmed: new Set(),  // Set<wolfId> - đã bấm nút xác nhận
-      seerCheck: null,           // { seerId, targetId }
+      wolfVotes: new Map(),           // Map<wolfId, targetId>
+      wolfConfirmed: new Set(),       // Set<wolfId> - đã bấm nút xác nhận
+      seerCheck: null,                // { seerId, targetId }
+      bodyguardTarget: null,          // targetId được chọn bảo vệ đêm nay
+      lastProtectedTarget: null,      // targetId đã bảo vệ đêm trước (ko lặp 2 đêm liên tiếp)
     },
     dayVotes: new Map(),     // Map<voterId, targetId>
     deadThisNight: null,     // ID người chết ban đêm
+    attackedThisNight: null, // ID người bị Sói cắn
+    savedThisNight: null,    // ID người được Bảo Vệ cứu sống
     messages: [],
     round: 0,
     timer: null,
@@ -156,11 +162,11 @@ function leaveRoom(code, playerId) {
 
 /**
  * Phân vai trò ngẫu nhiên cho tất cả người chơi
- * Dựa trên settings: numWolves, numSeers, phần còn lại là Villager
+ * Dựa trên settings: numWolves, numSeers, numBodyguards, phần còn lại là Villager
  */
 function assignRoles(room) {
   const playerIds = shuffleArray([...room.players.keys()]);
-  const { numWolves, numSeers } = room.settings;
+  const { numWolves, numSeers, numBodyguards = 1 } = room.settings;
   let index = 0;
 
   // Gán Sói
@@ -173,6 +179,11 @@ function assignRoles(room) {
     room.players.get(playerIds[index]).role = ROLES.SEER;
   }
 
+  // Gán Bảo Vệ
+  for (let i = 0; i < numBodyguards && index < playerIds.length; i++, index++) {
+    room.players.get(playerIds[index]).role = ROLES.BODYGUARD;
+  }
+
   // Phần còn lại -> Dân Làng
   while (index < playerIds.length) {
     room.players.get(playerIds[index]).role = ROLES.VILLAGER;
@@ -183,8 +194,8 @@ function assignRoles(room) {
 // ==================== XỬ LÝ BAN ĐÊM ====================
 
 /**
- * Xử lý hành động ban đêm (Sói vote giết)
- * @returns {string|null} - ID người chết hoặc null
+ * Xử lý hành động ban đêm (Sói vote cắn & Bảo Vệ che chở)
+ * @returns {{ deadPlayerId: string|null, attackedPlayerId: string|null, savedPlayerId: string|null, wasProtected: boolean }}
  */
 function processNightActions(room) {
   // Đếm phiếu Sói
@@ -205,18 +216,44 @@ function processNightActions(room) {
     }
   });
 
-  // YÊU CẦU: Khi sói chọn cắn thì đến trời sáng sẽ chết, kể cả ko xác nhận nhưng đã vote thì số vote cao nhất sẽ chết!
-  let deadPlayerId = null;
+  // Xác định người bị Sói tấn công
+  let attackedPlayerId = null;
   if (targets.length === 1 && maxVotes > 0) {
-    deadPlayerId = targets[0];
+    attackedPlayerId = targets[0];
   } else if (targets.length > 1 && maxVotes > 0) {
-    // Nếu có nhiều người cùng số vote cao nhất thì chọn ngẫu nhiên 1 người trong nhóm cao nhất
-    deadPlayerId = targets[Math.floor(Math.random() * targets.length)];
+    attackedPlayerId = targets[Math.floor(Math.random() * targets.length)];
   }
 
+  // Kiểm tra mục tiêu của Bảo Vệ
+  const protectedPlayerId = room.nightActions.bodyguardTarget || null;
+  let deadPlayerId = null;
+  let savedPlayerId = null;
+  let wasProtected = false;
+
+  if (attackedPlayerId) {
+    if (protectedPlayerId && protectedPlayerId === attackedPlayerId) {
+      // BẢO VỆ ĐÚNG NGƯỜI: Nạn nhân không chết!
+      wasProtected = true;
+      savedPlayerId = attackedPlayerId;
+      deadPlayerId = null;
+    } else {
+      // Không được bảo vệ đúng người -> Chết
+      deadPlayerId = attackedPlayerId;
+    }
+  }
+
+  // Lưu lịch sử người được bảo vệ đêm nay để đêm kế tiếp không được bảo vệ liên tiếp
+  room.nightActions.lastProtectedTarget = protectedPlayerId;
+
   room.deadThisNight = deadPlayerId;
+  room.attackedThisNight = attackedPlayerId;
+  room.savedThisNight = savedPlayerId;
+
   if (!room.nightActions) room.nightActions = {};
   room.nightActions.deadPlayerId = deadPlayerId;
+  room.nightActions.attackedPlayerId = attackedPlayerId;
+  room.nightActions.savedPlayerId = savedPlayerId;
+  room.nightActions.wasProtected = wasProtected;
 
   // Reset hành động đêm
   room.nightActions.wolfVotes.clear();
@@ -224,8 +261,14 @@ function processNightActions(room) {
     room.nightActions.wolfConfirmed.clear();
   }
   room.nightActions.seerCheck = null;
+  room.nightActions.bodyguardTarget = null;
 
-  return deadPlayerId;
+  return {
+    deadPlayerId,
+    attackedPlayerId,
+    savedPlayerId,
+    wasProtected,
+  };
 }
 
 // ==================== XỬ LÝ BỎ PHIẾU BAN NGÀY ====================
@@ -344,9 +387,9 @@ function getRoomByPlayerId(playerId) {
 
 /** Validate settings phòng (tính theo số người tham gia) */
 function validateSettings(settings, currentParticipants = 0) {
-  const { numWolves, numSeers, dayDiscussionTime, dayVoteTime } = settings;
+  const { numWolves, numSeers, numBodyguards = 0, dayDiscussionTime, dayVoteTime } = settings;
   
-  if (numWolves < 0 || numSeers < 0) {
+  if (numWolves < 0 || numSeers < 0 || numBodyguards < 0) {
     return { valid: false, error: 'Số vai trò không được âm!' };
   }
   if (dayDiscussionTime !== undefined && (dayDiscussionTime < 10 || dayDiscussionTime > 300)) {
@@ -357,12 +400,13 @@ function validateSettings(settings, currentParticipants = 0) {
   }
   
   if (currentParticipants >= 4) {
-    const numVillagers = currentParticipants - numWolves - numSeers;
+    const numVillagers = currentParticipants - numWolves - numSeers - numBodyguards;
     if (numVillagers < 0) {
-      return { valid: false, error: 'Tổng Sói + Tiên Tri vượt quá số người tham gia!' };
+      return { valid: false, error: 'Tổng Sói + Tiên Tri + Bảo Vệ vượt quá số người tham gia!' };
     }
-    if (numWolves >= (numSeers + numVillagers)) {
-      return { valid: false, error: 'Số Sói phải nhỏ hơn tổng Dân (Tiên Tri + Dân Làng)!' };
+    const totalGood = numSeers + numBodyguards + numVillagers;
+    if (numWolves >= totalGood) {
+      return { valid: false, error: 'Số Sói phải nhỏ hơn tổng Phe Dân (Tiên Tri + Bảo Vệ + Dân Làng)!' };
     }
   }
   

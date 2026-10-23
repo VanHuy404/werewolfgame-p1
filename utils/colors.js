@@ -32,6 +32,8 @@ export const COLORS = {
   wolfBg: '#FEE2E2',
   seer: '#3B82F6',
   seerBg: '#DBEAFE',
+  bodyguard: '#0EA5E9',
+  bodyguardBg: '#E0F2FE',
   villager: '#10B981',
   villagerBg: '#D1FAE5',
 
@@ -63,6 +65,7 @@ export function getRoleColor(role) {
   switch (role) {
     case 'wolf': return COLORS.wolf;
     case 'seer': return COLORS.seer;
+    case 'bodyguard': return COLORS.bodyguard;
     case 'villager': return COLORS.villager;
     default: return COLORS.gray;
   }
@@ -73,6 +76,7 @@ export function getRoleName(role) {
   switch (role) {
     case 'wolf': return 'Sói';
     case 'seer': return 'Tiên Tri';
+    case 'bodyguard': return 'Bảo Vệ';
     case 'villager': return 'Dân Làng';
     default: return '???';
   }
@@ -83,6 +87,7 @@ export function getRoleEmoji(role) {
   switch (role) {
     case 'wolf': return '🐺';
     case 'seer': return '🔮';
+    case 'bodyguard': return '🛡️';
     case 'villager': return '🧑‍🌾';
     default: return '❓';
   }

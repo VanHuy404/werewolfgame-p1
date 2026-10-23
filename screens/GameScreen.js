@@ -25,6 +25,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Pha trong game
 const PHASES = {
   WAITING: 'waiting',
+  NIGHT_BODYGUARD: 'night_bodyguard',
   NIGHT_WOLF: 'night_wolf',
   NIGHT_SEER: 'night_seer',
   NIGHT: 'night',
@@ -43,6 +44,9 @@ export default function GameScreen({
   round = 1,
   timeLeft = 0,
   deadPlayer = null,
+  savedPlayer = null,
+  wasProtected = false,
+  lastProtectedTarget = null,
   winner = null,
   winMessage = '',
   messages = [],
@@ -59,6 +63,8 @@ export default function GameScreen({
   const [seerResult, setSeerResult] = useState(null); // { targetName, alignment, isWolf }
   const [seerPopupVisible, setSeerPopupVisible] = useState(false);
   const [illuminatedPlayerId, setIlluminatedPlayerId] = useState(null);
+  const [bodyguardTarget, setBodyguardTarget] = useState(null);
+  const [bodyguardSkipped, setBodyguardSkipped] = useState(false);
   const [showRoleBrief, setShowRoleBrief] = useState(false);
   const [dayVoteTarget, setDayVoteTarget] = useState(null);
   const [dayVoteCount, setDayVoteCount] = useState({});
@@ -72,12 +78,14 @@ export default function GameScreen({
   // Animations
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const crystalPulse = useRef(new Animated.Value(1)).current;
+  const shieldPulse = useRef(new Animated.Value(1)).current;
   const popupScaleAnim = useRef(new Animated.Value(0.7)).current;
   const popupOpacityAnim = useRef(new Animated.Value(0)).current;
 
-  const isNightWolf = phase === PHASES.NIGHT_WOLF || (phase === PHASES.NIGHT && !seerResult);
+  const isNightBodyguard = phase === PHASES.NIGHT_BODYGUARD;
+  const isNightWolf = phase === PHASES.NIGHT_WOLF || (phase === PHASES.NIGHT && !seerResult && !isNightBodyguard);
   const isNightSeer = phase === PHASES.NIGHT_SEER;
-  const isNight = isNightWolf || isNightSeer || phase === PHASES.NIGHT;
+  const isNight = isNightBodyguard || isNightWolf || isNightSeer || phase === PHASES.NIGHT;
   const isGameOver = phase === PHASES.GAME_OVER;
 
   const me = players.find((p) => p.id === myId) || { alive: true };
@@ -107,6 +115,17 @@ export default function GameScreen({
       ]).start();
     };
 
+    // Bảo Vệ nhận cập nhật bảo vệ
+    const handleBodyguardUpdate = (data) => {
+      if (data.isSkipped) {
+        setBodyguardSkipped(true);
+        setBodyguardTarget(null);
+      } else {
+        setBodyguardTarget(data.targetId);
+        setBodyguardSkipped(false);
+      }
+    };
+
     // Nhận cập nhật vote ban ngày kèm voterMap
     const handleVoteUpdate = (data) => {
       setDayVoteCount(data.voteCount || {});
@@ -129,12 +148,14 @@ export default function GameScreen({
 
     socket.on('wolf-vote-update', handleWolfVoteUpdate);
     socket.on('seer-result', handleSeerResult);
+    socket.on('bodyguard-update', handleBodyguardUpdate);
     socket.on('vote-update', handleVoteUpdate);
     socket.on('vote-result', handleVoteResult);
 
     return () => {
       socket.off('wolf-vote-update', handleWolfVoteUpdate);
       socket.off('seer-result', handleSeerResult);
+      socket.off('bodyguard-update', handleBodyguardUpdate);
       socket.off('vote-update', handleVoteUpdate);
       socket.off('vote-result', handleVoteResult);
     };
@@ -147,6 +168,10 @@ export default function GameScreen({
     setIlluminatedPlayerId(null);
     if (phase !== PHASES.NIGHT_SEER) {
       setSeerPopupVisible(false);
+    }
+    if (phase !== PHASES.NIGHT_BODYGUARD) {
+      setBodyguardTarget(null);
+      setBodyguardSkipped(false);
     }
     if (phase === PHASES.DAY_ANNOUNCE || phase === PHASES.DAY_DISCUSSION) {
       setSeerResult(null);
@@ -175,6 +200,18 @@ export default function GameScreen({
     }
   }, [isNightSeer, myRole]);
 
+  // Hiệu ứng khiên hộ mệnh Bảo Vệ
+  useEffect(() => {
+    if (isNightBodyguard && myRole === 'bodyguard') {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(shieldPulse, { toValue: 1.15, duration: 800, useNativeDriver: true }),
+          Animated.timing(shieldPulse, { toValue: 1.0, duration: 800, useNativeDriver: true }),
+        ])
+      ).start();
+    }
+  }, [isNightBodyguard, myRole]);
+
   // Nhịp đập đồng hồ khi thời gian < 5s
   useEffect(() => {
     if (timeLeft <= 5 && timeLeft > 0) {
@@ -184,6 +221,25 @@ export default function GameScreen({
       ]).start();
     }
   }, [timeLeft]);
+
+  // Bảo vệ chọn người để bảo vệ đêm nay
+  const handleBodyguardTarget = (targetId) => {
+    if (!amAlive || myRole !== 'bodyguard' || !isNightBodyguard) return;
+    if (targetId === lastProtectedTarget) return;
+    setSelectedTarget(targetId);
+    setBodyguardTarget(targetId);
+    setBodyguardSkipped(false);
+    socket.emit('bodyguard-protect', { targetId });
+  };
+
+  // Bảo vệ bỏ lượt đêm nay
+  const handleBodyguardSkip = () => {
+    if (!amAlive || myRole !== 'bodyguard' || !isNightBodyguard) return;
+    setSelectedTarget(null);
+    setBodyguardTarget(null);
+    setBodyguardSkipped(true);
+    socket.emit('bodyguard-skip');
+  };
 
   // Sói vote cắn (chọn lại người khác tự do như checkbox/radio)
   const handleWolfTarget = (targetId) => {
@@ -226,6 +282,8 @@ export default function GameScreen({
 
   const getPhaseTitle = () => {
     switch (phase) {
+      case PHASES.NIGHT_BODYGUARD:
+        return `🛡️ Bảo Vệ Thức Giấc - Hiệp ${round}`;
       case PHASES.NIGHT_WOLF:
         return `🐺 Đêm Sói Săn - Hiệp ${round}`;
       case PHASES.NIGHT_SEER:
@@ -339,7 +397,19 @@ export default function GameScreen({
                 <View style={styles.announceCard}>
                   <Text style={styles.announceSun}>☀️</Text>
                   <Text style={styles.announceHeader}>BÌNH MINH LÊN</Text>
-                  {deadPlayer ? (
+                  {savedPlayer ? (
+                    <View style={styles.savedInfoBox}>
+                      <Text style={styles.savedShield}>🛡️</Text>
+                      <Text style={styles.savedHeader}>BẢO VỆ CỨU SỐNG THÀNH CÔNG!</Text>
+                      <Text style={styles.savedPlayerName}>{savedPlayer.name}</Text>
+                      <Text style={styles.savedNoticeText}>
+                        đã bị Ma Sói tấn công đêm qua, nhưng được Bảo Vệ che chở an toàn!
+                      </Text>
+                      <View style={styles.savedSecretBadge}>
+                        <Text style={styles.savedSecretText}>✨ Đêm qua không một ai thiệt mạng!</Text>
+                      </View>
+                    </View>
+                  ) : deadPlayer ? (
                     <View style={styles.deadInfoBox}>
                       <Text style={styles.deadSkull}>💀</Text>
                       <Text style={styles.deadPlayerName}>{deadPlayer.name}</Text>
@@ -376,7 +446,8 @@ export default function GameScreen({
                     const isMe = player.id === myId;
                     const isAlive = player.alive !== false;
                     const isMyWolfTarget = isNightWolf && myRole === 'wolf' && (wolfVotes[myId] === player.id || selectedTarget === player.id);
-                    const isTarget = isMyWolfTarget || dayVoteTarget === player.id || (isNightSeer && selectedTarget === player.id);
+                    const isMyBodyguardTarget = isNightBodyguard && myRole === 'bodyguard' && (bodyguardTarget === player.id || selectedTarget === player.id);
+                    const isTarget = isMyWolfTarget || dayVoteTarget === player.id || (isNightSeer && selectedTarget === player.id) || isMyBodyguardTarget;
                     const votes = dayVoteCount[player.id] || 0;
                     const voters = dayVoterMap[player.id] || [];
 
@@ -386,11 +457,15 @@ export default function GameScreen({
                       .filter(([_, tid]) => tid === player.id)
                       .map(([wid]) => players.find((p) => p.id === wid)?.name || 'Sói');
 
+                    // Điều kiện chọn của Bảo Vệ: Không thể bảo vệ cùng 1 người 2 đêm liên tiếp!
+                    const isLastProtected = isNightBodyguard && myRole === 'bodyguard' && player.id === lastProtectedTarget;
+                    const canBodyguardTarget = isNightBodyguard && myRole === 'bodyguard' && amAlive && isAlive && !isLastProtected;
+
                     // Điều kiện bấm vào ô (cho phép bấm chọn và đổi chọn bất cứ lúc nào)
                     const canVoteDay = phase === PHASES.DAY_VOTE && amAlive && isAlive;
                     const canWolfTarget = isNightWolf && myRole === 'wolf' && amAlive && isAlive && !isWolfTeammate;
                     const canSeerTarget = isNightSeer && myRole === 'seer' && amAlive && isAlive && !isMe && !seerResult;
-                    const isClickable = canVoteDay || canWolfTarget || canSeerTarget;
+                    const isClickable = canVoteDay || canWolfTarget || canSeerTarget || canBodyguardTarget;
 
                     return (
                       <TouchableOpacity
@@ -400,12 +475,14 @@ export default function GameScreen({
                           isClickable && styles.discordBoxClickable,
                           isTarget && styles.discordBoxSelected,
                           !isAlive && styles.discordBoxDead,
+                          isLastProtected && styles.discordBoxDisabled,
                         ]}
                         disabled={!isClickable}
                         onPress={() => {
                           if (canVoteDay) handleDayVote(player.id);
                           else if (canWolfTarget) handleWolfTarget(player.id);
                           else if (canSeerTarget) handleSeerTarget(player.id);
+                          else if (canBodyguardTarget) handleBodyguardTarget(player.id);
                         }}
                         activeOpacity={0.8}
                       >
@@ -420,6 +497,16 @@ export default function GameScreen({
                           {isWolfTeammate && !isMe && (
                             <View style={styles.discordWolfTeammateTag}>
                               <Text style={styles.discordWolfTeammateText}>🐺 Đồng đội</Text>
+                            </View>
+                          )}
+                          {isLastProtected && (
+                            <View style={styles.discordProtectedTag}>
+                              <Text style={styles.discordProtectedTagText}>🚫 Đêm trước</Text>
+                            </View>
+                          )}
+                          {isMyBodyguardTarget && (
+                            <View style={styles.discordShieldTag}>
+                              <Text style={styles.discordShieldTagText}>🛡️ Che chở</Text>
                             </View>
                           )}
                           {/* Checkbox indicator trực quan */}
@@ -486,8 +573,52 @@ export default function GameScreen({
             </ScrollView>
 
               {/* ================= THANH HÀNH ĐỘNG CỐ ĐỊNH DƯỚI ĐÁY MÀN HÌNH ================= */}
-              {(isNightWolf && myRole === 'wolf' && amAlive) || (isNightSeer && myRole === 'seer' && amAlive) || phase === PHASES.DAY_VOTE ? (
+              {(isNightBodyguard && myRole === 'bodyguard' && amAlive) || (isNightWolf && myRole === 'wolf' && amAlive) || (isNightSeer && myRole === 'seer' && amAlive) || phase === PHASES.DAY_VOTE ? (
                 <View style={styles.bottomActionBar}>
+                  {/* --- BANNER HÀNH ĐỘNG CỦA PHA BẢO VỆ (30S & 5S CHUYỂN TIẾP) --- */}
+                  {isNightBodyguard && myRole === 'bodyguard' && amAlive && (() => {
+                    const targetPlayer = players.find((p) => p.id === (bodyguardTarget || selectedTarget));
+
+                    return (
+                      <View style={styles.bodyguardActionCard}>
+                        <View style={styles.bodyguardTopRow}>
+                          <Animated.View style={[styles.shieldBallWrap, { transform: [{ scale: shieldPulse }] }]}>
+                            <Text style={styles.shieldBallEmoji}>🛡️</Text>
+                            <View style={styles.shieldRingAura} />
+                          </Animated.View>
+                          <View style={styles.bodyguardTextCol}>
+                            <Text style={styles.bodyguardActionTitle}>KHIÊN HỘ MỆNH BẢO VỆ (30 GIÂY)</Text>
+                            <Text style={styles.bodyguardActionSub}>
+                              {targetPlayer
+                                ? `Đang che chở cho: ${targetPlayer.name}. (Sẽ chuyển pha trong 5s nếu không đổi người khác)`
+                                : bodyguardSkipped
+                                ? 'Bạn đã chọn BỎ LƯỢT đêm nay (Sẽ chuyển pha trong 5s)'
+                                : 'Bấm vào 1 người để bảo vệ khỏi nanh vuốt Sói đêm nay (Không thể chọn người đêm trước):'}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Nút hành động bỏ lượt / chỉ dẫn đếm ngược */}
+                        <View style={styles.bodyguardActionBtnRow}>
+                          <TouchableOpacity
+                            style={[styles.bodyguardSkipBtn, bodyguardSkipped && styles.bodyguardSkipBtnActive]}
+                            onPress={handleBodyguardSkip}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.bodyguardSkipBtnText}>
+                              {bodyguardSkipped ? '✅ ĐÃ BỎ LƯỢT ĐÊM NAY' : '🏳️ Bỏ qua lượt bảo vệ'}
+                            </Text>
+                          </TouchableOpacity>
+                          {(bodyguardTarget || bodyguardSkipped) && (
+                            <View style={styles.bodyguardCountdownBadge}>
+                              <Text style={styles.bodyguardCountdownText}>⏳ Đang chốt: chuyển sau {timeLeft}s</Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                    );
+                  })()}
+
                   {/* --- BANNER HÀNH ĐỘNG CỦA PHA SÓI (1P30S & NÚT CHỐT SAU KHI TẤT CẢ ĐÃ CẮN) --- */}
                   {isNightWolf && myRole === 'wolf' && amAlive && (() => {
                     const aliveWolves = players.filter((p) => p.role === 'wolf' && p.alive !== false);
@@ -1643,5 +1774,174 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+
+  // Thông báo Bình Minh khi Bảo Vệ cứu người
+  savedInfoBox: {
+    alignItems: 'center',
+    padding: 18,
+    borderRadius: 20,
+    backgroundColor: 'rgba(14, 165, 233, 0.15)',
+    borderWidth: 1.5,
+    borderColor: '#38BDF8',
+    width: '100%',
+    marginVertical: 10,
+  },
+  savedShield: {
+    fontSize: 48,
+    marginBottom: 8,
+  },
+  savedHeader: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#38BDF8',
+    letterSpacing: 1.5,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  savedPlayerName: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  savedNoticeText: {
+    fontSize: 14,
+    color: '#E0F2FE',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  savedSecretBadge: {
+    backgroundColor: 'rgba(14, 165, 233, 0.25)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#0284C7',
+  },
+  savedSecretText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#BAE6FD',
+  },
+
+  // Tags trên ô Discord cho Bảo Vệ
+  discordProtectedTag: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#EF4444',
+  },
+  discordProtectedTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FCA5A5',
+  },
+  discordShieldTag: {
+    backgroundColor: 'rgba(14, 165, 233, 0.25)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#38BDF8',
+  },
+  discordShieldTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#7DD3FC',
+  },
+  discordBoxDisabled: {
+    opacity: 0.45,
+  },
+
+  // Banner hành động của Bảo Vệ
+  bodyguardActionCard: {
+    backgroundColor: 'rgba(14, 165, 233, 0.16)',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: '#0284C7',
+    marginBottom: 10,
+  },
+  bodyguardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  shieldBallWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(14, 165, 233, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    borderWidth: 1.5,
+    borderColor: '#38BDF8',
+  },
+  shieldBallEmoji: {
+    fontSize: 26,
+  },
+  shieldRingAura: {
+    position: 'absolute',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+  },
+  bodyguardTextCol: {
+    flex: 1,
+  },
+  bodyguardActionTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#38BDF8',
+    letterSpacing: 1,
+    marginBottom: 3,
+  },
+  bodyguardActionSub: {
+    fontSize: 12,
+    color: '#E0F2FE',
+    lineHeight: 17,
+  },
+  bodyguardActionBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  bodyguardSkipBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  bodyguardSkipBtnActive: {
+    backgroundColor: '#0284C7',
+    borderColor: '#38BDF8',
+  },
+  bodyguardSkipBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  bodyguardCountdownBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.25)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#34D399',
+  },
+  bodyguardCountdownText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#6EE7B7',
   },
 });

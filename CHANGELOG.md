@@ -4,6 +4,25 @@ Tất cả các thay đổi, cập nhật kiến trúc và tính năng của d�
 
 ---
 
+## [1.6.0] - 2026-10-23
+
+### 🛡️ Thêm Vai Trò Mới: BẢO VỆ (Bodyguard Role)
+- **Chu kỳ thức giấc ban đêm:** Bảo Vệ thức dậy đầu tiên trong đêm (trước cả Ma Sói) trong pha `night_bodyguard`, có 30 giây để chọn 1 người chơi che chở.
+- **Cơ chế chuyển pha tự động trong 5 giây:** Khi Bảo Vệ chọn 1 người chơi mà không thay đổi thì hệ thống tự động rút thời gian xuống 5 giây để chuyển tiếp sang lượt Sói. Nếu Bảo Vệ đổi sang người khác trong 5 giây này, bộ đếm 5s sẽ được khởi tạo lại từ đầu.
+- **Không chọn thì mất lượt & Cơ chế Bỏ lượt:** Nếu hết 30s không chọn ai thì mất lượt bảo vệ đêm đó. Bổ sung nút `🏳️ Bỏ qua lượt bảo vệ` để chủ động bỏ lượt và chuyển pha trong 5 giây.
+- **Luật không bảo vệ 1 người 2 đêm liên tiếp:** Hệ thống lưu lịch sử mục tiêu bảo vệ (`lastProtectedTarget`), ngăn chặn và khóa (disable) không cho chọn cùng một người trong 2 đêm liên tiếp (bao gồm cả việc tự bảo vệ chính mình).
+- **Cứu sống nạn nhân khỏi Ma Sói:** Nếu Sói tấn công đúng người được Bảo Vệ che chở, nạn nhân sẽ không bị chết và tiếp tục sống sót an toàn.
+- **Thông báo Bình Minh có chọn lọc:**
+  - **Khi bảo vệ đúng người:** Trời sáng hiển thị thông báo chiến công: *"🛡️ BẢO VỆ CỨU SỐNG THÀNH CÔNG! [Tên người chơi] đã bị Ma Sói tấn công đêm qua, nhưng được Bảo Vệ che chở an toàn! Không một ai thiệt mạng!"*.
+  - **Khi không bảo vệ đúng người:** Giữ bí mật tuyệt đối về hành động của Bảo Vệ, thông báo nạn nhân bị Sói cắn chết bình thường hoặc thông báo đêm bình yên nếu Sói không cắn.
+- **Tích hợp giao diện & Cấu hình:**
+  - Thêm biểu tượng `🛡️`, mã màu xanh thiên thanh `#0EA5E9` vào hệ thống tokens.
+  - Bổ sung cấu hình số lượng Bảo Vệ trong cài đặt phòng (`RoomSettings`), hỗ trợ tăng/giảm và tự động cân bằng số vai trò.
+  - Cập nhật cẩm nang hướng dẫn vai trò (`RoleGuideModal`) và thẻ lật bài (`RoleCard`) với khẩu hiệu: `"SHIELD YOUR VILLAGE FROM CLAWS"`.
+  - Hiển thị nhãn `🛡️ Che chở` và `🚫 Đêm trước` trực tiếp trên các ô người chơi Discord Tile của Bảo Vệ.
+
+---
+
 ## [1.5.0] - 2026-10-23
 
 ### 🎨 Cập Nhật Giao Diện & Trải Nghiệm (UI/UX Updates)

@@ -38,6 +38,9 @@ export default function App() {
   const [round, setRound] = useState(1);
   const [timeLeft, setTimeLeft] = useState(0);
   const [deadPlayer, setDeadPlayer] = useState(null);
+  const [savedPlayer, setSavedPlayer] = useState(null);
+  const [wasProtected, setWasProtected] = useState(false);
+  const [lastProtectedTarget, setLastProtectedTarget] = useState(null);
   const [winner, setWinner] = useState(null);
   const [winMessage, setWinMessage] = useState('');
   const [messages, setMessages] = useState([]);
@@ -110,6 +113,9 @@ export default function App() {
       setPhase('night');
       setRound(1);
       setDeadPlayer(null);
+      setSavedPlayer(null);
+      setWasProtected(false);
+      setLastProtectedTarget(null);
       setWinner(null);
       setWinMessage('');
       setShowRoleReveal(true);
@@ -126,6 +132,9 @@ export default function App() {
       setPhase(data.phase);
       if (data.round !== undefined) setRound(data.round);
       if (data.deadPlayer !== undefined) setDeadPlayer(data.deadPlayer);
+      if (data.savedPlayer !== undefined) setSavedPlayer(data.savedPlayer);
+      if (data.wasProtected !== undefined) setWasProtected(data.wasProtected);
+      if (data.lastProtectedTarget !== undefined) setLastProtectedTarget(data.lastProtectedTarget);
       if (data.players) setPlayers(data.players);
       if (data.winner) setWinner(data.winner);
       if (data.message) setWinMessage(data.message);
@@ -161,6 +170,9 @@ export default function App() {
       setMyRole(null);
       setPhase('waiting');
       setDeadPlayer(null);
+      setSavedPlayer(null);
+      setWasProtected(false);
+      setLastProtectedTarget(null);
       setWinner(null);
       setWinMessage('');
       setMessages([]);
@@ -181,6 +193,9 @@ export default function App() {
     setPlayers([]);
     setMyRole(null);
     setDeadPlayer(null);
+    setSavedPlayer(null);
+    setWasProtected(false);
+    setLastProtectedTarget(null);
     setWinner(null);
     setWinMessage('');
     setMessages([]);
@@ -209,7 +224,7 @@ export default function App() {
     }
   };
 
-  const isNightTheme = currentScreen === 'game' && (phase === 'night' || phase === 'night_wolf' || phase === 'night_seer');
+  const isNightTheme = currentScreen === 'game' && (phase === 'night' || phase === 'night_wolf' || phase === 'night_seer' || phase === 'night_bodyguard');
 
   return (
     <SafeAreaView style={styles.container}>
@@ -267,6 +282,9 @@ export default function App() {
           round={round}
           timeLeft={timeLeft}
           deadPlayer={deadPlayer}
+          savedPlayer={savedPlayer}
+          wasProtected={wasProtected}
+          lastProtectedTarget={lastProtectedTarget}
           winner={winner}
           winMessage={winMessage}
           messages={messages}

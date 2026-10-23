@@ -35,7 +35,7 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
   const [roomCode, setRoomCode] = useState('');
   const [localError, setLocalError] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [settings, setSettings] = useState({ maxPlayers: 6, numWolves: 2, numSeers: 1 });
+  const [settings, setSettings] = useState({ maxPlayers: 6, numWolves: 2, numSeers: 1, numBodyguards: 1 });
   const [customAvatar, setCustomAvatar] = useState(null);
 
   // Hidden file input ref for web

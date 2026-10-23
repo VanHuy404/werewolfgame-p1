@@ -54,6 +54,7 @@ export default function RoleCard({ role, visible = false }) {
   const roleDescriptions = {
     wolf: 'KILL OR BE KILLED',
     seer: 'HELP YOUR TEAM WITH YOUR MAGIC',
+    bodyguard: 'SHIELD YOUR VILLAGE FROM CLAWS',
     villager: 'SURVIVE AND FIND THE WOLFS',
   };
 

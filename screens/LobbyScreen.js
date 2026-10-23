@@ -48,7 +48,8 @@ export default function LobbyScreen({
   const isHost = myId === hostId;
   const numWolves = settings.numWolves !== undefined ? settings.numWolves : 2;
   const numSeers = settings.numSeers !== undefined ? settings.numSeers : 1;
-  const numVillagers = Math.max(0, players.length - numWolves - numSeers);
+  const numBodyguards = settings.numBodyguards !== undefined ? settings.numBodyguards : 1;
+  const numVillagers = Math.max(0, players.length - numWolves - numSeers - numBodyguards);
 
   // Điều kiện bắt đầu game: Có tối thiểu 4 người chơi
   const canStart = players.length >= 4;

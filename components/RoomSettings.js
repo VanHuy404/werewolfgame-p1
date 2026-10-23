@@ -29,6 +29,7 @@ export default function RoomSettings({
 }) {
   const [numWolves, setNumWolves] = useState(2);
   const [numSeers, setNumSeers] = useState(1);
+  const [numBodyguards, setNumBodyguards] = useState(1);
   const [dayDiscussionTime, setDayDiscussionTime] = useState(60);
   const [dayVoteTime, setDayVoteTime] = useState(25);
 
@@ -37,18 +38,20 @@ export default function RoomSettings({
     if (initialSettings && visible) {
       setNumWolves(initialSettings.numWolves !== undefined ? initialSettings.numWolves : 2);
       setNumSeers(initialSettings.numSeers !== undefined ? initialSettings.numSeers : 1);
+      setNumBodyguards(initialSettings.numBodyguards !== undefined ? initialSettings.numBodyguards : 1);
       setDayDiscussionTime(initialSettings.dayDiscussionTime || 60);
       setDayVoteTime(initialSettings.dayVoteTime || 25);
     }
   }, [initialSettings, visible]);
 
   // Tính số Dân Làng dựa trên số lượng người tham gia thực tế
-  const numVillagers = Math.max(0, currentPlayerCount - numWolves - numSeers);
+  const numVillagers = Math.max(0, currentPlayerCount - numWolves - numSeers - numBodyguards);
 
   // === VALIDATION ===
   // Sói phải nhỏ hơn tổng dân khi đã có từ 4 người chơi trở lên
-  const isWolfValid = currentPlayerCount < 4 || numWolves < (numSeers + numVillagers);
-  const isValid = numWolves >= 0 && numSeers >= 0;
+  const totalGood = numSeers + numBodyguards + numVillagers;
+  const isWolfValid = currentPlayerCount < 4 || numWolves < totalGood;
+  const isValid = numWolves >= 0 && numSeers >= 0 && numBodyguards >= 0;
 
   // Hàm thay đổi số an toàn
   const adjustValue = (setter, current, delta, min = 0) => {
@@ -60,7 +63,7 @@ export default function RoomSettings({
 
   const handleConfirm = () => {
     if (!isValid || readOnly) return;
-    onConfirm({ numWolves, numSeers, dayDiscussionTime, dayVoteTime });
+    onConfirm({ numWolves, numSeers, numBodyguards, dayDiscussionTime, dayVoteTime });
   };
 
   return (
@@ -120,6 +123,18 @@ export default function RoomSettings({
               readOnly={readOnly}
             />
 
+            {/* Số Bảo Vệ */}
+            <SettingRow
+              emoji="🛡️"
+              label="Số Bảo Vệ"
+              value={numBodyguards}
+              onDecrease={() => adjustValue(setNumBodyguards, numBodyguards, -1, 0)}
+              onIncrease={() => adjustValue(setNumBodyguards, numBodyguards, 1, 0)}
+              min={0}
+              color={COLORS.bodyguard}
+              readOnly={readOnly}
+            />
+
             {/* Thời gian thảo luận */}
             <SettingRow
               emoji="🗣️"
@@ -176,6 +191,7 @@ export default function RoomSettings({
               <View style={styles.summaryGrid}>
                 <SummaryItem emoji="🐺" label="Sói" count={numWolves} color={COLORS.wolf} />
                 <SummaryItem emoji="🔮" label="T.Tri" count={numSeers} color={COLORS.seer} />
+                <SummaryItem emoji="🛡️" label="B.Vệ" count={numBodyguards} color={COLORS.bodyguard} />
                 <SummaryItem emoji="🧑‍🌾" label="Dân" count={numVillagers} color={COLORS.villager} />
                 <SummaryItem emoji="👥" label="Tổng" count={currentPlayerCount} color={COLORS.primary} />
               </View>
@@ -185,7 +201,7 @@ export default function RoomSettings({
             {!isWolfValid && numWolves > 0 && (
               <View style={styles.errorBox}>
                 <Text style={styles.errorText}>
-                  ⚠️ Lưu ý: Khi bắt đầu trận, số Sói ({numWolves}) nên nhỏ hơn tổng Dân ({numSeers + numVillagers})!
+                  ⚠️ Lưu ý: Khi bắt đầu trận, số Sói ({numWolves}) nên nhỏ hơn tổng Phe Dân ({totalGood})!
                 </Text>
               </View>
             )}
