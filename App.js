@@ -46,6 +46,7 @@ export default function App() {
   const [winMessage, setWinMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [showRoleReveal, setShowRoleReveal] = useState(false);
+  const [seerHistory, setSeerHistory] = useState({});
 
   // Khởi tạo Socket.io một lần duy nhất
   useEffect(() => {
@@ -126,6 +127,7 @@ export default function App() {
       setSavedPlayer(data.savedPlayer || null);
       setWasProtected(Boolean(data.wasProtected));
       setLastProtectedTarget(data.lastProtectedTarget || null);
+      setSeerHistory(data.seerHistory || {});
       setCurrentScreen('game');
       setError(null);
     });
@@ -183,6 +185,7 @@ export default function App() {
       setLastProtectedTarget(null);
       setWinner(null);
       setWinMessage('');
+      setSeerHistory({});
       setShowRoleReveal(true);
       setCurrentScreen('game');
 
@@ -241,6 +244,7 @@ export default function App() {
       setWinner(null);
       setWinMessage('');
       setMessages([]);
+      setSeerHistory({});
       setShowRoleReveal(false);
       setCurrentScreen('lobby');
       setError(null);
@@ -265,6 +269,7 @@ export default function App() {
     setWinner(null);
     setWinMessage('');
     setMessages([]);
+    setSeerHistory({});
     setError(null);
   };
 
@@ -359,6 +364,7 @@ export default function App() {
           onLeaveGame={handleLeaveRoom}
           myId={myId}
           hostId={hostId}
+          initialSeerHistory={seerHistory}
         />
       )}
 

@@ -6,7 +6,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Dimensions, Platform, Animated, Modal,
+  Dimensions, Platform, Animated, Modal, useWindowDimensions,
 } from 'react-native';
 import { COLORS } from '../utils/colors';
 import PlayerAvatar from '../components/PlayerAvatar';
@@ -41,6 +41,9 @@ export default function LobbyScreen({
   error,
   onLeave,
 }) {
+  const { width: windowWidth } = useWindowDimensions();
+  const isMobileScreen = windowWidth < 500;
+
   const [showSettings, setShowSettings] = useState(false);
   const [showRoleGuide, setShowRoleGuide] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -180,10 +183,16 @@ export default function LobbyScreen({
 
           <View style={styles.playerGrid}>
             {players.map((player) => (
-              <View key={player.id} style={styles.playerSlot}>
+              <View
+                key={player.id}
+                style={[
+                  styles.playerSlot,
+                  isMobileScreen && { width: (windowWidth - 48) / 3 - 8, minWidth: 80 },
+                ]}
+              >
                 <PlayerAvatar
                   player={player}
-                  size="large"
+                  size={isMobileScreen ? "medium" : "large"}
                   showRole={false}
                   textColor="#F8FAFC"
                 />

@@ -7,6 +7,7 @@ import React, { useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   SafeAreaView, ImageBackground, Animated, Dimensions, Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { COLORS, getRoleColor, getRoleName, getRoleEmoji } from '../utils/colors';
 
@@ -37,6 +38,7 @@ export default function GameOverScreen({
   onReturnToLobby,
   onLeaveGame,
 }) {
+  const { width: windowWidth } = useWindowDimensions();
   const isVillagerWin = winner !== 'wolves';
   const scaleAnim = useRef(new Animated.Value(0.7)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -117,6 +119,7 @@ export default function GameOverScreen({
                       key={p.id}
                       style={[
                         styles.playerRevealTile,
+                        { width: windowWidth > 600 ? 150 : '45%' },
                         isMe && styles.playerRevealTileMe,
                         !isAlive && styles.playerRevealTileDead,
                       ]}

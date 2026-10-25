@@ -541,6 +541,7 @@ io.on('connection', (socket) => {
 
     // Phân vai ngẫu nhiên
     assignRoles(room);
+    room.seerHistory = {};
 
     console.log(`🎮 Phòng ${room.code} bắt đầu game! (${playerCount} người chơi)`);
 
@@ -701,12 +702,21 @@ io.on('connection', (socket) => {
     const player = room.players.get(socket.id);
     if (!player || player.role !== ROLES.SEER || !player.alive) return;
 
+    // Đã soi rồi trong đêm này thì không soi lại
+    if (room.nightActions.seerCheck) return;
+
     const target = room.players.get(targetId);
-    if (!target || target.id === socket.id) return;
+    if (!target || !target.alive || target.id === socket.id) return;
 
     room.nightActions.seerCheck = { seerId: socket.id, targetId };
 
     const isEvil = target.role === ROLES.WOLF;
+
+    if (!room.seerHistory) room.seerHistory = {};
+    room.seerHistory[targetId] = {
+      alignment: isEvil ? 'evil' : 'good',
+      alignmentName: isEvil ? 'ÁC' : 'THIỆN',
+    };
 
     // Tiên Tri chỉ được biết là THIỆN hay ÁC, không được biết vai trò cụ thể!
     socket.emit('seer-result', {
@@ -717,6 +727,7 @@ io.on('connection', (socket) => {
       isWolf: isEvil,
       alignment: isEvil ? 'evil' : 'good',
       alignmentName: isEvil ? 'ÁC' : 'THIỆN',
+      seerHistory: room.seerHistory,
     });
 
     // YÊU CẦU: Thời gian của Tiên Tri sẽ hết sau 5s sau khi soi được!
@@ -991,6 +1002,7 @@ io.on('connection', (socket) => {
         savedPlayer: (room.nightActions && room.nightActions.wasProtected && room.savedThisNight) ? room.players.get(room.savedThisNight) : null,
         wasProtected: Boolean(room.nightActions && room.nightActions.wasProtected),
         lastProtectedTarget: room.nightActions ? room.nightActions.lastProtectedTarget : null,
+        seerHistory: existingPlayer.role === ROLES.SEER ? (room.seerHistory || {}) : {},
       });
 
       io.to(room.code).emit('players-update', {
@@ -1098,6 +1110,7 @@ io.on('connection', (socket) => {
     room.deadThisNight = null;
     room.attackedThisNight = null;
     room.savedThisNight = null;
+    room.seerHistory = {};
     room.messages = [];
     room.nightActions = {
       wolfVotes: new Map(),

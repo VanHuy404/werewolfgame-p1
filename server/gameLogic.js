@@ -80,6 +80,7 @@ function createRoom(hostId, hostName, settings = {}, customAvatar = null) {
     deadThisNight: null,     // ID người chết ban đêm
     attackedThisNight: null, // ID người bị Sói cắn
     savedThisNight: null,    // ID người được Bảo Vệ cứu sống
+    seerHistory: {},         // { [targetId]: { alignment, alignmentName } } - Lịch sử soi của Tiên Tri
     messages: [],
     round: 0,
     timer: null,
@@ -216,13 +217,12 @@ function processNightActions(room) {
     }
   });
 
-  // Xác định người bị Sói tấn công
+  // Xác định người bị Sói tấn công (Người có số vote cao nhất. Hòa phiếu hoặc không ai vote -> Không ai chết đêm đó)
   let attackedPlayerId = null;
   if (targets.length === 1 && maxVotes > 0) {
     attackedPlayerId = targets[0];
-  } else if (targets.length > 1 && maxVotes > 0) {
-    attackedPlayerId = targets[Math.floor(Math.random() * targets.length)];
   }
+  // Nếu hòa phiếu (targets.length > 1) hoặc không ai vote -> attackedPlayerId = null (Không ai bị cắn)
 
   // Kiểm tra mục tiêu của Bảo Vệ
   const protectedPlayerId = room.nightActions.bodyguardTarget || null;

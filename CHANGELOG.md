@@ -4,6 +4,40 @@ Tất cả các thay đổi, cập nhật kiến trúc và tính năng của d�
 
 ---
 
+## [1.7.0] - 2026-10-25
+
+### 📱💻 Tối Ưu Hóa Đa Nền Tảng (PC & Mobile Responsiveness)
+- **Cơ chế Layout Tự Động Phản Ứng (Dynamic Window Dimensions):** Chuyển đổi toàn bộ cơ chế đọc độ rộng màn hình sang `useWindowDimensions()`, giúp giao diện phản hồi mượt mà ngay lập tức khi xoay ngang/dọc điện thoại hoặc co giãn cửa sổ trình duyệt trên máy tính.
+- **Tối ưu Khung Chat PC & Mobile (`GameScreen` & `ChatBox`):**
+  - **Trên PC (màn hình > 860px):** Khung chat được ghim cố định bên phải (Sidebar 380px) song song với sàn đấu. Nút tròn FAB nổi `💬` tự động ẩn đi để không đè lên ô nhập tin nhắn chat dưới góc phải.
+  - **Trên Mobile (màn hình <= 860px):** Tự động ẩn sidebar để tối ưu toàn bộ diện tích cho các ô người chơi Discord. Nút tròn nổi `💬` hiển thị kèm huy hiệu số tin nhắn chưa đọc. Bấm vào sẽ mở khung chat dạng modal toàn màn hình, hỗ trợ nút `⬇️ Thu nhỏ` để quay lại bàn đấu tức thì.
+- **Tối ưu Danh Sách Người Chơi Phòng Chờ (`LobbyScreen`):**
+  - **Trên điện thoại (< 500px):** Tự động chia 3 cột avatar với kích thước chuẩn (`medium`), loại bỏ triệt để hiện tượng vỡ khung, tràn lề hoặc các avatar đè lấn nhau.
+  - **Trên máy tính / tablet (>= 500px):** Hiển thị 4 cột avatar kích thước lớn (`large`) rộng rãi, sang trọng.
+- **Màn Hình Kết Thúc (`GameOverScreen`):** Thẻ danh tính người chơi tự động co giãn (`45%` trên điện thoại và `150px` trên máy tính) sắc nét và hài hòa.
+
+### 🧠 Kiểm Tra & Củng Cố Logic Các Vai Trò (Roles Logic Audit)
+- **🐺 Ma Sói (Werewolf):**
+  - Đồng bộ chuẩn xác quy tắc hòa phiếu đêm: Khi các Sói bất đồng quan điểm và hòa phiếu (ví dụ: 1 phiếu chọn A, 1 phiếu chọn B), Sói sẽ mất lượt cắn đêm đó và không ai chết (trước đó chọn ngẫu nhiên 1 trong 2).
+  - Khóa chat Sói khi đến giờ Bỏ Phiếu (`day_vote`) và mở lại khi thảo luận/ban đêm.
+  - Ngăn Sói chọn cắn đồng đội Sói và hỗ trợ cơ chế chốt/hủy chốt đổi mồi linh hoạt.
+- **🔮 Tiên Tri (Seer):**
+  - **Hiển thị nhãn THIỆN / ÁC dưới tên:** Sau khi Tiên Tri soi xong một người chơi, kết quả thân phận (`🕊️ PHE THIỆN` hoặc `🐺 PHE ÁC`) sẽ được hiển thị cố định ngay bên dưới tên của người đó trên ô thẻ bài của riêng Tiên Tri. Kết quả này được lưu trữ xuyên suốt trận đấu và đồng bộ cả khi tải lại trang, giúp Tiên Tri dễ dàng theo dõi và không cần phải ghi nhớ thủ công.
+  - Thêm chốt chặn server chống spam soi nhiều lần trong một đêm (`seerCheck`).
+  - Chặn Tiên Tri soi người đã chết từ các vòng trước hoặc tự soi chính mình.
+  - Bảo mật tuyệt đối kết quả soi: chỉ tiết lộ `PHE THIỆN` hoặc `PHE ÁC`, đồng hồ tự đếm ngược 5 giây sau khi soi.
+- **🛡️ Bảo Vệ (Bodyguard):**
+  - Duy trì chu kỳ thức dậy đầu tiên mỗi đêm trước Sói.
+  - Kiểm tra và thực thi nghiêm ngặt luật không bảo vệ cùng 1 người trong 2 đêm liên tiếp (cả client và server).
+  - Cơ chế tự động rút xuống 5s khi chọn hoặc bỏ lượt; reset lại 5s nếu đổi mục tiêu.
+  - Ẩn danh tuyệt đối nếu không cứu đúng người, hiển thị chiến công vinh danh khi cứu sống nạn nhân thành công.
+- **🧑‍🌾 Dân Làng (Villager):**
+  - Ngủ say ban đêm, thảo luận sôi nổi và bỏ phiếu ban ngày.
+  - Hỗ trợ cơ chế Bỏ Phiếu Trắng (Skip Vote) bảo vệ làng an toàn khi hòa phiếu.
+  - Giữ bí mật thân phận khi chết (chỉ hiện lý do chết, không lộ vai trò).
+
+---
+
 ## [1.6.0] - 2026-10-23
 
 ### 🛡️ Thêm Vai Trò Mới: BẢO VỆ (Bodyguard Role)

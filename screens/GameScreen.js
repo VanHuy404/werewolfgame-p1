@@ -14,7 +14,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Dimensions, Animated, Modal, Platform, SafeAreaView,
-  ImageBackground,
+  ImageBackground, useWindowDimensions,
 } from 'react-native';
 import { COLORS, getRoleColor, getRoleName, getRoleEmoji } from '../utils/colors';
 import PlayerAvatar from '../components/PlayerAvatar';
@@ -55,12 +55,17 @@ export default function GameScreen({
   onLeaveGame,
   myId,
   hostId,
+  initialSeerHistory = {},
 }) {
+  const { width: windowWidth } = useWindowDimensions();
+  const isMobile = windowWidth <= 860;
+
   // Trạng thái hành động
   const [selectedTarget, setSelectedTarget] = useState(null);
   const [wolfVotes, setWolfVotes] = useState({}); // { wolfId: targetId }
   const [wolfConfirmed, setWolfConfirmed] = useState([]); // [ wolfId ]
   const [seerResult, setSeerResult] = useState(null); // { targetName, alignment, isWolf }
+  const [seerHistory, setSeerHistory] = useState(initialSeerHistory || {});
   const [seerPopupVisible, setSeerPopupVisible] = useState(false);
   const [illuminatedPlayerId, setIlluminatedPlayerId] = useState(null);
   const [bodyguardTarget, setBodyguardTarget] = useState(null);
@@ -106,6 +111,15 @@ export default function GameScreen({
     // Tiên Tri nhận kết quả soi
     const handleSeerResult = (data) => {
       setSeerResult(data);
+      if (data.targetId) {
+        setSeerHistory((prev) => ({
+          ...prev,
+          [data.targetId]: {
+            alignment: data.alignment,
+            alignmentName: data.alignmentName,
+          },
+        }));
+      }
       setSeerPopupVisible(true);
       popupScaleAnim.setValue(0.7);
       popupOpacityAnim.setValue(0);
@@ -563,6 +577,29 @@ export default function GameScreen({
                           </Text>
                         </View>
 
+                        {/* ================= HIỂN THỊ THIỆN HOẶC ÁC DƯỚI TÊN CHO TIÊN TRI ================= */}
+                        {myRole === 'seer' && seerHistory[player.id] && (
+                          <View
+                            style={[
+                              styles.seerCheckedBadge,
+                              seerHistory[player.id].alignment === 'evil'
+                                ? styles.seerCheckedBadgeEvil
+                                : styles.seerCheckedBadgeGood,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.seerCheckedBadgeText,
+                                seerHistory[player.id].alignment === 'evil'
+                                  ? styles.seerCheckedTextEvil
+                                  : styles.seerCheckedTextGood,
+                              ]}
+                            >
+                              {seerHistory[player.id].alignment === 'evil' ? '🐺 PHE ÁC' : '🕊️ PHE THIỆN'}
+                            </Text>
+                          </View>
+                        )}
+
                         {/* Trạng thái sống/chết (KHÔNG TIẾT LỘ VAI TRÒ) */}
                         <Text style={[styles.discordStatusLabel, !isAlive && styles.discordStatusLabelDead]}>
                           {isAlive ? '🟢 Sống' : '💀 Hồn ma'}
@@ -754,7 +791,7 @@ export default function GameScreen({
               style={[
                 styles.chatColumn,
                 mobileChatVisible && styles.chatColumnMobileVisible,
-                !mobileChatVisible && SCREEN_WIDTH <= 860 && styles.chatColumnHidden,
+                !mobileChatVisible && isMobile && styles.chatColumnHidden,
               ]}
             >
               <ChatBox
@@ -815,8 +852,8 @@ export default function GameScreen({
             </View>
           </Modal>
 
-          {/* NÚT THU NHỎ / MỞ RỘNG CHAT BẰNG ICON TRÊN MOBILE */}
-          {!mobileChatVisible && (
+          {/* NÚT THU NHỎ / MỞ RỘNG CHAT BẰNG ICON TRÊN MOBILE (Chỉ hiện khi trên điện thoại/màn hình nhỏ) */}
+          {isMobile && !mobileChatVisible && (
             <TouchableOpacity
               style={styles.floatingChatFab}
               onPress={() => setMobileChatVisible(true)}
@@ -1670,6 +1707,35 @@ const styles = StyleSheet.create({
   },
   discordStatusLabelDead: {
     color: '#EF4444',
+  },
+  seerCheckedBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 4,
+    marginBottom: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  seerCheckedBadgeEvil: {
+    backgroundColor: 'rgba(239, 68, 68, 0.24)',
+    borderColor: '#EF4444',
+  },
+  seerCheckedBadgeGood: {
+    backgroundColor: 'rgba(16, 185, 129, 0.24)',
+    borderColor: '#10B981',
+  },
+  seerCheckedBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  seerCheckedTextEvil: {
+    color: '#F87171',
+  },
+  seerCheckedTextGood: {
+    color: '#34D399',
   },
 
   // Game Over
