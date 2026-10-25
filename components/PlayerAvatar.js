@@ -85,10 +85,11 @@ export default function PlayerAvatar({
     outputRange: ['transparent', COLORS.secondary],
   });
 
-  const isCustomImage = isAlive && player.avatar && (
+  const isCustomImage = typeof player?.avatar === 'string' && (
     player.avatar.startsWith('data:') ||
     player.avatar.startsWith('http') ||
-    player.avatar.startsWith('blob:')
+    player.avatar.startsWith('blob:') ||
+    player.avatar.length > 30
   );
 
   const content = (
@@ -125,20 +126,32 @@ export default function PlayerAvatar({
             backgroundColor: isAlive ? (player.avatarColor || '#4ECDC4') : '#9CA3AF',
             borderColor: selected ? COLORS.secondary : 'transparent',
             borderWidth: selected ? 3 : 0,
-            opacity: isAlive ? 1 : 0.5,
+            opacity: isAlive ? 1 : 0.6,
             overflow: 'hidden',
           },
         ]}
       >
         {isCustomImage ? (
-          <Image
-            source={{ uri: player.avatar }}
-            style={{ width: s.avatar, height: s.avatar, borderRadius: s.avatar / 2 }}
-            resizeMode="cover"
-          />
+          <View style={{ width: s.avatar, height: s.avatar, borderRadius: s.avatar / 2, overflow: 'hidden' }}>
+            <Image
+              source={{ uri: player.avatar }}
+              style={{
+                width: s.avatar,
+                height: s.avatar,
+                borderRadius: s.avatar / 2,
+                opacity: isAlive ? 1 : 0.35,
+              }}
+              resizeMode="cover"
+            />
+            {!isAlive && (
+              <View style={styles.deadOverlay}>
+                <Text style={{ fontSize: s.emoji * 0.9 }}>💀</Text>
+              </View>
+            )}
+          </View>
         ) : (
           <Text style={[styles.emoji, { fontSize: s.emoji }]}>
-            {isAlive ? (player.avatar || '🐺') : '💀'}
+            {isAlive ? (isCustomImage ? '👤' : (player.avatar || '🐺')) : '💀'}
           </Text>
         )}
 
@@ -312,5 +325,11 @@ const styles = StyleSheet.create({
       : { shadowColor: '#38BDF8', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 15 }),
     zIndex: 1,
     alignSelf: 'center',
+  },
+  deadOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
   },
 });

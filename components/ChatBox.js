@@ -118,7 +118,6 @@ export default function ChatBox({
       ]}>
         {!isMe && (
           <View style={styles.senderRow}>
-            <Text style={styles.senderAvatar}>{item.avatar}</Text>
             <Text style={[
               styles.senderName,
               item.isWolfChat && { color: COLORS.wolf },

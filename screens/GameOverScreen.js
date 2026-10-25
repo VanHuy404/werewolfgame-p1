@@ -7,7 +7,7 @@ import React, { useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   SafeAreaView, ImageBackground, Animated, Dimensions, Platform,
-  useWindowDimensions,
+  useWindowDimensions, Image,
 } from 'react-native';
 import { COLORS, getRoleColor, getRoleName, getRoleEmoji } from '../utils/colors';
 
@@ -126,8 +126,16 @@ export default function GameOverScreen({
                     >
                       {/* Avatar */}
                       <View style={styles.avatarWrapper}>
-                        <View style={[styles.avatarCircle, { backgroundColor: p.avatarColor || '#4C1D95' }]}>
-                          <Text style={styles.avatarEmoji}>{p.avatar || '👤'}</Text>
+                        <View style={[styles.avatarCircle, { backgroundColor: p.avatarColor || '#4C1D95', overflow: 'hidden' }]}>
+                          {typeof p.avatar === 'string' && (p.avatar.startsWith('data:') || p.avatar.startsWith('http') || p.avatar.startsWith('blob:') || p.avatar.length > 25) ? (
+                            <Image
+                              source={{ uri: p.avatar }}
+                              style={{ width: 60, height: 60, borderRadius: 30 }}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <Text style={styles.avatarEmoji}>{p.avatar || '👤'}</Text>
+                          )}
                         </View>
                         {isMe && (
                           <View style={styles.meBadge}>

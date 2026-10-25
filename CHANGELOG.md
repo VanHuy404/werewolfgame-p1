@@ -4,6 +4,21 @@ Tất cả các thay đổi, cập nhật kiến trúc và tính năng của d�
 
 ---
 
+## [1.7.1] - 2026-10-25
+
+### 🖼️ Sửa Lỗi Hiển Thị Avatar Tải Lên Bằng Ảnh (Custom Device Avatar Fix)
+- **Khắc phục lỗi tràn chuỗi Data Base64 gây vỡ giao diện:** Khi người chơi tải ảnh đại diện từ máy tính/điện thoại, dữ liệu ảnh được truyền đi dưới dạng Base64 (`data:image/...`). Trước đây ở một số vị trí như ô bỏ phiếu, thẻ tổng kết và danh sách người vote, chuỗi Base64 dài hàng chục nghìn ký tự bị render trực tiếp vào thẻ `<Text>`, khiến máy khác khi xem bị hiển thị cả đoạn mã chữ dài ngoằng làm vỡ khung giao diện.
+- **Rà soát & thay thế toàn diện bằng thẻ `<Image>`:**
+  - `PlayerAvatar.js`: Kiểm tra ảnh tùy biến (`isCustomImage`) ngay cả khi người chơi đã chết, phủ mờ và biểu tượng đầu lâu tinh tế thay vì fallback về text raw.
+  - `GameOverScreen.js`: Render `<Image>` bo tròn cho avatar ảnh tùy biến trong thẻ tổng kết cuối game.
+  - `VotePanel.js`: Render thumbnail `<Image>` cho người chơi trong danh sách ứng cử viên bỏ phiếu.
+  - `GameScreen.js`: Render thumbnail `<Image>` mini (14x14) bo góc cho danh sách người bỏ phiếu (`discordVotersMini`).
+
+### 💬 Tối Ưu Thanh Chat (Chat Box Clean Name Display)
+- **Hiển thị tên người gửi, ẩn icon avatar:** Bỏ biểu tượng avatar trước tên người chơi trong danh sách tin nhắn chat (`ChatBox.js`). Tin nhắn giờ đây chỉ hiển thị tên người chơi cùng màu sắc định danh rõ ràng, giúp khung chat gọn gàng, tinh tế và tối ưu không gian đọc trên cả PC lẫn Mobile.
+
+---
+
 ## [1.7.0] - 2026-10-25
 
 ### 📱💻 Tối Ưu Hóa Đa Nền Tảng (PC & Mobile Responsiveness)

@@ -4,7 +4,7 @@
 // ============================================
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { COLORS } from '../utils/colors';
 import PlayerAvatar from './PlayerAvatar';
 
@@ -87,9 +87,17 @@ export default function VotePanel({
                 <View style={styles.playerInfo}>
                   <View style={[
                     styles.miniAvatar,
-                    { backgroundColor: player.avatarColor || '#4ECDC4' },
+                    { backgroundColor: player.avatarColor || '#4ECDC4', overflow: 'hidden' },
                   ]}>
-                    <Text style={styles.miniAvatarText}>{player.avatar}</Text>
+                    {typeof player.avatar === 'string' && (player.avatar.startsWith('data:') || player.avatar.startsWith('http') || player.avatar.startsWith('blob:') || player.avatar.length > 25) ? (
+                      <Image
+                        source={{ uri: player.avatar }}
+                        style={{ width: 28, height: 28, borderRadius: 14 }}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Text style={styles.miniAvatarText}>{player.avatar || '👤'}</Text>
+                    )}
                   </View>
                   <Text style={[styles.playerName, isMe && styles.playerNameMe]}>
                     {player.name} {isMe ? '(Tôi)' : ''}

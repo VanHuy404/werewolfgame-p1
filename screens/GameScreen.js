@@ -14,7 +14,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Dimensions, Animated, Modal, Platform, SafeAreaView,
-  ImageBackground, useWindowDimensions,
+  ImageBackground, useWindowDimensions, Image,
 } from 'react-native';
 import { COLORS, getRoleColor, getRoleName, getRoleEmoji } from '../utils/colors';
 import PlayerAvatar from '../components/PlayerAvatar';
@@ -553,11 +553,21 @@ export default function GameScreen({
                             </View>
                             {voters.length > 0 && (
                               <View style={styles.discordVotersMini}>
-                                {voters.map((v, i) => (
-                                  <Text key={`${v.id}-${i}`} style={styles.discordVoterEmoji}>
-                                    {v.avatar || '👤'}
-                                  </Text>
-                                ))}
+                                {voters.map((v, i) => {
+                                  const isCustom = typeof v.avatar === 'string' && (v.avatar.startsWith('data:') || v.avatar.startsWith('http') || v.avatar.startsWith('blob:') || v.avatar.length > 25);
+                                  return isCustom ? (
+                                    <Image
+                                      key={`${v.id}-${i}`}
+                                      source={{ uri: v.avatar }}
+                                      style={{ width: 14, height: 14, borderRadius: 7 }}
+                                      resizeMode="cover"
+                                    />
+                                  ) : (
+                                    <Text key={`${v.id}-${i}`} style={styles.discordVoterEmoji}>
+                                      {v.avatar || '👤'}
+                                    </Text>
+                                  );
+                                })}
                               </View>
                             )}
                           </View>
