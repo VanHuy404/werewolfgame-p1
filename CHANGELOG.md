@@ -4,6 +4,22 @@ Tất cả các thay đổi, cập nhật kiến trúc và tính năng của d�
 
 ---
 
+## [1.7.4] - 2026-10-25
+
+### 💬 Tối Ưu Hóa Trải Nghiệm Khung Chat & Tinh Gọn Header
+- **Giữ Focus Liên Tục Sau Khi Gửi (Continuous Chat Typing):**
+  - Tích hợp `ref` và `blurOnSubmit={false}` cho ô nhập chat. Sau khi gửi tin nhắn (bằng Enter hoặc nút `➤`), con trỏ văn bản sẽ tự động giữ nguyên vị trí trong ô nhập liệu. Người chơi có thể gõ và gửi tiếp tin nhắn liên tục mà không cần phải bấm click lại vào ô chat.
+- **Mặc Định Chat Trạng Thái Tắt (Chat Off by Default):**
+  - Khung chat mặc định ở trạng thái đóng (`isChatOpen = false`) trên cả PC lẫn Mobile khi vào trận, giúp toàn bộ diện tích màn hình hiển thị bàn đấu rộng rãi nhất ngay từ đầu.
+- **Đổi "Thu Gọn" Thành "Đóng Chat":**
+  - Đổi nút thu gọn trong thanh tiêu đề chat thành `✕ Đóng chat` rõ ràng, trực quan.
+- **Tinh Gọn Header Trên Cùng:**
+  - Loại bỏ nút đóng/mở chat trên Header và nút bỏ qua vote của chủ phòng trên Header.
+  - Toàn bộ thao tác đóng/mở chat được quản lý đồng nhất qua nút nổi `💬 Chat` ở góc dưới màn hình và nút `✕ Đóng chat` trong khung chat.
+  - Tính năng Bỏ phiếu trắng (Skip Vote) giữ nguyên vẹn ở vị trí chuẩn trong bảng biểu quyết bên dưới màn hình.
+
+---
+
 ## [1.7.3] - 2026-10-25
 
 ### 💬 Hỗ Trợ Nhập Nhiều Dòng & Cuộn Xem Lịch Sử Chat (Multiline Chat & Smooth Scroll History)

@@ -38,6 +38,7 @@ export default function ChatBox({
   const [hasUnreadWolf, setHasUnreadWolf] = useState(false);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const flatListRef = useRef(null);
+  const inputRef = useRef(null);
 
   // Cập nhật tab mặc định khi đổi đêm/ngày nếu cần
   useEffect(() => {
@@ -94,7 +95,8 @@ export default function ChatBox({
     setIsScrolledUp(false);
     setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+      inputRef.current?.focus();
+    }, 50);
   };
 
   const handleSwitchChannel = (channel) => {
@@ -222,15 +224,15 @@ export default function ChatBox({
           </View>
         )}
 
-        {/* Nút Thu gọn Chat dạng Slidebar */}
+        {/* Nút Đóng Chat */}
         {onMinimize && (
           <TouchableOpacity
             style={styles.minimizeChatBtn}
             onPress={onMinimize}
             activeOpacity={0.7}
           >
-            <Text style={styles.minimizeChatIcon}>➡️</Text>
-            <Text style={styles.minimizeChatText}>Thu gọn</Text>
+            <Text style={styles.minimizeChatIcon}>✕</Text>
+            <Text style={styles.minimizeChatText}>Đóng chat</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -292,6 +294,8 @@ export default function ChatBox({
       {!disabled && (
         <View style={styles.inputRow}>
           <TextInput
+            ref={inputRef}
+            blurOnSubmit={false}
             style={[
               styles.input,
               { backgroundColor: inputBg, color: inputColor },

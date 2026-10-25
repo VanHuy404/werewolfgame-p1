@@ -60,8 +60,8 @@ export default function GameScreen({
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isMobile = windowWidth <= 860;
 
-  // Trạng thái bật/tắt Chat dạng Slidebar (Mặc định mở trên PC màn hình rộng, đóng trên mobile/màn hình nhỏ)
-  const [isChatOpen, setIsChatOpen] = useState(!isMobile && windowWidth > 1050);
+  // Trạng thái bật/tắt Chat dạng Slidebar (Mặc định ở trạng thái OFF, không auto bật)
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const prevMsgLengthRef = useRef(messages.length);
 
@@ -402,27 +402,6 @@ export default function GameScreen({
 
             {/* Nút thao tác góc phải */}
             <View style={styles.headerRightActions}>
-              {/* Nút dành riêng cho chủ phòng để bỏ qua giai đoạn Vote */}
-              {isHost && phase === PHASES.DAY_VOTE && (
-                <TouchableOpacity
-                  style={styles.hostSkipVoteBtn}
-                  onPress={handleHostSkipVote}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.hostSkipVoteIcon}>⏩</Text>
-                  <Text style={styles.hostSkipVoteText}>Bỏ qua Vote</Text>
-                </TouchableOpacity>
-              )}
-
-              <TouchableOpacity
-                style={[styles.headerChatToggleBtn, isChatOpen && styles.headerChatToggleBtnActive]}
-                onPress={() => setIsChatOpen(!isChatOpen)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.headerChatToggleText}>
-                  {isChatOpen ? '✕ Đóng Chat' : '💬 Chat'} {unreadCount > 0 ? `(${unreadCount})` : ''}
-                </Text>
-              </TouchableOpacity>
               <TouchableOpacity style={styles.leaveButton} onPress={onLeaveGame} activeOpacity={0.7}>
                 <Text style={styles.leaveText}>Rời</Text>
               </TouchableOpacity>
