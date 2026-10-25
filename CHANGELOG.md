@@ -4,6 +4,25 @@ Tất cả các thay đổi, cập nhật kiến trúc và tính năng của d�
 
 ---
 
+## [1.7.2] - 2026-10-25
+
+### 🎛️ Thu Nhỏ Hitbox Ô Người Chơi & Chống Cuộn Dài (Dynamic Hitbox & Anti-Scroll)
+- **Tự Động Tính Toán Kích Thước & Số Cột Động:** Không còn tình trạng ô người chơi bị to cồng kềnh kéo dài xuống đáy màn hình khi phòng đông người.
+  - Khi phòng có nhiều người (>= 6 người) hoặc màn hình hẹp, hệ thống tự động kích hoạt chế độ **Compact** / **UltraCompact**:
+    - Thu nhỏ avatar từ `medium` (52px) về `small` (36px).
+    - Giảm padding của ô từ 12px xuống 6px / 4px, giảm khoảng cách lề trên dưới các tag định danh.
+    - Tự động chia từ 3 đến 5 cột (trên PC) và 3 cột (trên Mobile) thay vì chỉ 2 cột như trước.
+  - Toàn bộ danh sách người chơi (8-12 người) giờ đây nằm gọn gàng trong 2 đến 3 hàng ngắn, giúp người chơi quan sát toàn bộ bàn đấu và bỏ phiếu ngay lập tức mà không phải cuộn kéo trang liên tục.
+
+### 💬 Khung Chat Dạng Slidebar Thu Phóng Đa Nền Tảng (Collapsible Slidebar Chat)
+- **Bật / Tắt Chat Dạng Slidebar Linh Hoạt:**
+  - **Trên PC:** Khung chat hoạt động như một thanh Slidebar bên phải. Người chơi có thể đóng chat bất kỳ lúc nào để mở rộng toàn màn hình cho đấu trường, hoặc mở lại bằng nút `💬 Chat` trên Header và nút nổi viền phải.
+  - **Trên Mobile:** Chat hoạt động dưới dạng Drawer Slidebar trượt từ phải sang kèm lớp nền tối (backdrop click-to-close).
+  - **Nút Thu Gọn Nhanh:** Bổ sung nút `➡️ Thu gọn` ngay trong header của `ChatBox` để thu sidebar lại chỉ với 1 chạm.
+  - **Đếm Tin Chưa Đọc Thông Minh:** Khi đóng chat, biểu tượng `💬` hiển thị chính xác số tin nhắn mới được gửi kể từ lúc đóng, không bị đếm dồn toàn bộ lịch sử trận đấu.
+
+---
+
 ## [1.7.1] - 2026-10-25
 
 ### 🖼️ Sửa Lỗi Hiển Thị Avatar Tải Lên Bằng Ảnh (Custom Device Avatar Fix)

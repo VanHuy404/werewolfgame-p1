@@ -57,8 +57,60 @@ export default function GameScreen({
   hostId,
   initialSeerHistory = {},
 }) {
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isMobile = windowWidth <= 860;
+
+  // Trạng thái bật/tắt Chat dạng Slidebar (Mặc định mở trên PC màn hình rộng, đóng trên mobile/màn hình nhỏ)
+  const [isChatOpen, setIsChatOpen] = useState(!isMobile && windowWidth > 1050);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const prevMsgLengthRef = useRef(messages.length);
+
+  useEffect(() => {
+    if (isChatOpen) {
+      setUnreadCount(0);
+    } else {
+      const diff = messages.length - prevMsgLengthRef.current;
+      if (diff > 0) {
+        setUnreadCount((prev) => prev + diff);
+      }
+    }
+    prevMsgLengthRef.current = messages.length;
+  }, [messages.length, isChatOpen]);
+
+  // Chiều rộng khả dụng của khu vực đấu trường
+  const arenaWidth = isMobile || !isChatOpen ? windowWidth : windowWidth - 340;
+
+  // Số lượng người chơi & tính toán hitbox thu nhỏ động (không để cuộn kéo quá dài)
+  const playerCount = players.length;
+  const isCompact = playerCount >= 6 || arenaWidth < 680 || windowHeight < 760;
+  const isUltraCompact = playerCount >= 9 || (isCompact && arenaWidth < 500);
+
+  // Xác định số cột tối ưu theo độ rộng đấu trường & số người chơi
+  const getColCount = () => {
+    if (arenaWidth >= 1150) {
+      if (playerCount <= 4) return 4;
+      if (playerCount <= 6) return 4;
+      if (playerCount <= 8) return 4;
+      if (playerCount <= 10) return 5;
+      return 6;
+    } else if (arenaWidth >= 800) {
+      if (playerCount <= 4) return 3;
+      if (playerCount <= 6) return 3;
+      if (playerCount <= 8) return 4;
+      return 5;
+    } else if (arenaWidth >= 500) {
+      if (playerCount <= 4) return 2;
+      if (playerCount <= 8) return 3;
+      return 4;
+    } else {
+      // Mobile (< 500px)
+      if (playerCount <= 4) return 2;
+      return 3;
+    }
+  };
+
+  const colCount = getColCount();
+  const boxWidthPercent = `${Math.floor((100 / colCount) - 2)}%`;
 
   // Trạng thái hành động
   const [selectedTarget, setSelectedTarget] = useState(null);
@@ -78,7 +130,6 @@ export default function GameScreen({
   const [lastVoteEliminated, setLastVoteEliminated] = useState(null);
   const [voteNoOneHanged, setVoteNoOneHanged] = useState(false);
   const [skipVoteCount, setSkipVoteCount] = useState(0);
-  const [mobileChatVisible, setMobileChatVisible] = useState(false);
 
   // Animations
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -364,12 +415,12 @@ export default function GameScreen({
               )}
 
               <TouchableOpacity
-                style={styles.mobileChatToggleBtn}
-                onPress={() => setMobileChatVisible(!mobileChatVisible)}
+                style={[styles.headerChatToggleBtn, isChatOpen && styles.headerChatToggleBtnActive]}
+                onPress={() => setIsChatOpen(!isChatOpen)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.mobileChatToggleText}>
-                  💬 Chat {messages.length > 0 ? `(${messages.length})` : ''}
+                <Text style={styles.headerChatToggleText}>
+                  {isChatOpen ? '✕ Đóng Chat' : '💬 Chat'} {unreadCount > 0 ? `(${unreadCount})` : ''}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.leaveButton} onPress={onLeaveGame} activeOpacity={0.7}>
@@ -489,6 +540,9 @@ export default function GameScreen({
                         key={player.id}
                         style={[
                           styles.discordBox,
+                          { flexBasis: boxWidthPercent },
+                          isCompact && styles.discordBoxCompact,
+                          isUltraCompact && styles.discordBoxUltraCompact,
                           isClickable && styles.discordBoxClickable,
                           isTarget && styles.discordBoxSelected,
                           !isAlive && styles.discordBoxDead,
@@ -504,41 +558,55 @@ export default function GameScreen({
                         activeOpacity={0.8}
                       >
                         {/* Status bar trên cùng của ô Discord */}
-                        <View style={styles.discordTileTopRow}>
-                          <View style={[styles.discordStatusDot, isAlive ? styles.statusOnline : styles.statusOffline]} />
+                        <View style={[styles.discordTileTopRow, isCompact && styles.discordTileTopRowCompact]}>
+                          <View
+                            style={[
+                              styles.discordStatusDot,
+                              isAlive ? styles.statusOnline : styles.statusOffline,
+                              isCompact && { width: 6, height: 6, borderRadius: 3 },
+                            ]}
+                          />
                           {isMe && (
-                            <View style={styles.discordMeTag}>
-                              <Text style={styles.discordMeTagText}>Bạn</Text>
+                            <View style={[styles.discordMeTag, isCompact && styles.discordMeTagCompact]}>
+                              <Text style={[styles.discordMeTagText, isCompact && { fontSize: 8 }]}>Bạn</Text>
                             </View>
                           )}
                           {isWolfTeammate && !isMe && (
-                            <View style={styles.discordWolfTeammateTag}>
-                              <Text style={styles.discordWolfTeammateText}>🐺 Đồng đội</Text>
+                            <View style={[styles.discordWolfTeammateTag, isCompact && styles.discordWolfTeammateTagCompact]}>
+                              <Text style={[styles.discordWolfTeammateText, isCompact && { fontSize: 8 }]}>🐺 Sói</Text>
                             </View>
                           )}
                           {isLastProtected && (
-                            <View style={styles.discordProtectedTag}>
-                              <Text style={styles.discordProtectedTagText}>🚫 Đêm trước</Text>
+                            <View style={[styles.discordProtectedTag, isCompact && styles.discordProtectedTagCompact]}>
+                              <Text style={[styles.discordProtectedTagText, isCompact && { fontSize: 8 }]}>🚫 Đêm trước</Text>
                             </View>
                           )}
                           {isMyBodyguardTarget && (
-                            <View style={styles.discordShieldTag}>
-                              <Text style={styles.discordShieldTagText}>🛡️ Che chở</Text>
+                            <View style={[styles.discordShieldTag, isCompact && styles.discordShieldTagCompact]}>
+                              <Text style={[styles.discordShieldTagText, isCompact && { fontSize: 8 }]}>🛡️ Che chở</Text>
                             </View>
                           )}
                           {/* Checkbox indicator trực quan */}
                           {isClickable && (
-                            <View style={[styles.discordCheckboxPill, isTarget && styles.discordCheckboxPillChecked]}>
-                              <Text style={styles.discordCheckboxIcon}>{isTarget ? '☑️' : '⬜'}</Text>
+                            <View
+                              style={[
+                                styles.discordCheckboxPill,
+                                isTarget && styles.discordCheckboxPillChecked,
+                                isCompact && { paddingHorizontal: 3, paddingVertical: 0 },
+                              ]}
+                            >
+                              <Text style={[styles.discordCheckboxIcon, isCompact && { fontSize: 9.5 }]}>
+                                {isTarget ? '☑️' : '⬜'}
+                              </Text>
                             </View>
                           )}
                         </View>
 
-                        {/* Avatar người chơi */}
-                        <View style={styles.discordAvatarCenter}>
+                        {/* Avatar người chơi (tự động thu nhỏ khi đông người để giảm chiều cao) */}
+                        <View style={[styles.discordAvatarCenter, isCompact && styles.discordAvatarCenterCompact]}>
                           <PlayerAvatar
                             player={player}
-                            size="medium"
+                            size={isCompact ? 'small' : 'medium'}
                             isIlluminated={illuminatedPlayerId === player.id}
                             selected={isTarget}
                             compact
@@ -547,23 +615,23 @@ export default function GameScreen({
 
                         {/* ================= HIỂN THỊ CÁC LƯỢT VOTE Ở DƯỚI AVT ================= */}
                         {phase === PHASES.DAY_VOTE && votes > 0 && (
-                          <View style={styles.discordVoteRowUnderAvt}>
-                            <View style={styles.discordVoteBadge}>
-                              <Text style={styles.discordVoteBadgeText}>🗳️ {votes} phiếu</Text>
+                          <View style={[styles.discordVoteRowUnderAvt, isCompact && { marginTop: 2, marginBottom: 1 }]}>
+                            <View style={[styles.discordVoteBadge, isCompact && { paddingHorizontal: 5, paddingVertical: 1 }]}>
+                              <Text style={[styles.discordVoteBadgeText, isCompact && { fontSize: 10 }]}>🗳️ {votes} phiếu</Text>
                             </View>
                             {voters.length > 0 && (
-                              <View style={styles.discordVotersMini}>
+                              <View style={[styles.discordVotersMini, isCompact && { gap: 1, marginTop: 2 }]}>
                                 {voters.map((v, i) => {
                                   const isCustom = typeof v.avatar === 'string' && (v.avatar.startsWith('data:') || v.avatar.startsWith('http') || v.avatar.startsWith('blob:') || v.avatar.length > 25);
                                   return isCustom ? (
                                     <Image
                                       key={`${v.id}-${i}`}
                                       source={{ uri: v.avatar }}
-                                      style={{ width: 14, height: 14, borderRadius: 7 }}
+                                      style={{ width: isCompact ? 12 : 14, height: isCompact ? 12 : 14, borderRadius: isCompact ? 6 : 7 }}
                                       resizeMode="cover"
                                     />
                                   ) : (
-                                    <Text key={`${v.id}-${i}`} style={styles.discordVoterEmoji}>
+                                    <Text key={`${v.id}-${i}`} style={[styles.discordVoterEmoji, isCompact && { fontSize: 10 }]}>
                                       {v.avatar || '👤'}
                                     </Text>
                                   );
@@ -575,14 +643,14 @@ export default function GameScreen({
 
                         {/* Phiếu Sói ban đêm dưới avatar */}
                         {isNightWolf && myRole === 'wolf' && wolfVoters.length > 0 && (
-                          <View style={styles.discordWolfVoteRow}>
-                            <Text style={styles.discordWolfVoteText}>🐺 {wolfVoters.join(', ')}</Text>
+                          <View style={[styles.discordWolfVoteRow, isCompact && { paddingHorizontal: 4, paddingVertical: 1, marginTop: 2 }]}>
+                            <Text style={[styles.discordWolfVoteText, isCompact && { fontSize: 8.5 }]}>🐺 {wolfVoters.join(', ')}</Text>
                           </View>
                         )}
 
                         {/* Tên người chơi pill */}
-                        <View style={[styles.discordNamePill, isMe && styles.discordNamePillMe]}>
-                          <Text style={styles.discordNameText} numberOfLines={1}>
+                        <View style={[styles.discordNamePill, isMe && styles.discordNamePillMe, isCompact && styles.discordNamePillCompact]}>
+                          <Text style={[styles.discordNameText, isCompact && styles.discordNameTextCompact]} numberOfLines={1}>
                             {player.name}
                           </Text>
                         </View>
@@ -595,6 +663,7 @@ export default function GameScreen({
                               seerHistory[player.id].alignment === 'evil'
                                 ? styles.seerCheckedBadgeEvil
                                 : styles.seerCheckedBadgeGood,
+                              isCompact && styles.seerCheckedBadgeCompact,
                             ]}
                           >
                             <Text
@@ -603,6 +672,7 @@ export default function GameScreen({
                                 seerHistory[player.id].alignment === 'evil'
                                   ? styles.seerCheckedTextEvil
                                   : styles.seerCheckedTextGood,
+                                isCompact && { fontSize: 8.5, letterSpacing: 0.2 },
                               ]}
                             >
                               {seerHistory[player.id].alignment === 'evil' ? '🐺 PHE ÁC' : '🕊️ PHE THIỆN'}
@@ -611,7 +681,7 @@ export default function GameScreen({
                         )}
 
                         {/* Trạng thái sống/chết (KHÔNG TIẾT LỘ VAI TRÒ) */}
-                        <Text style={[styles.discordStatusLabel, !isAlive && styles.discordStatusLabelDead]}>
+                        <Text style={[styles.discordStatusLabel, !isAlive && styles.discordStatusLabelDead, isCompact && styles.discordStatusLabelCompact]}>
                           {isAlive ? '🟢 Sống' : '💀 Hồn ma'}
                         </Text>
                       </TouchableOpacity>
@@ -796,26 +866,45 @@ export default function GameScreen({
               ) : null}
             </View>
 
-            {/* ---------------- CỘT BÊN PHẢI: KHUNG CHAT CỐ ĐỊNH (RIGHT SIDEBAR) ---------------- */}
-            <View
-              style={[
-                styles.chatColumn,
-                mobileChatVisible && styles.chatColumnMobileVisible,
-                !mobileChatVisible && isMobile && styles.chatColumnHidden,
-              ]}
-            >
-              <ChatBox
-                messages={messages}
-                onSend={onSendMessage}
-                isNight={isNight}
-                disabled={!amAlive && phase !== PHASES.GAME_OVER}
-                myRole={myRole}
-                myId={myId}
-                phase={phase}
-                onMinimize={() => setMobileChatVisible(false)}
-              />
-            </View>
+            {/* ---------------- CỘT BÊN PHẢI: KHUNG CHAT SLIDEBAR TRÊN PC ---------------- */}
+            {!isMobile && isChatOpen && (
+              <View style={styles.chatSlidebarDesktop}>
+                <ChatBox
+                  messages={messages}
+                  onSend={onSendMessage}
+                  isNight={isNight}
+                  disabled={!amAlive && phase !== PHASES.GAME_OVER}
+                  myRole={myRole}
+                  myId={myId}
+                  phase={phase}
+                  onMinimize={() => setIsChatOpen(false)}
+                />
+              </View>
+            )}
           </View>
+
+          {/* ---------------- CHAT SLIDEBAR DRAWER TRÊN MOBILE ---------------- */}
+          {isMobile && isChatOpen && (
+            <View style={styles.chatMobileDrawerOverlay}>
+              <TouchableOpacity
+                style={styles.chatMobileBackdrop}
+                activeOpacity={1}
+                onPress={() => setIsChatOpen(false)}
+              />
+              <View style={styles.chatMobileDrawerContent}>
+                <ChatBox
+                  messages={messages}
+                  onSend={onSendMessage}
+                  isNight={isNight}
+                  disabled={!amAlive && phase !== PHASES.GAME_OVER}
+                  myRole={myRole}
+                  myId={myId}
+                  phase={phase}
+                  onMinimize={() => setIsChatOpen(false)}
+                />
+              </View>
+            </View>
+          )}
 
           {/* ================= MODAL XEM CHI TIẾT VAI TRÒ BẢN THÂN ================= */}
           <Modal visible={showRoleBrief} transparent animationType="fade">
@@ -862,18 +951,19 @@ export default function GameScreen({
             </View>
           </Modal>
 
-          {/* NÚT THU NHỎ / MỞ RỘNG CHAT BẰNG ICON TRÊN MOBILE (Chỉ hiện khi trên điện thoại/màn hình nhỏ) */}
-          {isMobile && !mobileChatVisible && (
+          {/* NÚT BẬT SLIDEBAR CHAT (DẠNG NỔI KHI CHAT ĐANG ĐÓNG - CẢ PC VÀ MOBILE) */}
+          {!isChatOpen && (
             <TouchableOpacity
-              style={styles.floatingChatFab}
-              onPress={() => setMobileChatVisible(true)}
+              style={styles.floatingChatSlideToggle}
+              onPress={() => setIsChatOpen(true)}
               activeOpacity={0.8}
             >
               <Text style={styles.floatingChatIcon}>💬</Text>
-              {messages.length > 0 && (
+              <Text style={styles.floatingChatLabel}>Chat</Text>
+              {unreadCount > 0 && (
                 <View style={styles.chatFabBadge}>
                   <Text style={styles.chatFabBadgeText}>
-                    {messages.length > 99 ? '99+' : messages.length}
+                    {unreadCount > 99 ? '99+' : unreadCount}
                   </Text>
                 </View>
               )}
@@ -999,14 +1089,19 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.3,
   },
-  mobileChatToggleBtn: {
-    display: Platform.OS === 'web' && SCREEN_WIDTH > 860 ? 'none' : 'flex',
+  headerChatToggleBtn: {
     backgroundColor: '#7C3AED',
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
   },
-  mobileChatToggleText: {
+  headerChatToggleBtnActive: {
+    backgroundColor: 'rgba(239, 68, 68, 0.25)',
+    borderColor: '#EF4444',
+  },
+  headerChatToggleText: {
     fontSize: 12,
     fontWeight: '800',
     color: '#FFFFFF',
@@ -1064,58 +1159,89 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   arenaScrollContent: {
-    padding: 16,
-    paddingBottom: 32,
+    padding: 12,
+    paddingBottom: 28,
   },
 
-  // Chat Column (Phải)
-  chatColumn: {
-    width: 380,
+  // Chat Slidebar Trên PC (Phải)
+  chatSlidebarDesktop: {
+    width: 340,
     height: '100%',
     borderLeftWidth: 1.5,
-    borderLeftColor: 'rgba(255, 255, 255, 0.12)',
-    backgroundColor: 'rgba(15, 12, 30, 0.94)',
+    borderLeftColor: 'rgba(124, 58, 237, 0.35)',
+    backgroundColor: 'rgba(15, 12, 30, 0.96)',
     display: 'flex',
     flexDirection: 'column',
   },
-  chatColumnHidden: {
-    display: 'none',
-  },
-  chatColumnMobileVisible: {
+
+  // Chat Slidebar Drawer Trên Mobile
+  chatMobileDrawerOverlay: {
     position: 'absolute',
     top: 0,
+    left: 0,
     right: 0,
     bottom: 0,
-    left: 0,
-    width: '100%',
     zIndex: 99,
+    flexDirection: 'row',
   },
-  floatingChatFab: {
+  chatMobileBackdrop: {
     position: 'absolute',
-    bottom: 24,
-    right: 20,
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: '#7C3AED',
-    justifyContent: 'center',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+  },
+  chatMobileDrawerContent: {
+    marginLeft: 'auto',
+    width: '88%',
+    maxWidth: 400,
+    height: '100%',
+    backgroundColor: 'rgba(15, 12, 30, 0.98)',
+    borderLeftWidth: 1.5,
+    borderLeftColor: 'rgba(124, 58, 237, 0.4)',
+    shadowColor: '#000',
+    shadowOffset: { width: -4, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 16,
+    elevation: 20,
+    zIndex: 100,
+  },
+
+  // Nút Nổi Kích Hoạt Slidebar Khi Chat Đang Đóng
+  floatingChatSlideToggle: {
+    position: 'absolute',
+    bottom: 22,
+    right: 18,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    backgroundColor: '#7C3AED',
     shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.55,
     shadowRadius: 10,
     elevation: 10,
     zIndex: 90,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   floatingChatIcon: {
-    fontSize: 26,
+    fontSize: 20,
+  },
+  floatingChatLabel: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 13,
+    letterSpacing: 0.3,
   },
   chatFabBadge: {
     position: 'absolute',
-    top: -4,
-    right: -4,
+    top: -5,
+    right: -5,
     backgroundColor: '#EF4444',
     borderRadius: 11,
     minWidth: 22,
@@ -1556,21 +1682,29 @@ const styles = StyleSheet.create({
   discordGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 8,
+    justifyContent: 'center',
   },
   discordBox: {
-    flexBasis: '47%',
-    minWidth: 140,
+    minWidth: 80,
     backgroundColor: 'rgba(24, 24, 32, 0.88)',
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: 14,
+    padding: 10,
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+  },
+  discordBoxCompact: {
+    padding: 6,
+    borderRadius: 10,
+  },
+  discordBoxUltraCompact: {
+    padding: 4,
+    borderRadius: 8,
   },
   discordBoxClickable: {
     borderColor: 'rgba(124, 58, 237, 0.45)',
@@ -1594,7 +1728,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
-    marginBottom: 6,
+    marginBottom: 5,
+  },
+  discordTileTopRowCompact: {
+    marginBottom: 2,
   },
   discordStatusDot: {
     width: 8,
@@ -1615,6 +1752,10 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     borderRadius: 6,
   },
+  discordMeTagCompact: {
+    paddingHorizontal: 4,
+    paddingVertical: 0,
+  },
   discordMeTagText: {
     fontSize: 9,
     fontWeight: '800',
@@ -1628,10 +1769,48 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: '#DC2626',
   },
+  discordWolfTeammateTagCompact: {
+    paddingHorizontal: 4,
+    paddingVertical: 0,
+  },
   discordWolfTeammateText: {
     fontSize: 9,
     fontWeight: '800',
     color: '#F87171',
+  },
+  discordProtectedTag: {
+    backgroundColor: 'rgba(100, 116, 139, 0.3)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+    borderWidth: 0.5,
+    borderColor: '#94A3B8',
+  },
+  discordProtectedTagCompact: {
+    paddingHorizontal: 4,
+    paddingVertical: 0,
+  },
+  discordProtectedTagText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#CBD5E1',
+  },
+  discordShieldTag: {
+    backgroundColor: 'rgba(14, 165, 233, 0.3)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+    borderWidth: 0.5,
+    borderColor: '#0EA5E9',
+  },
+  discordShieldTagCompact: {
+    paddingHorizontal: 4,
+    paddingVertical: 0,
+  },
+  discordShieldTagText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#38BDF8',
   },
   discordCheckboxPill: {
     paddingHorizontal: 4,
@@ -1649,6 +1828,9 @@ const styles = StyleSheet.create({
   },
   discordAvatarCenter: {
     marginVertical: 4,
+  },
+  discordAvatarCenterCompact: {
+    marginVertical: 1,
   },
 
   // Hiển thị vote dưới avatar
@@ -1697,8 +1879,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
-    marginTop: 6,
+    marginTop: 5,
     maxWidth: '100%',
+  },
+  discordNamePillCompact: {
+    marginTop: 2,
+    paddingVertical: 1,
+    paddingHorizontal: 5,
+    maxWidth: '96%',
   },
   discordNamePillMe: {
     backgroundColor: 'rgba(124, 58, 237, 0.3)',
@@ -1709,14 +1897,27 @@ const styles = StyleSheet.create({
     color: '#F8FAFC',
     textAlign: 'center',
   },
+  discordNameTextCompact: {
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
   discordStatusLabel: {
     fontSize: 10,
     fontWeight: '700',
     color: '#94A3B8',
     marginTop: 3,
   },
+  discordStatusLabelCompact: {
+    fontSize: 9,
+    marginTop: 1,
+  },
   discordStatusLabelDead: {
     color: '#EF4444',
+  },
+  seerCheckedBadgeCompact: {
+    marginTop: 2,
+    paddingVertical: 1,
+    paddingHorizontal: 5,
   },
   seerCheckedBadge: {
     paddingHorizontal: 8,

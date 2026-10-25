@@ -204,15 +204,15 @@ export default function ChatBox({
           </View>
         )}
 
-        {/* Nút Thu nhỏ Chat */}
+        {/* Nút Thu gọn Chat dạng Slidebar */}
         {onMinimize && (
           <TouchableOpacity
             style={styles.minimizeChatBtn}
             onPress={onMinimize}
             activeOpacity={0.7}
           >
-            <Text style={styles.minimizeChatIcon}>⬇️</Text>
-            <Text style={styles.minimizeChatText}>Thu nhỏ</Text>
+            <Text style={styles.minimizeChatIcon}>➡️</Text>
+            <Text style={styles.minimizeChatText}>Thu gọn</Text>
           </TouchableOpacity>
         )}
       </View>
