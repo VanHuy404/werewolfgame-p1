@@ -36,6 +36,7 @@ export default function ChatBox({
   const [activeChannel, setActiveChannel] = useState(isWolf && isNight ? 'wolf' : 'village');
   const [text, setText] = useState('');
   const [hasUnreadWolf, setHasUnreadWolf] = useState(false);
+  const [isScrolledUp, setIsScrolledUp] = useState(false);
   const flatListRef = useRef(null);
 
   // Cập nhật tab mặc định khi đổi đêm/ngày nếu cần
@@ -66,12 +67,14 @@ export default function ChatBox({
     }
   }, [messages.length, activeChannel, isWolf]);
 
-  // Auto-scroll xuống khi có tin mới
+  // Auto-scroll xuống khi có tin mới (chỉ tự cuộn nếu người dùng không đang cuộn lên đọc lịch sử)
   useEffect(() => {
     if (flatListRef.current && filteredMessages.length > 0) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      if (!isScrolledUp) {
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 80);
+      }
     }
   }, [filteredMessages.length]);
 
@@ -88,13 +91,28 @@ export default function ChatBox({
 
     onSend(trimmed, sendingToWolf);
     setText('');
+    setIsScrolledUp(false);
+    setTimeout(() => {
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }, 100);
   };
 
   const handleSwitchChannel = (channel) => {
     setActiveChannel(channel);
+    setIsScrolledUp(false);
     if (channel === 'wolf') {
       setHasUnreadWolf(false);
     }
+    setTimeout(() => {
+      flatListRef.current?.scrollToEnd({ animated: false });
+    }, 80);
+  };
+
+  const handleScroll = (event) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    // Nếu khoảng cách đến đáy > 50px thì tính là đang cuộn lên xem lịch sử
+    const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
+    setIsScrolledUp(distanceFromBottom > 50);
   };
 
   const renderMessage = ({ item }) => {
@@ -228,31 +246,49 @@ export default function ChatBox({
         </View>
       )}
 
-      {/* ================= DANH SÁCH TIN NHẮN ================= */}
-      <FlatList
-        ref={flatListRef}
-        data={filteredMessages}
-        keyExtractor={(item, index) => `${item.timestamp}-${index}`}
-        renderItem={renderMessage}
-        style={styles.messageList}
-        contentContainerStyle={styles.messageListContent}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={[styles.emptyText, (isNight || isCurrentChannelWolf) && { color: COLORS.nightText }]}>
-              {disabled
-                ? '🔇 Bạn đã hy sinh (hồn ma không thể chat)'
-                : isCurrentChannelWolf
-                ? '🐺 Hãy lên chiến thuật bí mật cùng đồng đội!'
-                : isNight
-                ? '😴 Đêm nay làng đang ngủ...'
-                : '💬 Hãy bắt đầu cuộc thảo luận!'}
-            </Text>
-          </View>
-        }
-      />
+      {/* ================= DANH SÁCH TIN NHẮN (HỖ TRỢ CUỘN XEM LỊCH SỬ) ================= */}
+      <View style={styles.listContainer}>
+        <FlatList
+          ref={flatListRef}
+          data={filteredMessages}
+          keyExtractor={(item, index) => `${item.timestamp}-${index}`}
+          renderItem={renderMessage}
+          style={styles.messageList}
+          contentContainerStyle={styles.messageListContent}
+          showsVerticalScrollIndicator={true}
+          onScroll={handleScroll}
+          scrollEventThrottle={80}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={[styles.emptyText, (isNight || isCurrentChannelWolf) && { color: COLORS.nightText }]}>
+                {disabled
+                  ? '🔇 Bạn đã hy sinh (hồn ma không thể chat)'
+                  : isCurrentChannelWolf
+                  ? '🐺 Hãy lên chiến thuật bí mật cùng đồng đội!'
+                  : isNight
+                  ? '😴 Đêm nay làng đang ngủ...'
+                  : '💬 Hãy bắt đầu cuộc thảo luận!'}
+              </Text>
+            </View>
+          }
+        />
 
-      {/* ================= INPUT GỬI TIN NHẮN ================= */}
+        {/* Nút Nhảy Về Tin Mới Nhất Khi Đang Cuộn Lên Xem Lịch Sử */}
+        {isScrolledUp && (
+          <TouchableOpacity
+            style={styles.jumpToBottomBtn}
+            onPress={() => {
+              setIsScrolledUp(false);
+              flatListRef.current?.scrollToEnd({ animated: true });
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.jumpToBottomText}>⬇️ Tin mới nhất</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* ================= INPUT GỬI TIN NHẮN (HỖ TRỢ NHIỀU DÒNG) ================= */}
       {!disabled && (
         <View style={styles.inputRow}>
           <TextInput
@@ -265,10 +301,18 @@ export default function ChatBox({
             onChangeText={setText}
             placeholder={placeholderText}
             placeholderTextColor={placeholderColor}
-            onSubmitEditing={handleSend}
-            returnKeyType="send"
-            maxLength={200}
+            multiline={true}
+            maxLength={1000}
             editable={!isInputDisabled}
+            onKeyPress={(e) => {
+              // Trên Web: Nhấn Enter gửi tin nhắn, Shift + Enter xuống dòng
+              if (Platform.OS === 'web' && e.nativeEvent.key === 'Enter') {
+                if (!e.nativeEvent.shiftKey) {
+                  if (e.preventDefault) e.preventDefault();
+                  handleSend();
+                }
+              }
+            }}
           />
           <TouchableOpacity
             style={[
@@ -278,6 +322,7 @@ export default function ChatBox({
             ]}
             onPress={handleSend}
             disabled={!text.trim() || isInputDisabled}
+            activeOpacity={0.8}
           >
             <Text style={styles.sendBtnText}>➤</Text>
           </TouchableOpacity>
@@ -474,21 +519,51 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 16,
   },
+  listContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+  jumpToBottomBtn: {
+    position: 'absolute',
+    bottom: 12,
+    alignSelf: 'center',
+    backgroundColor: '#7C3AED',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.45,
+    shadowRadius: 6,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    zIndex: 10,
+  },
+  jumpToBottomText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
   inputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
+    alignItems: 'flex-end',
+    padding: 8,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.1)',
     backgroundColor: 'rgba(15, 12, 30, 0.96)',
   },
   input: {
     flex: 1,
-    height: 38,
-    borderRadius: 19,
-    paddingHorizontal: 14,
-    fontSize: 14,
+    minHeight: 38,
+    maxHeight: 110,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingTop: 9,
+    paddingBottom: 9,
+    fontSize: 13.5,
     marginRight: 8,
+    lineHeight: 18,
   },
   inputDisabled: {
     opacity: 0.5,
@@ -500,6 +575,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 1,
   },
   sendBtnWolf: {
     backgroundColor: COLORS.wolf,

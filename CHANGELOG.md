@@ -4,6 +4,21 @@ Tất cả các thay đổi, cập nhật kiến trúc và tính năng của d�
 
 ---
 
+## [1.7.3] - 2026-10-25
+
+### 💬 Hỗ Trợ Nhập Nhiều Dòng & Cuộn Xem Lịch Sử Chat (Multiline Chat & Smooth Scroll History)
+- **Nhập Tin Nhắn Nhiều Dòng (Multiline Input):**
+  - Ô nhập liệu cho phép gõ văn bản dài, tự động co giãn độ cao linh hoạt (từ 38px đến 110px).
+  - **Trên Web/PC:** Nhấn `Enter` để gửi tin nhắn nhanh; nhấn `Shift + Enter` để xuống dòng thoải mái.
+  - **Trên Mobile:** Nhấn phím Enter trên bàn phím ảo để xuống dòng và bấm nút gửi `➤` khi hoàn tất.
+  - Giới hạn ký tự được nâng lên 1,000 ký tự giúp người chơi tha hồ biện hộ và phân tích chiến thuật.
+- **Cuộn Lên Xem Lịch Sử Tin Nhắn Không Bị Giật (Non-Intrusive Scroll History):**
+  - Khắc phục hiện tượng bị cướp vị trí cuộn: Khi người chơi cuộn lên phía trên để đọc lại các manh mối/tranh luận cũ, hệ thống sẽ **giữ nguyên vị trí đọc**, không tự động giật nhảy xuống đáy khi có người khác gửi tin.
+  - Bật thanh cuộn dọc (`showsVerticalScrollIndicator={true}`) rõ ràng giúp dễ dàng kéo lướt trên cả Web và điện thoại.
+  - **Nút Nhảy Xuống Nhanh:** Khi đang cuộn xem lịch sử phía trên, một nút nổi tiện lợi `⬇️ Tin mới nhất` sẽ xuất hiện ở cuối khung chat, bấm vào là lập tức lướt mượt xuống tin nhắn mới nhất.
+
+---
+
 ## [1.7.2] - 2026-10-25
 
 ### 🎛️ Thu Nhỏ Hitbox Ô Người Chơi & Chống Cuộn Dài (Dynamic Hitbox & Anti-Scroll)
