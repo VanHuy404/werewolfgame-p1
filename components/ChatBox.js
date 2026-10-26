@@ -118,11 +118,27 @@ export default function ChatBox({
   };
 
   const renderMessage = ({ item }) => {
-    // Tin nhắn hệ thống (thông báo bình minh, v.v.)
+    // Tin nhắn hệ thống (thông báo bình minh, kết quả vote, v.v.)
     if (item.isSystem) {
+      const isSavedMsg = item.message.includes('🛡️') || item.message.includes('BẢO VỆ');
+      const isDeadMsg = item.message.includes('💀') || item.message.includes('sát hại');
+      const isVoteMsg = item.message.includes('⚖️') || item.message.includes('BIỂU QUYẾT');
+
       return (
-        <View style={styles.systemBubble}>
-          <Text style={styles.systemBubbleText}>{item.message}</Text>
+        <View style={[
+          styles.systemBubble,
+          isSavedMsg && styles.systemBubbleSaved,
+          isDeadMsg && styles.systemBubbleDead,
+          isVoteMsg && styles.systemBubbleVote,
+        ]}>
+          <Text style={[
+            styles.systemBubbleText,
+            isSavedMsg && styles.systemTextSaved,
+            isDeadMsg && styles.systemTextDead,
+            isVoteMsg && styles.systemTextVote,
+          ]}>
+            {item.message}
+          </Text>
         </View>
       );
     }
@@ -140,8 +156,7 @@ export default function ChatBox({
           <View style={styles.senderRow}>
             <Text style={[
               styles.senderName,
-              item.isWolfChat && { color: COLORS.wolf },
-              isNight && !item.isWolfChat && { color: COLORS.nightText },
+              item.isWolfChat && styles.senderNameWolf,
             ]}>
               {item.playerName}
               {item.isWolfChat ? ' 🐺' : ''}
@@ -151,7 +166,6 @@ export default function ChatBox({
         <Text style={[
           styles.messageText,
           isMe && styles.myMessageText,
-          isNight && !isMe && !item.isWolfChat && { color: COLORS.nightText },
         ]}>
           {item.message}
         </Text>
@@ -162,9 +176,9 @@ export default function ChatBox({
   const isInputDisabled = disabled || (!isCurrentChannelWolf && isNight) || isWolfChatLocked;
 
   const bgColor = isNight || isCurrentChannelWolf ? COLORS.nightCard : COLORS.dayCard;
-  const inputBg = isNight || isCurrentChannelWolf ? 'rgba(255,255,255,0.1)' : COLORS.grayLight;
-  const inputColor = isNight || isCurrentChannelWolf ? COLORS.white : COLORS.black;
-  const placeholderColor = isNight || isCurrentChannelWolf ? 'rgba(255,255,255,0.4)' : COLORS.gray;
+  const inputBg = 'rgba(255, 255, 255, 0.12)';
+  const inputColor = '#FFFFFF';
+  const placeholderColor = 'rgba(255, 255, 255, 0.55)';
 
   let placeholderText = 'Nhắn tin...';
   if (isWolfChatLocked) {
@@ -375,21 +389,46 @@ const styles = StyleSheet.create({
     color: '#E2E8F0',
   },
   systemBubble: {
-    backgroundColor: 'rgba(245, 158, 11, 0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.45)',
-    borderRadius: 12,
+    backgroundColor: 'rgba(245, 158, 11, 0.22)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(245, 158, 11, 0.55)',
+    borderRadius: 14,
     padding: 10,
     marginVertical: 6,
     alignSelf: 'center',
     maxWidth: '92%',
   },
+  systemBubbleSaved: {
+    backgroundColor: 'rgba(14, 165, 233, 0.24)',
+    borderColor: '#0EA5E9',
+  },
+  systemBubbleDead: {
+    backgroundColor: 'rgba(239, 68, 68, 0.24)',
+    borderColor: '#EF4444',
+  },
+  systemBubbleVote: {
+    backgroundColor: 'rgba(245, 158, 11, 0.25)',
+    borderColor: '#F59E0B',
+  },
   systemBubbleText: {
     color: '#FDE68A',
-    fontSize: 12.5,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '800',
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 19,
+    textShadowColor: '#000000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+    ...(Platform.OS === 'web' ? { textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' } : {}),
+  },
+  systemTextSaved: {
+    color: '#38BDF8',
+  },
+  systemTextDead: {
+    color: '#FCA5A5',
+  },
+  systemTextVote: {
+    color: '#FCD34D',
   },
   header: {
     flex: 1,
@@ -477,16 +516,19 @@ const styles = StyleSheet.create({
   },
   otherMessage: {
     alignSelf: 'flex-start',
-    backgroundColor: COLORS.grayLight,
+    backgroundColor: 'rgba(30, 41, 59, 0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
     borderBottomLeftRadius: 4,
   },
   nightOtherMessage: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(24, 24, 38, 0.95)',
+    borderColor: 'rgba(255, 255, 255, 0.18)',
   },
   wolfMessage: {
     borderWidth: 1.5,
     borderColor: '#EF4444',
-    backgroundColor: 'rgba(220, 38, 38, 0.2)',
+    backgroundColor: 'rgba(127, 29, 29, 0.45)',
   },
   senderRow: {
     flexDirection: 'row',
@@ -498,17 +540,34 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   senderName: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.grayDark,
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#38BDF8',
+    textShadowColor: '#000000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+    ...(Platform.OS === 'web' ? { textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' } : {}),
+  },
+  senderNameWolf: {
+    color: '#F87171',
   },
   messageText: {
-    fontSize: 14,
-    color: COLORS.black,
-    lineHeight: 19,
+    fontSize: 14.5,
+    color: '#FFFFFF',
+    fontWeight: '800',
+    lineHeight: 20,
+    textShadowColor: '#000000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+    ...(Platform.OS === 'web' ? { textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' } : {}),
   },
   myMessageText: {
-    color: COLORS.white,
+    color: '#FFFFFF',
+    fontWeight: '800',
+    textShadowColor: '#000000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+    ...(Platform.OS === 'web' ? { textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' } : {}),
   },
   emptyContainer: {
     flex: 1,
@@ -518,10 +577,13 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: '#CBD5E1',
     fontStyle: 'italic',
     textAlign: 'center',
     paddingHorizontal: 16,
+    textShadowColor: '#000000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   listContainer: {
     flex: 1,
@@ -562,12 +624,20 @@ const styles = StyleSheet.create({
     minHeight: 38,
     maxHeight: 110,
     borderRadius: 16,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingTop: 9,
     paddingBottom: 9,
-    fontSize: 13.5,
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: 'rgba(124, 58, 237, 0.55)',
     marginRight: 8,
-    lineHeight: 18,
+    lineHeight: 19,
+    textShadowColor: '#000000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+    ...(Platform.OS === 'web' ? { textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' } : {}),
   },
   inputDisabled: {
     opacity: 0.5,

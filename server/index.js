@@ -272,7 +272,9 @@ function startDayAnnounce(room, deadPlayerId) {
 
   // Ghi rõ tên người bị sói cắn và được bảo vệ thành công vào khung chat
   let announceChat = '';
-  if (savedPlayer) {
+  if (savedPlayer && deadPlayer) {
+    announceChat = `💀 [BÌNH MINH]: Đêm qua, ${deadPlayer.name} đã bị Ma Sói sát hại dã man!\n🛡️ [BẢO VỆ CỨU SỐNG]: ${savedPlayer.name} cũng bị Ma Sói cắn nhưng đã được BẢO VỆ che chở thành công!`;
+  } else if (savedPlayer) {
     announceChat = `🛡️ [BÌNH MINH]: Đêm qua, ${savedPlayer.name} đã bị Ma Sói cắn nhưng được BẢO VỆ che chở thành công! Không ai thiệt mạng.`;
   } else if (deadPlayer) {
     announceChat = `💀 [BÌNH MINH]: Đêm qua, ${deadPlayer.name} đã bị Ma Sói sát hại dã man!`;
@@ -349,24 +351,48 @@ function concludeDayVote(room) {
   const { eliminatedId, voteDetails } = processDayVote(room);
   const eliminated = eliminatedId ? room.players.get(eliminatedId) : null;
 
-  // KO TIẾT LỘ VAI TRÒ KHI BỊ TREO CỔ (Theo yêu cầu)
+  // Tính số lượng Sói còn sống sau khi bỏ phiếu
+  const remainingWolves = [...room.players.values()].filter(
+    (p) => p.role === ROLES.WOLF && p.alive
+  ).length;
+
+  // Ghi nhận kết quả biểu quyết và số Sói còn lại vào khung chat
+  let voteChatMsg = '';
+  if (eliminated) {
+    voteChatMsg = `⚖️ [KẾT QUẢ BIỂU QUYẾT]: Dân làng đã quyết định treo cổ ${eliminated.name}! (🐺 Sói còn lại: ${remainingWolves})`;
+  } else {
+    voteChatMsg = `🕊️ [KẾT QUẢ BIỂU QUYẾT]: Hòa phiếu hoặc đa số bỏ phiếu trắng — Không ai bị treo cổ hôm nay! (🐺 Sói còn lại: ${remainingWolves})`;
+  }
+
+  io.to(room.code).emit('new-message', {
+    playerId: 'system',
+    playerName: '📢 Hệ Thống',
+    avatar: '⚖️',
+    message: voteChatMsg,
+    timestamp: Date.now(),
+    isWolfChat: false,
+    isSystem: true,
+  });
+
+  // Gửi kết quả biểu quyết kèm remainingWolves để hiển thị giữa màn hình trong 3s
   io.to(room.code).emit('vote-result', {
     eliminated: eliminated
       ? { id: eliminated.id, name: eliminated.name, avatar: eliminated.avatar }
       : null,
     votes: voteDetails,
+    remainingWolves,
     players: getPlayersData(room),
   });
 
   // Kiểm tra win condition sau vote
   const winCheck = checkWinCondition(room);
   if (winCheck.gameOver) {
-    setTimeout(() => endGame(room, winCheck), 3000);
+    setTimeout(() => endGame(room, winCheck), 3500);
     return;
   }
 
-  // Tiếp tục -> Ban Đêm
-  setTimeout(() => startNightPhase(room), 3000);
+  // Tiếp tục -> Ban Đêm (chờ 3.5s để người chơi xem số lượng Sói còn lại trên giữa màn hình trong 3s)
+  setTimeout(() => startNightPhase(room), 3500);
 }
 
 /** Kết thúc game - Lật bài, hiển thị kết quả */

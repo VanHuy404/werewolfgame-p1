@@ -4,6 +4,30 @@ Tất cả các thay đổi, cập nhật kiến trúc và tính năng của d�
 
 ---
 
+## [1.7.5] - 2026-10-25
+
+### 💬 Nổi Bật Chữ Trong Khung Chat & Viền Đen (Prominent Text with Black Stroke)
+- **Đổi Màu Chữ & Thêm Viền Đen Nổi Bật:**
+  - Toàn bộ nội dung tin nhắn (`messageText`, `myMessageText`) và ô nhập văn bản (`input`) được đổi sang màu trắng sáng `#FFFFFF` nổi bật với font đậm (`fontWeight: '800'`).
+  - Tích hợp hiệu ứng viền đen (`textShadow` sắc nét `-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000` trên Web và `textShadowColor: '#000000', textShadowRadius: 3` trên Mobile/Native) giúp chữ nổi bần bật, cực kỳ dễ đọc trên mọi nền sáng/tối và chế độ ngày/đêm.
+  - Tên người gửi (`senderName`) và thông báo hệ thống (`systemBubbleText`) cũng được tinh chỉnh viền đen đồng bộ và nổi bật.
+  - Hộp tin nhắn của người khác (`otherMessage`) chuyển sang nền tối kính mờ `rgba(30, 41, 59, 0.92)` bo viền sang trọng, tạo độ tương phản tối đa với chữ trắng viền đen.
+
+### 🛡️💀 Thông Báo Đầy Đủ Nạn Nhân & Bảo Vệ Cứu Sống Trong Khung Chat
+- **Hiển Thị Đồng Thời Cả Người Bị Cắn Được Bảo Vệ Che Chở & Người Chết:**
+  - Khung chat hệ thống hiển thị rõ ràng chiến công của Bảo Vệ khi bảo vệ đúng người bị Ma Sói cắn: `🛡️ [BÌNH MINH]: Đêm qua, [Tên] đã bị Ma Sói cắn nhưng được BẢO VỆ che chở thành công! Không ai thiệt mạng.`
+  - Hỗ trợ hiển thị kết hợp cả tin báo người chết và người được cứu sống trong trường hợp nhiều biến cố xảy ra trong đêm.
+  - Thẻ thông báo trên bàn đấu (`announceCard`) cũng được cập nhật để hiển thị đồng thời cả thẻ Bảo Vệ cứu người và thẻ người hy sinh.
+
+### 🐺 Hiển Thị Số Lượng Sói Còn Lại Giữa Màn Hình Trong 3 Giây
+- **Pop-up Đếm Số Lượng Sói Trung Tâm Màn Hình:**
+  - Ngay sau khi giai đoạn bỏ phiếu ban ngày kết thúc (`vote-result`), một pop-up HUD ấn tượng với biểu tượng 🐺 phát sáng hào quang đỏ sẽ xuất hiện **ngay chính giữa màn hình**.
+  - Hiển thị số lượng Sói còn sống cực to (`fontSize: 54`), viền đen dày nổi bật kèm thông điệp trạng thái (ví dụ: `⚠️ 2 con Sói vẫn đang ẩn nấp trong làng!` hoặc `🎉 Toàn bộ Ma Sói đã bị tiêu diệt!`).
+  - Tự động đếm 3 giây rồi biến mất mượt mà với hiệu ứng Animated Fade/Scale trước khi chuyển tiếp sang ban đêm.
+  - Đồng thời cập nhật số lượng Sói còn lại vào tin nhắn thông báo kết quả biểu quyết trong khung chat.
+
+---
+
 ## [1.7.4] - 2026-10-25
 
 ### 💬 Tối Ưu Hóa Trải Nghiệm Khung Chat & Tinh Gọn Header

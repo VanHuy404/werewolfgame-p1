@@ -131,6 +131,12 @@ export default function GameScreen({
   const [voteNoOneHanged, setVoteNoOneHanged] = useState(false);
   const [skipVoteCount, setSkipVoteCount] = useState(0);
 
+  // Hiển thị số lượng sói còn lại ngay trên giữa màn hình trong 3s
+  const [remainingWolvesOverlay, setRemainingWolvesOverlay] = useState(null);
+  const wolfOverlayScale = useRef(new Animated.Value(0.7)).current;
+  const wolfOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const wolfOverlayTimerRef = useRef(null);
+
   // Animations
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const crystalPulse = useRef(new Animated.Value(1)).current;
@@ -209,6 +215,41 @@ export default function GameScreen({
       setTimeout(() => {
         setLastVoteEliminated(null);
       }, 4500);
+
+      // Hiển thị số lượng Sói còn lại ngay trên giữa màn hình trong 3s
+      if (data.remainingWolves !== undefined && data.remainingWolves !== null) {
+        setRemainingWolvesOverlay(data.remainingWolves);
+        wolfOverlayScale.setValue(0.7);
+        wolfOverlayOpacity.setValue(0);
+
+        Animated.parallel([
+          Animated.spring(wolfOverlayScale, {
+            toValue: 1,
+            friction: 6,
+            tension: 50,
+            useNativeDriver: true,
+          }),
+          Animated.timing(wolfOverlayOpacity, {
+            toValue: 1,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+        ]).start();
+
+        if (wolfOverlayTimerRef.current) {
+          clearTimeout(wolfOverlayTimerRef.current);
+        }
+
+        wolfOverlayTimerRef.current = setTimeout(() => {
+          Animated.timing(wolfOverlayOpacity, {
+            toValue: 0,
+            duration: 350,
+            useNativeDriver: true,
+          }).start(() => {
+            setRemainingWolvesOverlay(null);
+          });
+        }, 3000);
+      }
     };
 
     socket.on('wolf-vote-update', handleWolfVoteUpdate);
@@ -441,7 +482,7 @@ export default function GameScreen({
                 <View style={styles.announceCard}>
                   <Text style={styles.announceSun}>☀️</Text>
                   <Text style={styles.announceHeader}>BÌNH MINH LÊN</Text>
-                  {savedPlayer ? (
+                  {savedPlayer && (
                     <View style={styles.savedInfoBox}>
                       <Text style={styles.savedShield}>🛡️</Text>
                       <Text style={styles.savedHeader}>BẢO VỆ CỨU SỐNG THÀNH CÔNG!</Text>
@@ -452,12 +493,15 @@ export default function GameScreen({
                       <Text style={styles.savedNoticeText}>
                         Đêm qua, Ma Sói đã chọn cắn <Text style={{ fontWeight: 'bold', color: '#38BDF8' }}>{savedPlayer.name}</Text>, nhưng đã được Bảo Vệ che chở an toàn tuyệt đối!
                       </Text>
-                      <View style={styles.savedSecretBadge}>
-                        <Text style={styles.savedSecretText}>✨ Đêm qua không một ai thiệt mạng!</Text>
-                      </View>
+                      {!deadPlayer && (
+                        <View style={styles.savedSecretBadge}>
+                          <Text style={styles.savedSecretText}>✨ Đêm qua không một ai thiệt mạng!</Text>
+                        </View>
+                      )}
                     </View>
-                  ) : deadPlayer ? (
-                    <View style={styles.deadInfoBox}>
+                  )}
+                  {deadPlayer && (
+                    <View style={[styles.deadInfoBox, savedPlayer && { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' }]}>
                       <Text style={styles.deadSkull}>💀</Text>
                       <Text style={styles.deadPlayerName}>{deadPlayer.name}</Text>
                       <Text style={styles.deadNoticeText}>đã bị Ma Sói sát hại đêm qua!</Text>
@@ -465,7 +509,8 @@ export default function GameScreen({
                         <Text style={styles.secretRoleText}>🐺 Lý do: Bị Ma Sói cắn chết</Text>
                       </View>
                     </View>
-                  ) : (
+                  )}
+                  {!savedPlayer && !deadPlayer && (
                     <View style={styles.peacefulBox}>
                       <Text style={styles.peacefulEmoji}>🕊️</Text>
                       <Text style={styles.peacefulTitle}>Một đêm bình yên!</Text>
@@ -947,6 +992,37 @@ export default function GameScreen({
                 </View>
               )}
             </TouchableOpacity>
+          )}
+
+          {/* ================= THÔNG BÁO SỐ LƯỢNG SÓI CÒN LẠI NGAY GIỮA MÀN HÌNH TRONG 3S ================= */}
+          {remainingWolvesOverlay !== null && (
+            <View style={styles.centerScreenModalContainer} pointerEvents="none">
+              <Animated.View
+                style={[
+                  styles.wolfCountPopupCard,
+                  {
+                    transform: [{ scale: wolfOverlayScale }],
+                    opacity: wolfOverlayOpacity,
+                  },
+                ]}
+              >
+                <View style={styles.wolfCountGlowBadge}>
+                  <Text style={styles.wolfCountEmoji}>🐺</Text>
+                </View>
+                <Text style={styles.wolfCountHeader}>SỐ LƯỢNG SÓI CÒN LẠI</Text>
+                <View style={styles.wolfCountNumberBox}>
+                  <Text style={styles.wolfCountNumber}>{remainingWolvesOverlay}</Text>
+                </View>
+                <Text style={styles.wolfCountSubtitle}>
+                  {remainingWolvesOverlay === 0
+                    ? '🎉 Toàn bộ Ma Sói đã bị tiêu diệt!'
+                    : `⚠️ ${remainingWolvesOverlay} con Sói vẫn đang ẩn nấp trong làng!`}
+                </Text>
+                <View style={styles.wolfCountTimerPill}>
+                  <Text style={styles.wolfCountTimerText}>⏱️ Tự đóng sau 3s</Text>
+                </View>
+              </Animated.View>
+            </View>
           )}
         </SafeAreaView>
       </View>
@@ -2332,5 +2408,98 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
     color: '#6EE7B7',
+  },
+  centerScreenModalContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  },
+  wolfCountPopupCard: {
+    backgroundColor: 'rgba(20, 10, 15, 0.96)',
+    borderRadius: 24,
+    borderWidth: 2.5,
+    borderColor: '#EF4444',
+    paddingHorizontal: 32,
+    paddingVertical: 24,
+    alignItems: 'center',
+    maxWidth: 380,
+    width: '88%',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 20,
+    elevation: 25,
+  },
+  wolfCountGlowBadge: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: 'rgba(220, 38, 38, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#EF4444',
+    marginBottom: 12,
+  },
+  wolfCountEmoji: {
+    fontSize: 38,
+  },
+  wolfCountHeader: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FCA5A5',
+    letterSpacing: 2,
+    textAlign: 'center',
+    marginBottom: 8,
+    textShadowColor: '#000000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+  },
+  wolfCountNumberBox: {
+    backgroundColor: 'rgba(220, 38, 38, 0.2)',
+    paddingHorizontal: 28,
+    paddingVertical: 6,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: 'rgba(239, 68, 68, 0.6)',
+    marginVertical: 6,
+  },
+  wolfCountNumber: {
+    fontSize: 54,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    textShadowColor: '#000000',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
+    ...(Platform.OS === 'web' ? { textShadow: '-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000' } : {}),
+  },
+  wolfCountSubtitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#CBD5E1',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 18,
+  },
+  wolfCountTimerPill: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  wolfCountTimerText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#94A3B8',
   },
 });
