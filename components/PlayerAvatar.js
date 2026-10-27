@@ -74,9 +74,9 @@ export default function PlayerAvatar({
   const isConnected = player.connected !== false;
 
   const sizes = {
-    small: { container: 60, avatar: 36, emoji: 20, name: 10 },
-    medium: { container: 80, avatar: 52, emoji: 28, name: 12 },
-    large: { container: 100, avatar: 68, emoji: 36, name: 14 },
+    small: { container: 80, avatar: 52, emoji: 28, name: 11 },
+    medium: { container: 110, avatar: 76, emoji: 42, name: 13 },
+    large: { container: 140, avatar: 96, emoji: 54, name: 15 },
   };
   const s = sizes[size] || sizes.medium;
 
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontWeight: '700',
     textAlign: 'center',
-    maxWidth: 72,
+    maxWidth: 130,
   },
   roleBadge: {
     marginTop: 3,

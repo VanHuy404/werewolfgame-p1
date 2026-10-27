@@ -8,6 +8,9 @@ import {
   View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView,
 } from 'react-native';
 import { COLORS } from '../utils/colors';
+import SeerInspectionModal from './SeerInspectionModal';
+import WolfClawAttackModal from './WolfClawAttackModal';
+import BodyguardSaveModal from './BodyguardSaveModal';
 
 /**
  * @param {Object} props
@@ -17,6 +20,9 @@ import { COLORS } from '../utils/colors';
  * @param {Function} props.onClose - Đóng modal
  * @param {boolean} props.isCreating - Đang tạo phòng (vs. chỉnh sửa)
  * @param {number} props.currentPlayerCount - Số người hiện tại trong phòng
+ * @param {boolean} props.readOnly - Chỉ xem cài đặt (dành cho người không phải chủ phòng)
+ * @param {Array} props.players - Danh sách người chơi trong phòng (để demo hiệu ứng)
+ * @param {string} props.myId - ID của người đang mở cài đặt
  */
 export default function RoomSettings({
   visible = false,
@@ -26,12 +32,61 @@ export default function RoomSettings({
   isCreating = true,
   currentPlayerCount = 1,
   readOnly = false,
+  players = [],
+  myId = null,
 }) {
   const [numWolves, setNumWolves] = useState(2);
   const [numSeers, setNumSeers] = useState(1);
   const [numBodyguards, setNumBodyguards] = useState(1);
   const [dayDiscussionTime, setDayDiscussionTime] = useState(60);
   const [dayVoteTime, setDayVoteTime] = useState(25);
+
+  // Thử nghiệm hiệu ứng Tiên Tri Soi (Dành riêng cho Chủ Phòng)
+  const [seerDemoVisible, setSeerDemoVisible] = useState(false);
+  const [seerDemoAlignment, setSeerDemoAlignment] = useState('good');
+  const [seerDemoTarget, setSeerDemoTarget] = useState(null);
+
+  // Thử nghiệm hiệu ứng Sói cào tử nạn (Dành riêng cho Chủ Phòng)
+  const [clawDemoVisible, setClawDemoVisible] = useState(false);
+  const [clawDemoTarget, setClawDemoTarget] = useState(null);
+
+  // Thử nghiệm hiệu ứng Bảo Vệ thành công (Dành riêng cho Chủ Phòng)
+  const [saveDemoVisible, setSaveDemoVisible] = useState(false);
+  const [saveDemoTarget, setSaveDemoTarget] = useState(null);
+
+  const handleTestSeerEffect = (alignment) => {
+    setSeerDemoAlignment(alignment);
+    const target = (players && players.find((p) => p.id !== myId)) || (players && players[0]) || {
+      id: 'demo-target',
+      name: alignment === 'evil' ? 'Ma Sói Khát Máu' : 'Dân Làng Lương Thiện',
+      avatar: alignment === 'evil' ? '🐺' : '🧙‍♂️',
+      avatarColor: alignment === 'evil' ? '#EF4444' : '#38BDF8',
+    };
+    setSeerDemoTarget(target);
+    setSeerDemoVisible(true);
+  };
+
+  const handleTestClawEffect = () => {
+    const target = (players && players.find((p) => p.id !== myId)) || (players && players[0]) || {
+      id: 'demo-claw-target',
+      name: 'Người Chơi Số Nhọ',
+      avatar: '🧙‍♂️',
+      avatarColor: '#38BDF8',
+    };
+    setClawDemoTarget(target);
+    setClawDemoVisible(true);
+  };
+
+  const handleTestSaveEffect = () => {
+    const target = (players && players.find((p) => p.id !== myId)) || (players && players[0]) || {
+      id: 'demo-save-target',
+      name: 'Người Chơi May Mắn',
+      avatar: '🧙‍♂️',
+      avatarColor: '#38BDF8',
+    };
+    setSaveDemoTarget(target);
+    setSaveDemoVisible(true);
+  };
 
   // Sync settings khi mở modal
   useEffect(() => {
@@ -205,6 +260,55 @@ export default function RoomSettings({
                 </Text>
               </View>
             )}
+
+            {/* ================= KHỐI THỬ HIỆU ỨNG (CHỈ DÀNH CHO CHỦ PHÒNG) ================= */}
+            {!readOnly && (
+              <View style={styles.seerDemoCard}>
+                <View style={styles.seerDemoHeader}>
+                  <Text style={styles.seerDemoHeaderEmoji}>✨</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.seerDemoHeaderTitle}>THỬ CÁC HIỆU ỨNG</Text>
+                    <Text style={styles.seerDemoHeaderSub}>
+                      Chủ phòng xem trước các hiệu ứng điện ảnh trong trận
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.seerDemoButtonsRow}>
+                  <TouchableOpacity
+                    style={styles.seerDemoBtnGood}
+                    onPress={() => handleTestSeerEffect('good')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.seerDemoBtnGoodText}>🕊️ Soi Phe Thiện</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.seerDemoBtnEvil}
+                    onPress={() => handleTestSeerEffect('evil')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.seerDemoBtnEvilText}>🐺 Soi Phe Ác</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Nút thử nghiệm Sói Cào Tử Nạn buổi sáng */}
+                <TouchableOpacity
+                  style={styles.clawDemoBtn}
+                  onPress={handleTestClawEffect}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.clawDemoBtnText}>🩸🐺 Thử Hiệu Ứng Bị Sói Cào Tử Nạn</Text>
+                </TouchableOpacity>
+
+                {/* Nút thử nghiệm Khiên Bảo Vệ Thành Công */}
+                <TouchableOpacity
+                  style={styles.saveDemoBtn}
+                  onPress={handleTestSaveEffect}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.saveDemoBtnText}>🛡️ Thử Hiệu Ứng Khiên Bảo Vệ Thành Công</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </ScrollView>
 
           {/* Nút hành động */}
@@ -225,6 +329,31 @@ export default function RoomSettings({
             )}
           </View>
         </View>
+
+        {/* Modal chạy thử hiệu ứng Tiên Tri Soi (Dành riêng cho Chủ phòng) */}
+        <SeerInspectionModal
+          visible={seerDemoVisible}
+          targetPlayer={seerDemoTarget}
+          alignment={seerDemoAlignment}
+          timeLeft={5}
+          onClose={() => setSeerDemoVisible(false)}
+        />
+
+        {/* Modal chạy thử hiệu ứng Sói cào tử nạn (Dành riêng cho Chủ phòng) */}
+        <WolfClawAttackModal
+          visible={clawDemoVisible}
+          victimPlayer={clawDemoTarget}
+          timeLeft={5}
+          onClose={() => setClawDemoVisible(false)}
+        />
+
+        {/* Modal chạy thử hiệu ứng Bảo Vệ thành công (Dành riêng cho Chủ phòng) */}
+        <BodyguardSaveModal
+          visible={saveDemoVisible}
+          savedPlayer={saveDemoTarget}
+          timeLeft={5}
+          onClose={() => setSaveDemoVisible(false)}
+        />
       </View>
     </Modal>
   );
@@ -509,5 +638,112 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: COLORS.white,
+  },
+
+  // Khối thử hiệu ứng Tiên Tri dành cho Chủ Phòng
+  seerDemoCard: {
+    backgroundColor: '#1E1B4B',
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 14,
+    marginBottom: 6,
+    borderWidth: 1.5,
+    borderColor: '#8B5CF6',
+  },
+  seerDemoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  seerDemoHeaderEmoji: {
+    fontSize: 24,
+    marginRight: 8,
+  },
+  seerDemoHeaderTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#E9D5FF',
+    letterSpacing: 0.5,
+  },
+  seerDemoHeaderSub: {
+    fontSize: 11,
+    color: '#CBD5E1',
+    marginTop: 2,
+    lineHeight: 14,
+  },
+  seerDemoButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  seerDemoBtnGood: {
+    flex: 1,
+    backgroundColor: '#065F46',
+    borderWidth: 1.5,
+    borderColor: '#34D399',
+    borderRadius: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  seerDemoBtnGoodText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  seerDemoBtnEvil: {
+    flex: 1,
+    backgroundColor: '#7F1D1D',
+    borderWidth: 1.5,
+    borderColor: '#EF4444',
+    borderRadius: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  seerDemoBtnEvilText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  clawDemoBtn: {
+    backgroundColor: 'rgba(127, 29, 29, 0.5)',
+    borderWidth: 1.5,
+    borderColor: '#EF4444',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+  clawDemoBtnText: {
+    color: '#FECACA',
+    fontWeight: '900',
+    fontSize: 12.5,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  saveDemoBtn: {
+    backgroundColor: 'rgba(14, 165, 233, 0.25)',
+    borderWidth: 1.5,
+    borderColor: '#0EA5E9',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  saveDemoBtnText: {
+    color: '#BAE6FD',
+    fontWeight: '900',
+    fontSize: 12.5,
+    letterSpacing: 0.5,
+    textAlign: 'center',
   },
 });

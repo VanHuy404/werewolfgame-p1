@@ -4,6 +4,185 @@ Tất cả các thay đổi, cập nhật kiến trúc và tính năng của d�
 
 ---
 
+## [1.9.2] - 2026-10-27
+
+### 🛡️ Hoạt Ảnh Khiên Bảo Vệ Thành Công (Morning Bodyguard Save Cinematic Animation)
+- **Component Mới [BodyguardSaveModal.js](file:///d:/code%20game/Werewolfdemo/components/BodyguardSaveModal.js):**
+  - Tích hợp tài nguyên ảnh Khiên Hiệp Sĩ viền sắt cổ điển độ nét cao (`assets/shield.png`).
+  - Hoạt ảnh 4 giai đoạn điện ảnh:
+    1. **Tâm điểm nạn nhân:** Banner `⚠️ MA SÓI TẤN CÔNG ĐÊM QUA!` cùng phụ đề `Một tiếng thét xé tan màn đêm yên bình của ngôi làng...`, chân dung nạn nhân với bảng tên `NẠN NHÂN ĐÊM QUA`.
+    2. **Vuốt Sói tấn công:** Móng vuốt sói bổ nhào xé toạc mục tiêu.
+    3. **Khiên chặn đứng & Va chạm kim loại:** Khiên bay vụt ra chắn giữa vuốt sói và avatar. Phát âm thanh va chạm kim loại đanh thép chói tai ("KENGGG / CHINGGG") tổng hợp bằng Web Audio API, bùng nổ 22 tia lửa kim loại và sóng xung kích hào quang. Vuốt sói bị đánh bật dội ngược ra sau và tan biến.
+    4. **Chiến thắng & Hộ mệnh:** Tiêu đề chuyển mượt thành `🛡️ BẢO VỆ ĐÃ BẢO VỆ THÀNH CÔNG!!` và phụ đề `Người hùng của ngôi làng đã bảo vệ được người vô tội`. Huy hiệu phía dưới phát sáng: `🛡️ ĐÃ ĐƯỢC BẢO VỆ`.
+- **Tích Hợp Tự Động Trong Trận Đấu ([GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js)):**
+  - Khi bước vào pha thông báo sáng (`DAY_ANNOUNCE`), nếu có người được Bảo Vệ cứu thoát khỏi nanh vuốt Sói (`savedPlayer`), toàn bộ phòng sẽ được chứng kiến hoạt ảnh điện ảnh này.
+- **Thử Nghiệm Trong Cài Đặt ([RoomSettings.js](file:///d:/code%20game/Werewolfdemo/components/RoomSettings.js)):**
+  - Thêm nút `🛡️ Thử Hiệu Ứng Khiên Bảo Vệ Thành Công` vào khối `THỬ CÁC HIỆU ỨNG` dành riêng cho Chủ phòng.
+
+---
+
+## [1.9.1] - 2026-10-27
+
+### 🎨 Tinh Chỉnh Giao Diện Sói Cào & Khối Cài Đặt Phòng
+- **Xóa Bỏ Tính Năng Đổi Avatar Trong Sảnh Chờ:**
+  - Xóa toàn bộ code và giao diện đổi avatar trong [LobbyScreen.js](file:///d:/code%20game/Werewolfdemo/screens/LobbyScreen.js) và socket event `change-avatar` trong [server/index.js](file:///d:/code%20game/Werewolfdemo/server/index.js).
+  - Giữ lại tính năng đổi avatar ngoài sảnh chính [HomeScreen.js](file:///d:/code%20game/Werewolfdemo/screens/HomeScreen.js) với nút `➕` và [AvatarPickerModal.js](file:///d:/code%20game/Werewolfdemo/components/AvatarPickerModal.js).
+- **Đổi Tên Tiêu Đề Khối Thử Trong [RoomSettings.js](file:///d:/code%20game/Werewolfdemo/components/RoomSettings.js):**
+  - Đổi tiêu đề khối thử thành: `THỬ CÁC HIỆU ỨNG`.
+- **Tinh Chỉnh [WolfClawAttackModal.js](file:///d:/code%20game/Werewolfdemo/components/WolfClawAttackModal.js):**
+  - Đổi nhãn bảng tên thành: `NẠN NHÂN ĐÊM QUA`.
+  - Huy hiệu tử nạn bên dưới chỉ hiển thị dòng chữ: `ĐÃ BỊ SÓI CẮN`.
+  - Xóa bỏ vòng tròn viền hào quang đằng sau avatar (`avatarAuraRing`).
+
+### ⚖️ Thông Báo Số Lượng Sói Còn Lại Sau Khi Hết Giờ Treo Cổ
+- **HUD Thông Báo Điện Ảnh [GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js):**
+  - Khi hết giờ bỏ phiếu ban ngày (`vote-result`), hiển thị pop-up thông báo trung tâm trong 4 giây:
+    - Kết quả biểu quyết: Người bị treo cổ hoặc không ai bị treo cổ.
+    - Số lượng Ma Sói còn lại trong làng.
+    - Thông báo chuẩn bị bước vào Ban Đêm trước khi các vai trò (Bảo Vệ, Sói, Tiên Tri) bắt đầu lượt hành động.
+  - Tăng thời gian chuyển pha sau bỏ phiếu trong [server/index.js](file:///d:/code%20game/Werewolfdemo/server/index.js) lên 4.5 giây để đảm bảo toàn bộ người chơi nắm rõ thông tin.
+
+---
+
+## [1.9.0] - 2026-10-27
+
+### 🩸 Hoạt Ảnh Ma Sói Cào Tử Nạn Buổi Sáng (Morning Wolf Claw Attack Cinematic Animation)
+- **Tích Hợp Ảnh Vết Cào Máu Ma Sói (`assets/wolf_claw.png`):**
+  - Tách nền ảnh vuốt sói cào sắc nhọn do người dùng cung cấp thành file PNG trong suốt độ phân giải cao (`517px × 591px`).
+  - Tích hợp vào component mới [WolfClawAttackModal.js](file:///d:/code%20game/Werewolfdemo/components/WolfClawAttackModal.js).
+- **Hoạt Ảnh 3 Giai Đoạn:**
+  1. **Giai đoạn 1 (Tâm điểm nạn nhân):** Avatar người bị sát hại nổi bật ở trung tâm với vòng hào quang đỏ rực và bảng tên trên chân đế ma mị.
+  2. **Giai đoạn 2 (Vuốt cào xé toạc):** 3 vệt móng vuốt sói sắc lẹm chém toạc đè lên Avatar với hiệu ứng rung giật màn hình (`shakeAnim`), chớp sáng đỏ (`flashAnim`), 18 hạt máu bắn tung tóe ra 360 độ và âm thanh chém xé chân thực bằng Web Audio API Synthesizer.
+  3. **Giai đoạn 3 (Chuyển hóa đen xám):** Lớp phủ đen xám tử nạn (`grayscaleDarkOverlay`) lan tỏa toàn bộ avatar, chuyển viền sang xám tro `#475569`, hiện dấu ấn đầu lâu u tối và huy hiệu `⚰️ ĐÃ BỊ TIÊU DIỆT`.
+- **Kích Hoạt Tự Động Trong Trận Đấu (`GameScreen.js`):**
+  - Vào bình minh (`DAY_ANNOUNCE`), khi có người chết do Ma Sói, toàn bộ phòng chơi đều chứng kiến hoạt ảnh điện ảnh này trước khi bước vào giờ thảo luận.
+- **Thử Nghiệm Trong Cài Đặt (Host Only):**
+  - Bổ sung nút `🩸🐺 Thử Hiệu Ứng Bị Sói Cào Tử Nạn` trong [RoomSettings.js](file:///d:/code%20game/Werewolfdemo/components/RoomSettings.js) dành riêng cho Chủ phòng.
+
+### 🎨 Kho Emote Đa Dạng & Nút ➕ Đổi Avatar Trong Sảnh Chờ (Lobby)
+- **Component [AvatarPickerModal.js](file:///d:/code%20game/Werewolfdemo/components/AvatarPickerModal.js):**
+  - Phân loại biểu tượng theo 3 tab phong phú:
+    - 🐾 **Động vật:** 36 icon động vật hoang dã và vật nuôi.
+    - 🍎 **Hoa quả & Món ăn:** 36 icon trái cây, thức ăn ngon miệng.
+    - ⚔️ **Thần bí & Nhân vật:** 32 icon nhân vật huyền bí ma sói, phù thủy, ma cà rồng, v.v.
+    - 📷 Nút tải ảnh đại diện tùy biến từ thiết bị.
+- **Nút ➕ Nổi Bật & Đổi Avatar Ngay Trong Phòng Chờ (`LobbyScreen.js` & `HomeScreen.js`):**
+  - Bổ sung nút `➕` bên cạnh hàng avatar nhanh ở cả Màn hình chính và Sảnh chờ.
+  - Hỗ trợ socket event `change-avatar` thời gian thực tại `server/index.js`, giúp người chơi đổi avatar ngay trong phòng chờ mà không cần tạo lại phòng.
+
+---
+
+## [1.8.6] - 2026-10-27
+
+### ⚙️ Di Chuyển Khối Thử Hiệu Ứng Tiên Tri Vào Cài Đặt (Host-Only Settings Preview)
+- **Đóng Gói Khối Thử Vào `RoomSettings`:**
+  - Chuyển toàn bộ khu vực thử nghiệm Quả Cầu Pha Lê (`🕊️ Thử Phe Thiện` & `🐺 Thử Phe Ác`) từ giao diện phòng chờ `LobbyScreen` và `GameScreen` vào bên trong modal Cài Đặt Phòng (`RoomSettings.js`).
+  - **Bảo Mật Quyền Truy Cập (Chỉ Dành Cho Chủ Phòng):**
+    - Sử dụng điều kiện kiểm tra `!readOnly` để chỉ Chủ phòng (Host) mới nhìn thấy và kích hoạt được khối thử nghiệm này.
+    - Thành viên bình thường trong phòng chờ khi mở Cài Đặt sẽ ở chế độ `readOnly: true`, hoàn toàn không thấy khối thử hiệu ứng.
+- **Tích Hợp `SeerInspectionModal` Trực Tiếp Trong `RoomSettings`:**
+  - Khi Chủ phòng bấm thử hiệu ứng bên trong Settings, hiệu ứng quả cầu pha lê với hoạt ảnh điện ảnh sẽ phát mượt mà trên toàn màn hình. Sau khi đóng hoặc kết thúc thời gian đếm ngược, giao diện tự động quay lại bảng Settings.
+- **Làm Sạch Bàn Đấu & Phòng Chờ:**
+  - Loại bỏ hoàn toàn các nút thử nghiệm dev khỏi `LobbyScreen` và bảng hành động Tiên Tri trong `GameScreen`, giúp giao diện game sạch sẽ, gọn gàng và chuyên nghiệp.
+
+---
+
+## [1.8.5] - 2026-10-26
+
+### 💥 Tích Hợp Ảnh Vết Nứt Kính Chân Thực (Realistic Glass Shatter Texture)
+- **Tích Hợp Ảnh Kính Nứt Thực Tế (`assets/glass_crack.png`):**
+  - Tích hợp trực tiếp file ảnh texture vết nứt kính trong suốt (Transparent PNG) do người dùng cung cấp (`media_1793008804435.png`).
+  - Hình ảnh vết nứt có lỗ thủng tâm chấn cùng hàng chục tia rạn nứt sắc như dao cạo, khúc xạ ánh sáng 3D chân thực của kính vỡ thật.
+  - Phóng to kích thước vết nứt đạt trọn vẹn **250px × 250px** vừa khít với bề mặt quả cầu pha lê.
+- **Tối Ưu & Tinh Gọn Mã Nguồn:**
+  - Loại bỏ hoàn toàn khối mã tạo nhánh nứt thủ công (`CRACK_BRANCHES_DATA` và các style `crackLine`), thay thế bằng thẻ `<Image source={glassCrackImg} />` tối ưu hiệu năng cao và hình ảnh sắc nét gấp nhiều lần.
+
+---
+
+## [1.8.4] - 2026-10-26
+
+### ⚡ Nhánh Nứt Vỡ Kính Xuyên Tâm Tỏa Từ Trong Ra Ngoài (Radial Branching Fractures)
+- **Rút Ngắn 2/3 Chiều Dài Mỗi Đường Nứt (12px - 26px):**
+  - Giảm chiều dài các vết nứt kính từ 80-150px xuống chỉ còn 12-26px (ngắn lại 2/3 so với trước), tạo cảm giác mảnh nứt tinh xảo và sắc sảo như pha lê thật.
+- **Tạo Mạng Lưới 46 Nhánh Nứt Phân Nhánh Tỏa Ra Từ Tâm (Radial Fracture Web):**
+  - Tích hợp cấu trúc nứt vỡ chân thực gồm 3 tầng:
+    1. **Tâm chấn (Impact Epicenter):** 4 vết nứt vi điểm tại trung tâm quả cầu.
+    2. **6 Tia nứt chính:** Tỏa ra 6 hướng 360 độ, mỗi tia gồm 3 đoạn zíc-zắc ngắn nối tiếp nhau.
+    3. **Nhánh con rẽ nhánh (Fracture Forks):** 18 nhánh nứt phụ đâm nhánh từ các tia chính sang hai bên sườn.
+    4. **Mạng lưới nứt ngang (Cross-Fractures):** 6 đường nối ngang dạng mạng nhện nối giữa các tia nứt.
+  - Vết nứt phát sáng trắng tinh khôi (`rgba(255, 255, 255, 0.95)`) viền hào quang đỏ rực (`shadowColor: '#EF4444'`), tạo hiệu ứng quả cầu bị nội lực tà khí từ bên trong Ma Sói đập nứt toác dữ dội trước khi nổ tung!
+
+---
+
+## [1.8.3] - 2026-10-26
+
+### 🔮 Đồng Nhất Màu Sắc Quả Cầu & Vỡ Toàn Bộ Quả Cầu Biến Mất Cùng Ma Sói
+- **Đổi Tên Nhãn Thành "PHE ÁC":**
+  - Đổi huy hiệu nguyên hình từ `MA SÓI` thành `PHE ÁC` đồng bộ hoàn toàn với `PHE THIỆN` của phe đối lập.
+- **Đồng Nhất Màu Sắc 2 Quả Cầu Thiện & Ác (Giữ Bí Mật Tuyệt Đối):**
+  - Ở giai đoạn `gazing` (soi thấu linh hồn), cả hai quả cầu Phe Thiện và Phe Ác đều có màu sắc, làn sương mù ma thuật (`innerMist: rgba(79, 70, 229, 0.45)`) và vòng ma pháp ánh sao tím hoàn toàn giống nhau, không làm lộ kết quả trước thời hạn.
+  - **Chỉ thay đổi màu viền sau khi biết được thiện hay ác:**
+    - Khi chuyển sang giai đoạn `revealing`, viền quả cầu mới đổi sang đỏ rực huyết quang (`rgba(239, 68, 68, 0.95)`) nếu là Ác, hoặc vàng hoàng kim thánh khiết (`rgba(253, 224, 71, 0.95)`) nếu là Thiện.
+- **Vỡ Toàn Bộ Quả Cầu & Hình Ảnh Ma Sói Biến Mất Khi Kính Vỡ:**
+  - Khi quả cầu phát nổ, toàn bộ quả cầu pha lê cùng hình ảnh Ma Sói bên trong đều vỡ nát và biến mất hoàn toàn (`vanishOpacity` $\rightarrow$ 0).
+  - 42 mảnh vỡ kính phát nổ từ vị trí quả cầu bay tung tóe ra 360 độ và tan biến vào không gian, sau đó huy hiệu phán quyết xuất hiện bên dưới.
+
+---
+
+## [1.8.2] - 2026-10-26
+
+### 🐺 Thay Ảnh Ma Sói Điện Ảnh & Tăng Cường Vỡ Kính Đằng Sau Avatar
+- **Cập Nhật Ảnh Ma Sói Mới (`assets/werewolf.jpg`):**
+  - Thay thế hoàn toàn giao diện Ma Sói cũ bằng hình ảnh Ma Sói hắc ám mắt đỏ rực lửa do người dùng cung cấp (`media_1793006785124.jpg`).
+  - Hình ảnh được bo tròn 250×250 ôm trọn quả cầu, viền huyết quang phát sáng (`rgba(239, 68, 68, 0.85)`), mang lại cảm giác ma mị, nguy hiểm và điện ảnh tột bậc.
+- **Tăng Cường Số Lượng Mảnh Kính Vỡ (42 Mảnh Vỡ Đa Dạng):**
+  - Tăng số lượng mảnh kính từ 16 lên 42 mảnh (`NUM_SHARDS = 42`) với nhiều kích thước (lớn 24px, vừa 17px, mảnh sắc nhọn 11px, và bụi kính li ti 6px).
+  - Phổ màu mảnh kính vỡ rực rỡ gồm trắng tinh thể trong suốt (`rgba(255,255,255,0.95)`), đỏ phản quang rực lửa (`rgba(239,68,68,0.85)`), và ánh hồng băng giá (`rgba(254,202,202,0.9)`).
+  - Bổ sung 6 đường nứt kính chằng chịt (`crack1` đến `crack6`) trước thời điểm quả cầu phát nổ.
+- **Hiệu Ứng Vỡ Kính Nổ Tung NẰM ĐẰNG SAU Avatar:**
+  - Tái cấu trúc phân lớp (`zIndex: 3` cho các mảnh kính vỡ, `zIndex: 8` cho avatar/hình sói).
+  - Khi quả cầu phát nổ, lớp vỏ kính ngoài tan vỡ nhưng hình ảnh Ma Sói / Avatar vẫn ngự sừng sững ở tiền cảnh (Foreground), nhô mạnh về phía trước với hiệu ứng rung chấn, trong khi hàng chục mảnh vỡ thủy tinh phát nổ và bắn tung tóe ra phía sau lưng (Background) cực kỳ hoành tráng!
+
+---
+
+## [1.8.1] - 2026-10-26
+
+### 🔮 Tối Ưu Quả Cầu Tiên Tri & Mở Rộng 100% Hitbox Người Chơi
+- **Lấp Đầy Hình Ảnh Bên Trong Quả Cầu Pha Lê (Full-fill 250x250):**
+  - Cả ảnh đại diện mục tiêu ở Phase 1 và Mắt Thiên Sứ Thần Thánh (Ophanim Eye) / Ma Sói ở Phase 2 đều được phóng to 250px × 250px, ôm khít 100% không gian bên trong quả cầu pha lê với bo tròn viền kính ma thuật.
+  - Tích hợp lớp phủ phản chiếu ánh sáng 3D mờ nhẹ (`glassHighlight`, `glassInnerShadow`) bên trên hình ảnh, tạo chiều sâu thị giác chân thực như đang ngắm nhìn qua một quả cầu thủy tinh ma mị nguyên khối.
+- **Tên Mục Tiêu Chuyển Xuống Nằm Trên Chân Đế Quả Cầu:**
+  - Bảng tên người chơi mục tiêu (`pedestalNamePlate`) được di chuyển xuống ngự ngay phía trên chân đế kim loại cổ ngữ (`crystalPedestal`), viền vàng hoàng kim phát sáng rực rỡ, không còn che khuất hình ảnh bên trong quả cầu.
+- **Giới Hạn Tên Đặt Tối Đa 20 Ký Tự:**
+  - Tăng giới hạn đặt tên từ 15 lên 20 ký tự tại giao diện Trang chủ (`HomeScreen.js - maxLength={20}`).
+  - Đồng bộ giới hạn 20 ký tự ở tầng máy chủ (`gameLogic.js`) với hàm chuẩn hóa `trim().slice(0, 20)` cho cả tạo phòng và tham gia phòng.
+- **Mở Rộng 100% Hitbox Box Người Chơi (2x Click Area):**
+  - Tăng gấp đôi diện tích hitbox các box người chơi (`discordBox`): `minWidth` tăng từ 80px lên 140px, `minHeight` từ 110px lên 180px, padding mở rộng 16px.
+  - Phóng to các cấp độ `PlayerAvatar`: kích thước avatar từ 36-64px lên 52-96px, độ rộng hiển thị tên mở rộng tới 130px.
+  - Tối ưu số cột hiển thị bàn đấu (2-3 cột linh hoạt), giúp người chơi thao tác click, chọn mục tiêu soi/cắn/bảo vệ/biểu quyết cực kỳ dễ dàng và chuẩn xác cả trên PC lẫn Mobile.
+
+---
+
+## [1.8.0] - 2026-10-26
+
+### 🔮 Hoạt Ảnh Tiên Tri Soi Linh Hồn Điện Ảnh (Seer Inspection Cinematic Animation)
+- **Thư mục Assets Video & Hoạt ảnh:**
+  - Khởi tạo thư mục `assets/animations/` và `assets/videos/` kèm tài liệu hướng dẫn (`README.md`) để sẵn sàng chứa các video hiệu ứng dạng `.mp4`, `.webm`, file `.gif` hoặc Lottie `.json`.
+- **Hoạt Ảnh Quả Cầu Pha Lê Thấu Thị Linh Hồn (`SeerInspectionModal`):**
+  - **Giai đoạn 1 (Quả Cầu Khởi Động):** Quả cầu thủy tinh trôi bồng bềnh ma mị với vầng sáng 3D phản quang, vòng ma pháp cổ xưa xoay kép và làn khói sương cuộn xoáy. Avatar cùng tên người chơi mục tiêu hiện rõ bên trong tâm quả cầu kèm hiệu ứng thấu thị linh hồn.
+  - **Giai đoạn 2 (Hiện Nguyên Hình):**
+    - **Phe Thiện:** Avatar chuyển hóa thành **Mắt Thiên Sứ Thần Thánh (Ophanim Angel Eye)** theo ảnh mới do người dùng cung cấp với đôi mắt vũ trụ, vòng tròn ký tự hoàng kim và đôi cánh thánh quang, hiển thị nhãn `PHE THIỆN`.
+    - **Phe Ác:** Avatar chuyển hóa thành **Ma Sói Hung Tợn (`🐺`)** với mắt đỏ rực lửa, móng vuốt rướm máu và quả cầu rung giật chấn động dữ dội.
+  - **Giai đoạn 3 (Hiệu Ứng Kết Thúc Quả Cầu):**
+    - **Nếu là Phe Ác (Ma Sói): Quả cầu nứt toác và VỠ TUNG (`Glass Shatter / Explosion`)** thành 16 mảnh vỡ thủy tinh phản quang bay tứ tán 360 độ kèm chớp sáng đỏ và rung chấn màn hình giật mạnh!
+    - **Nếu là Phe Thiện: Quả cầu VANISH biến mất ma thuật (`Ethereal Dissolve`)** nở rộng nhẹ nhàng và tan biến êm dịu thành làn sóng thánh quang cùng các hạt bụi sao hoàng kim bay bổng lấp lánh!
+  - **Phóng To Quả Cầu & Hình Ảnh +30%:** Tăng đường kính quả cầu pha lê từ 190px lên 250px, ảnh mắt thiên sứ từ 106px lên 160px để hiển thị chi tiết, rõ nét và hoành tráng hơn.
+  - **Tích hợp Âm Thanh Ma Thuật Động (Web Audio API Synthesizer):** Tự động phát âm thanh chuông ngân ma thuật, hợp âm thiên thần trong trẻo, tiếng gầm gừ u ám, và tiếng nứt vỡ thủy tinh phát nổ chân thực mà không phụ thuộc vào tệp audio bên ngoài.
+- **Tinh Chỉnh Giao Diện Nút Bấm:**
+  - Rút gọn nút bấm thành `🕊️ Thử Phe Thiện` và `🐺 Thử Phe Ác` gọn gàng trên 1 dòng, loại bỏ dòng chữ dài `(Thiên Thần + Vanish)` gây xuống dòng không đẹp mắt.
+
+---
+
 ## [1.7.5] - 2026-10-25
 
 ### 💬 Nổi Bật Chữ Trong Khung Chat & Viền Đen (Prominent Text with Black Stroke)

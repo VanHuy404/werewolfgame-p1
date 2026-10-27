@@ -87,10 +87,11 @@ function createRoom(hostId, hostName, settings = {}, customAvatar = null) {
     timeLeft: 0,
   };
 
+  const cleanHostName = (hostName || 'Chủ phòng').trim().slice(0, 20);
   // Thêm chủ phòng là người chơi đầu tiên
   room.players.set(hostId, {
     id: hostId,
-    name: hostName,
+    name: cleanHostName,
     role: null,
     alive: true,
     avatar: customAvatar || AVATARS[0],
@@ -113,9 +114,11 @@ function joinRoom(code, playerId, playerName, customAvatar = null) {
   // SỐ LƯỢNG NGƯỜI THAM GIA KHÔNG BỊ GIỚI HẠN (Theo yêu cầu)
   if (room.players.has(playerId)) return { error: 'Bạn đã ở trong phòng!' };
 
+  const cleanName = (playerName || 'Dân làng').trim().slice(0, 20);
+
   // Kiểm tra tên trùng
   for (const [, p] of room.players) {
-    if (p.name.toLowerCase() === playerName.toLowerCase()) {
+    if (p.name.toLowerCase() === cleanName.toLowerCase()) {
       return { error: 'Tên này đã có người dùng, vui lòng chọn tên khác!' };
     }
   }
@@ -123,7 +126,7 @@ function joinRoom(code, playerId, playerName, customAvatar = null) {
   const avatarIndex = room.players.size % AVATARS.length;
   room.players.set(playerId, {
     id: playerId,
-    name: playerName,
+    name: cleanName,
     role: null,
     alive: true,
     avatar: customAvatar || AVATARS[avatarIndex],

@@ -391,8 +391,8 @@ function concludeDayVote(room) {
     return;
   }
 
-  // Tiếp tục -> Ban Đêm (chờ 3.5s để người chơi xem số lượng Sói còn lại trên giữa màn hình trong 3s)
-  setTimeout(() => startNightPhase(room), 3500);
+  // Tiếp tục -> Ban Đêm (chờ 4.5s để người chơi thấy rõ thông báo số lượng Sói còn lại trước khi các roles tiến hành ban đêm)
+  setTimeout(() => startNightPhase(room), 4500);
 }
 
 /** Kết thúc game - Lật bài, hiển thị kết quả */

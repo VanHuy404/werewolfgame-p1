@@ -19,6 +19,9 @@ import {
 import { COLORS, getRoleColor, getRoleName, getRoleEmoji } from '../utils/colors';
 import PlayerAvatar from '../components/PlayerAvatar';
 import ChatBox from '../components/ChatBox';
+import SeerInspectionModal from '../components/SeerInspectionModal';
+import WolfClawAttackModal from '../components/WolfClawAttackModal';
+import BodyguardSaveModal from '../components/BodyguardSaveModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -82,30 +85,27 @@ export default function GameScreen({
 
   // Số lượng người chơi & tính toán hitbox thu nhỏ động (không để cuộn kéo quá dài)
   const playerCount = players.length;
-  const isCompact = playerCount >= 6 || arenaWidth < 680 || windowHeight < 760;
-  const isUltraCompact = playerCount >= 9 || (isCompact && arenaWidth < 500);
+  // Hitbox to gấp đôi: chỉ thu nhỏ nếu số người chơi vượt quá 12
+  const isCompact = playerCount > 12;
+  const isUltraCompact = playerCount > 16;
 
-  // Xác định số cột tối ưu theo độ rộng đấu trường & số người chơi
+  // Xác định số cột tối ưu (ít cột hơn để mỗi box to hơn 100%)
   const getColCount = () => {
     if (arenaWidth >= 1150) {
-      if (playerCount <= 4) return 4;
-      if (playerCount <= 6) return 4;
-      if (playerCount <= 8) return 4;
-      if (playerCount <= 10) return 5;
-      return 6;
-    } else if (arenaWidth >= 800) {
-      if (playerCount <= 4) return 3;
-      if (playerCount <= 6) return 3;
-      if (playerCount <= 8) return 4;
-      return 5;
-    } else if (arenaWidth >= 500) {
       if (playerCount <= 4) return 2;
+      if (playerCount <= 6) return 3;
       if (playerCount <= 8) return 3;
       return 4;
+    } else if (arenaWidth >= 800) {
+      if (playerCount <= 4) return 2;
+      if (playerCount <= 6) return 2;
+      return 3;
+    } else if (arenaWidth >= 500) {
+      if (playerCount <= 4) return 2;
+      return 2;
     } else {
       // Mobile (< 500px)
-      if (playerCount <= 4) return 2;
-      return 3;
+      return 2;
     }
   };
 
@@ -119,6 +119,29 @@ export default function GameScreen({
   const [seerResult, setSeerResult] = useState(null); // { targetName, alignment, isWolf }
   const [seerHistory, setSeerHistory] = useState(initialSeerHistory || {});
   const [seerPopupVisible, setSeerPopupVisible] = useState(false);
+  const [showDemoMenu, setShowDemoMenu] = useState(false);
+
+  // Kích hoạt chạy thử hiệu ứng Tiên Tri Soi (Phe Thiện hoặc Phe Ác)
+  const triggerDemoSeer = (alignment) => {
+    const isEvil = alignment === 'evil';
+    const demoTarget = players.find((p) => p.id !== myId) || players[0] || {
+      id: 'demo-target',
+      name: isEvil ? 'Ma Sói Bóng Đêm' : 'Dân Làng Lương Thiện',
+      avatar: isEvil ? '🐺' : '🧙‍♀️',
+      avatarColor: isEvil ? '#EF4444' : '#38BDF8',
+    };
+    setSeerResult({
+      targetId: demoTarget.id,
+      targetName: demoTarget.name,
+      targetAvatar: demoTarget.avatar,
+      targetAvatarColor: demoTarget.avatarColor,
+      isWolf: isEvil,
+      alignment: isEvil ? 'evil' : 'good',
+      alignmentName: isEvil ? 'ÁC' : 'THIỆN',
+    });
+    setSeerPopupVisible(true);
+    setShowDemoMenu(false);
+  };
   const [illuminatedPlayerId, setIlluminatedPlayerId] = useState(null);
   const [bodyguardTarget, setBodyguardTarget] = useState(null);
   const [bodyguardSkipped, setBodyguardSkipped] = useState(false);
@@ -136,6 +159,27 @@ export default function GameScreen({
   const wolfOverlayScale = useRef(new Animated.Value(0.7)).current;
   const wolfOverlayOpacity = useRef(new Animated.Value(0)).current;
   const wolfOverlayTimerRef = useRef(null);
+
+  // Hiệu ứng Ma Sói cào rách Avatar buổi sáng
+  const [wolfClawModalVisible, setWolfClawModalVisible] = useState(false);
+
+  // Hiệu ứng Khiên Bảo Vệ che chở thành công buổi sáng
+  const [bodyguardSaveModalVisible, setBodyguardSaveModalVisible] = useState(false);
+
+  useEffect(() => {
+    if (phase === PHASES.DAY_ANNOUNCE) {
+      if (deadPlayer) {
+        setWolfClawModalVisible(true);
+        setBodyguardSaveModalVisible(false);
+      } else if (savedPlayer) {
+        setBodyguardSaveModalVisible(true);
+        setWolfClawModalVisible(false);
+      }
+    } else {
+      setWolfClawModalVisible(false);
+      setBodyguardSaveModalVisible(false);
+    }
+  }, [phase, deadPlayer?.id, savedPlayer?.id]);
 
   // Animations
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -216,9 +260,12 @@ export default function GameScreen({
         setLastVoteEliminated(null);
       }, 4500);
 
-      // Hiển thị số lượng Sói còn lại ngay trên giữa màn hình trong 3s
+      // Hiển thị thông báo số lượng Sói còn lại ngay trên giữa màn hình sau khi hết giờ vote
       if (data.remainingWolves !== undefined && data.remainingWolves !== null) {
-        setRemainingWolvesOverlay(data.remainingWolves);
+        setRemainingWolvesOverlay({
+          count: data.remainingWolves,
+          eliminated: data.eliminated || null,
+        });
         wolfOverlayScale.setValue(0.7);
         wolfOverlayOpacity.setValue(0);
 
@@ -248,7 +295,7 @@ export default function GameScreen({
           }).start(() => {
             setRemainingWolvesOverlay(null);
           });
-        }, 3000);
+        }, 4000);
       }
     };
 
@@ -443,11 +490,41 @@ export default function GameScreen({
 
             {/* Nút thao tác góc phải */}
             <View style={styles.headerRightActions}>
+              <TouchableOpacity
+                style={styles.headerTestSeerBtn}
+                onPress={() => setShowDemoMenu(!showDemoMenu)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.headerTestSeerText}>🔮 Test Soi</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.leaveButton} onPress={onLeaveGame} activeOpacity={0.7}>
                 <Text style={styles.leaveText}>Rời</Text>
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* Menu chọn chế độ Test Tiên Tri Soi */}
+          {showDemoMenu && (
+            <View style={styles.demoDropdownContainer}>
+              <Text style={styles.demoDropdownTitle}>🔮 CHỌN HIỆU ỨNG TEST SOI:</Text>
+              <View style={styles.demoDropdownRow}>
+                <TouchableOpacity
+                  style={styles.demoDropdownBtnGood}
+                  onPress={() => triggerDemoSeer('good')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.demoDropdownBtnText}>🕊️ Phe Thiện</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.demoDropdownBtnEvil}
+                  onPress={() => triggerDemoSeer('evil')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.demoDropdownBtnText}>🐺 Phe Ác</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           {/* ================= KHUNG CHÍNH (CHIA ĐÔI: BÀN CHƠI DISCORD BÊN TRÁI, CHAT BÊN PHẢI) ================= */}
           <View style={styles.splitLayout}>
@@ -626,11 +703,11 @@ export default function GameScreen({
                           )}
                         </View>
 
-                        {/* Avatar người chơi (tự động thu nhỏ khi đông người để giảm chiều cao) */}
+                        {/* Avatar người chơi (Size to hơn 100% diện tích) */}
                         <View style={[styles.discordAvatarCenter, isCompact && styles.discordAvatarCenterCompact]}>
                           <PlayerAvatar
                             player={player}
-                            size={isCompact ? 'small' : 'medium'}
+                            size={isCompact ? 'medium' : 'large'}
                             isIlluminated={illuminatedPlayerId === player.id}
                             selected={isTarget}
                             compact
@@ -952,28 +1029,37 @@ export default function GameScreen({
           </Modal>
 
           {/* ================= POPUP THÔNG BÁO TIÊN TRI MA THUẬT SIÊU ĐẸP ================= */}
-          <Modal visible={seerPopupVisible && !!seerResult} transparent animationType="fade">
-            <View style={styles.modalOverlay}>
-              <Animated.View
-                style={[
-                  styles.seerPopupCard,
-                  seerResult?.alignment === 'evil' ? styles.seerPopupCardEvil : styles.seerPopupCardGood,
-                  { transform: [{ scale: popupScaleAnim }], opacity: popupOpacityAnim },
-                ]}
-              >
-                {/* CHỈ HIỂN THỊ "THIỆN" HOẶC "ÁC" - tự biến mất khi hết thời gian */}
-                <Text
-                  style={[
-                    styles.seerVerdictBig,
-                    { color: seerResult?.alignment === 'evil' ? '#F87171' : '#34D399' },
-                  ]}
-                >
-                  {seerResult?.alignment === 'evil' ? 'ÁC' : 'THIỆN'}
-                </Text>
-                <Text style={styles.seerCountdownText}>⏳ {Math.max(0, timeLeft)}s</Text>
-              </Animated.View>
-            </View>
-          </Modal>
+          <SeerInspectionModal
+            visible={seerPopupVisible && !!seerResult}
+            targetPlayer={(() => {
+              const target = players.find((p) => p.id === seerResult?.targetId);
+              return {
+                id: seerResult?.targetId,
+                name: seerResult?.targetName || target?.name || 'Mục tiêu',
+                avatar: seerResult?.targetAvatar || target?.avatar || '👤',
+                avatarColor: seerResult?.targetAvatarColor || target?.avatarColor || '#38BDF8',
+              };
+            })()}
+            alignment={seerResult?.alignment || (seerResult?.isWolf ? 'evil' : 'good')}
+            timeLeft={timeLeft || 5}
+            onClose={() => setSeerPopupVisible(false)}
+          />
+
+          {/* ================= MODAL HIỆU ỨNG MA SÓI CÀO NẠN NHÂN BUỔI SÁNG ================= */}
+          <WolfClawAttackModal
+            visible={wolfClawModalVisible && !!deadPlayer}
+            victimPlayer={deadPlayer}
+            timeLeft={timeLeft || 5}
+            onClose={() => setWolfClawModalVisible(false)}
+          />
+
+          {/* ================= MODAL HIỆU ỨNG BẢO VỆ CỨU NGƯỜI THÀNH CÔNG ================= */}
+          <BodyguardSaveModal
+            visible={bodyguardSaveModalVisible && !!savedPlayer}
+            savedPlayer={savedPlayer}
+            timeLeft={timeLeft || 5}
+            onClose={() => setBodyguardSaveModalVisible(false)}
+          />
 
           {/* NÚT BẬT SLIDEBAR CHAT (DẠNG NỔI KHI CHAT ĐANG ĐÓNG - CẢ PC VÀ MOBILE) */}
           {!isChatOpen && (
@@ -994,36 +1080,51 @@ export default function GameScreen({
             </TouchableOpacity>
           )}
 
-          {/* ================= THÔNG BÁO SỐ LƯỢNG SÓI CÒN LẠI NGAY GIỮA MÀN HÌNH TRONG 3S ================= */}
-          {remainingWolvesOverlay !== null && (
-            <View style={styles.centerScreenModalContainer} pointerEvents="none">
-              <Animated.View
-                style={[
-                  styles.wolfCountPopupCard,
-                  {
-                    transform: [{ scale: wolfOverlayScale }],
-                    opacity: wolfOverlayOpacity,
-                  },
-                ]}
-              >
-                <View style={styles.wolfCountGlowBadge}>
-                  <Text style={styles.wolfCountEmoji}>🐺</Text>
-                </View>
-                <Text style={styles.wolfCountHeader}>SỐ LƯỢNG SÓI CÒN LẠI</Text>
-                <View style={styles.wolfCountNumberBox}>
-                  <Text style={styles.wolfCountNumber}>{remainingWolvesOverlay}</Text>
-                </View>
-                <Text style={styles.wolfCountSubtitle}>
-                  {remainingWolvesOverlay === 0
-                    ? '🎉 Toàn bộ Ma Sói đã bị tiêu diệt!'
-                    : `⚠️ ${remainingWolvesOverlay} con Sói vẫn đang ẩn nấp trong làng!`}
-                </Text>
-                <View style={styles.wolfCountTimerPill}>
-                  <Text style={styles.wolfCountTimerText}>⏱️ Tự đóng sau 3s</Text>
-                </View>
-              </Animated.View>
-            </View>
-          )}
+          {/* ================= THÔNG BÁO SỐ LƯỢNG SÓI CÒN LẠI SAU KHI HẾT GIỜ TREO CỔ ================= */}
+          {remainingWolvesOverlay !== null && (() => {
+            const wolfCount = typeof remainingWolvesOverlay === 'object' ? remainingWolvesOverlay.count : remainingWolvesOverlay;
+            const elimPlayer = typeof remainingWolvesOverlay === 'object' ? remainingWolvesOverlay.eliminated : null;
+
+            return (
+              <View style={styles.centerScreenModalContainer} pointerEvents="none">
+                <Animated.View
+                  style={[
+                    styles.wolfCountPopupCard,
+                    {
+                      transform: [{ scale: wolfOverlayScale }],
+                      opacity: wolfOverlayOpacity,
+                    },
+                  ]}
+                >
+                  <View style={styles.wolfCountGlowBadge}>
+                    <Text style={styles.wolfCountEmoji}>🐺</Text>
+                  </View>
+
+                  {/* Kết quả biểu quyết treo cổ */}
+                  <View style={styles.wolfVoteElimBanner}>
+                    <Text style={styles.wolfVoteElimText}>
+                      {elimPlayer
+                        ? `⚰️ Dân làng đã treo cổ: ${elimPlayer.name}`
+                        : '🕊️ Không ai bị treo cổ hôm nay'}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.wolfCountHeader}>SỐ LƯỢNG SÓI CÒN LẠI</Text>
+                  <View style={styles.wolfCountNumberBox}>
+                    <Text style={styles.wolfCountNumber}>{wolfCount}</Text>
+                  </View>
+                  <Text style={styles.wolfCountSubtitle}>
+                    {wolfCount === 0
+                      ? '🎉 Toàn bộ Ma Sói đã bị tiêu diệt!'
+                      : `⚠️ Hiện còn ${wolfCount} Ma Sói đang lẩn trốn trong bóng tối!`}
+                  </Text>
+                  <View style={styles.wolfCountTimerPill}>
+                    <Text style={styles.wolfCountTimerText}>🌙 Chuẩn bị bước vào Ban Đêm...</Text>
+                  </View>
+                </Animated.View>
+              </View>
+            );
+          })()}
         </SafeAreaView>
       </View>
     </ImageBackground>
@@ -1741,25 +1842,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   discordBox: {
-    minWidth: 80,
-    backgroundColor: 'rgba(24, 24, 32, 0.88)',
-    borderRadius: 14,
-    padding: 10,
+    minWidth: 140,
+    minHeight: 180,
+    backgroundColor: 'rgba(24, 24, 32, 0.92)',
+    borderRadius: 18,
+    padding: 16,
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'space-between',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
   },
   discordBoxCompact: {
-    padding: 6,
-    borderRadius: 10,
+    minWidth: 110,
+    minHeight: 155,
+    padding: 10,
+    borderRadius: 14,
   },
   discordBoxUltraCompact: {
-    padding: 4,
-    borderRadius: 8,
+    minWidth: 95,
+    minHeight: 135,
+    padding: 8,
+    borderRadius: 10,
   },
   discordBoxClickable: {
     borderColor: 'rgba(124, 58, 237, 0.45)',
@@ -2130,6 +2237,143 @@ const styles = StyleSheet.create({
   },
 
   // Modal Tiên Tri Ma Thuật
+  seerActionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(30, 27, 75, 0.85)',
+    borderColor: '#A855F7',
+    borderWidth: 2,
+    borderRadius: 20,
+    padding: 16,
+    marginVertical: 12,
+    marginHorizontal: 8,
+    shadowColor: '#A855F7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+  },
+  crystalBallWrap: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: 'rgba(88, 28, 135, 0.45)',
+    borderWidth: 2,
+    borderColor: '#C084FC',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+    position: 'relative',
+  },
+  crystalBallEmoji: {
+    fontSize: 34,
+  },
+  crystalRingAura: {
+    position: 'absolute',
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    borderWidth: 1.5,
+    borderColor: 'rgba(192, 132, 252, 0.4)',
+    borderStyle: 'dashed',
+  },
+  seerTextCol: {
+    flex: 1,
+  },
+  seerActionTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#E9D5FF',
+    letterSpacing: 1.2,
+    marginBottom: 4,
+  },
+  seerActionSub: {
+    fontSize: 12,
+    color: '#CBD5E1',
+    lineHeight: 16,
+    marginBottom: 8,
+  },
+  seerTestButtonsInlineRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  seerTestInlineBtnGood: {
+    backgroundColor: 'rgba(16, 185, 129, 0.25)',
+    borderColor: '#34D399',
+    borderWidth: 1.2,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  seerTestInlineBtnEvil: {
+    backgroundColor: 'rgba(239, 68, 68, 0.25)',
+    borderColor: '#EF4444',
+    borderWidth: 1.2,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  seerTestInlineBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  headerTestSeerBtn: {
+    backgroundColor: 'rgba(168, 85, 247, 0.25)',
+    borderColor: '#A855F7',
+    borderWidth: 1.2,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginRight: 8,
+  },
+  headerTestSeerText: {
+    color: '#E9D5FF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  demoDropdownContainer: {
+    backgroundColor: '#0F172A',
+    borderBottomWidth: 2,
+    borderBottomColor: '#A855F7',
+    padding: 12,
+    zIndex: 99,
+  },
+  demoDropdownTitle: {
+    color: '#E9D5FF',
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 8,
+    textAlign: 'center',
+    letterSpacing: 1,
+  },
+  demoDropdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+  demoDropdownBtnGood: {
+    backgroundColor: 'rgba(6, 78, 59, 0.85)',
+    borderColor: '#10B981',
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 14,
+  },
+  demoDropdownBtnEvil: {
+    backgroundColor: 'rgba(69, 10, 10, 0.85)',
+    borderColor: '#EF4444',
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 14,
+  },
+  demoDropdownBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 12,
+  },
   seerPopupCard: {
     borderRadius: 24,
     padding: 24,
@@ -2488,18 +2732,33 @@ const styles = StyleSheet.create({
     marginTop: 8,
     lineHeight: 18,
   },
+  wolfVoteElimBanner: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  wolfVoteElimText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FCD34D',
+    textAlign: 'center',
+  },
   wolfCountTimerPill: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
     borderRadius: 12,
     marginTop: 14,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   wolfCountTimerText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '800',
-    color: '#94A3B8',
+    color: '#93C5FD',
   },
 });

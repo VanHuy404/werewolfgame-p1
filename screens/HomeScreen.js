@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { COLORS } from '../utils/colors';
 import RoomSettings from '../components/RoomSettings';
+import AvatarPickerModal from '../components/AvatarPickerModal';
 import { getSessionItem, setSessionItem, STORAGE_KEYS } from '../utils/storage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -36,6 +37,7 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
   const [roomCode, setRoomCode] = useState('');
   const [localError, setLocalError] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAvatarPickerModal, setShowAvatarPickerModal] = useState(false);
   const [settings, setSettings] = useState({ maxPlayers: 6, numWolves: 2, numSeers: 1, numBodyguards: 1 });
   const [customAvatar, setCustomAvatarState] = useState(() => getSessionItem(STORAGE_KEYS.PLAYER_AVATAR, null));
 
@@ -338,7 +340,7 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
                 </Text>
               </TouchableOpacity>
 
-              {/* Danh sách avatar hoạt hình nhanh */}
+              {/* Danh sách avatar hoạt hình nhanh kèm nút dấu cộng mở bộ sưu tập */}
               <View style={styles.presetAvatarRow}>
                 {['🐺', '🦊', '🐻', '🐱', '🐶', '🦁', '🐯', '🐼'].map((emoji) => (
                   <TouchableOpacity
@@ -353,6 +355,14 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
                     <Text style={styles.presetEmoji}>{emoji}</Text>
                   </TouchableOpacity>
                 ))}
+                {/* Nút dấu cộng mở toàn bộ Emote động vật, hoa quả, nhân vật */}
+                <TouchableOpacity
+                  style={styles.moreEmoteBtn}
+                  onPress={() => setShowAvatarPickerModal(true)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.moreEmoteIcon}>➕</Text>
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -368,7 +378,7 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
                 }}
                 placeholder="Nhập tên hiển thị..."
                 placeholderTextColor={COLORS.grayDark}
-                maxLength={15}
+                maxLength={20}
                 autoCapitalize="none"
               />
             </View>
@@ -463,6 +473,15 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
         onConfirm={handleConfirmCreate}
         onClose={() => setShowSettings(false)}
         isCreating={true}
+      />
+
+      {/* Modal chọn Avatar phong phú (Động vật, Hoa quả, Nhân vật) */}
+      <AvatarPickerModal
+        visible={showAvatarPickerModal}
+        currentAvatar={customAvatar}
+        onSelectAvatar={(emoji) => setCustomAvatar(emoji)}
+        onClose={() => setShowAvatarPickerModal(false)}
+        onPickCustomImage={handlePickAvatar}
       />
     </KeyboardAvoidingView>
   );
@@ -649,6 +668,20 @@ const styles = StyleSheet.create({
   },
   presetEmoji: {
     fontSize: 18,
+  },
+  moreEmoteBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(139, 92, 246, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#8B5CF6',
+  },
+  moreEmoteIcon: {
+    fontSize: 14,
+    color: '#EDE9FE',
   },
 
   // Input

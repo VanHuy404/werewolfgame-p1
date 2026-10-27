@@ -288,6 +288,8 @@ export default function LobbyScreen({
         isCreating={false}
         readOnly={!isHost}
         currentPlayerCount={players.length}
+        players={players}
+        myId={myId}
       />
 
       {/* Modal hướng dẫn vai trò */}
