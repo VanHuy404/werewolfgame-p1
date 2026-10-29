@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  StyleSheet, View, Text, StatusBar, SafeAreaView, Platform,
+  StyleSheet, View, Text, StatusBar, SafeAreaView, Platform, TouchableOpacity,
 } from 'react-native';
 import { registerRootComponent } from 'expo';
 import { createSocket } from './utils/socket';
@@ -17,6 +17,42 @@ import GameScreen from './screens/GameScreen';
 import GameOverScreen from './screens/GameOverScreen';
 import RoleCard from './components/RoleCard';
 import { getSessionItem, setSessionItem, removeSessionItem, STORAGE_KEYS } from './utils/storage';
+
+// Lớp bắt lỗi bảo vệ giao diện, ngăn crash sập WebSocket khi có lỗi component
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('🚨 [ErrorBoundary Catch]:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, backgroundColor: '#0F172A', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Text style={{ fontSize: 36, marginBottom: 12 }}>⚠️</Text>
+          <Text style={{ color: '#F87171', fontSize: 18, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>
+            Đã xảy ra sự cố hiển thị giao diện!
+          </Text>
+          <Text style={{ color: '#94A3B8', fontSize: 13, textAlign: 'center', marginBottom: 20 }}>
+            {this.state.error?.message || 'Lỗi không xác định'}
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: '#6366F1', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10 }}
+            onPress={() => this.setState({ hasError: false, error: null })}
+          >
+            <Text style={{ color: '#FFFFFF', fontWeight: 'bold' }}>Thử tải lại giao diện</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function App() {
   const socketRef = useRef(null);
@@ -40,8 +76,14 @@ export default function App() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [deadPlayer, setDeadPlayer] = useState(null);
   const [savedPlayer, setSavedPlayer] = useState(null);
+  const [poisonedPlayer, setPoisonedPlayer] = useState(null);
+  const [witchSavedPlayer, setWitchSavedPlayer] = useState(null);
+  const [shieldClashPlayer, setShieldClashPlayer] = useState(null);
+  const [attackedPlayer, setAttackedPlayer] = useState(null);
   const [wasProtected, setWasProtected] = useState(false);
   const [lastProtectedTarget, setLastProtectedTarget] = useState(null);
+  const [wolfVictim, setWolfVictim] = useState(null);
+  const [witchState, setWitchState] = useState({ hasHeal: true, hasPoison: true });
   const [winner, setWinner] = useState(null);
   const [winMessage, setWinMessage] = useState('');
   const [messages, setMessages] = useState([]);
@@ -181,8 +223,14 @@ export default function App() {
       setRound(1);
       setDeadPlayer(null);
       setSavedPlayer(null);
+      setPoisonedPlayer(null);
+      setShieldClashPlayer(null);
+      setWitchSavedPlayer(null);
+      setAttackedPlayer(null);
       setWasProtected(false);
       setLastProtectedTarget(null);
+      setWolfVictim(null);
+      setWitchState({ hasHeal: true, hasPoison: true });
       setWinner(null);
       setWinMessage('');
       setSeerHistory({});
@@ -201,8 +249,14 @@ export default function App() {
       if (data.round !== undefined) setRound(data.round);
       if (data.deadPlayer !== undefined) setDeadPlayer(data.deadPlayer);
       if (data.savedPlayer !== undefined) setSavedPlayer(data.savedPlayer);
+      if (data.poisonedPlayer !== undefined) setPoisonedPlayer(data.poisonedPlayer);
+      if (data.shieldClashPlayer !== undefined) setShieldClashPlayer(data.shieldClashPlayer);
+      if (data.witchSavedPlayer !== undefined) setWitchSavedPlayer(data.witchSavedPlayer);
+      if (data.attackedPlayer !== undefined) setAttackedPlayer(data.attackedPlayer);
       if (data.wasProtected !== undefined) setWasProtected(data.wasProtected);
       if (data.lastProtectedTarget !== undefined) setLastProtectedTarget(data.lastProtectedTarget);
+      if (data.wolfVictim !== undefined) setWolfVictim(data.wolfVictim);
+      if (data.witchState !== undefined) setWitchState(data.witchState);
       if (data.players) setPlayers(data.players);
       if (data.winner) setWinner(data.winner);
       if (data.message) setWinMessage(data.message);
@@ -239,8 +293,14 @@ export default function App() {
       setPhase('waiting');
       setDeadPlayer(null);
       setSavedPlayer(null);
+      setPoisonedPlayer(null);
+      setShieldClashPlayer(null);
+      setWitchSavedPlayer(null);
+      setAttackedPlayer(null);
       setWasProtected(false);
       setLastProtectedTarget(null);
+      setWolfVictim(null);
+      setWitchState({ hasHeal: true, hasPoison: true });
       setWinner(null);
       setWinMessage('');
       setMessages([]);
@@ -264,8 +324,13 @@ export default function App() {
     setMyRole(null);
     setDeadPlayer(null);
     setSavedPlayer(null);
+    setPoisonedPlayer(null);
+    setWitchSavedPlayer(null);
+    setAttackedPlayer(null);
     setWasProtected(false);
     setLastProtectedTarget(null);
+    setWolfVictim(null);
+    setWitchState({ hasHeal: true, hasPoison: true });
     setWinner(null);
     setWinMessage('');
     setMessages([]);
@@ -295,7 +360,7 @@ export default function App() {
     }
   };
 
-  const isNightTheme = currentScreen === 'game' && (phase === 'night' || phase === 'night_wolf' || phase === 'night_seer' || phase === 'night_bodyguard');
+  const isNightTheme = currentScreen === 'game' && (phase === 'night' || phase === 'night_wolf' || phase === 'night_seer' || phase === 'night_bodyguard' || phase === 'night_witch');
 
   return (
     <SafeAreaView style={styles.container}>
@@ -344,28 +409,36 @@ export default function App() {
 
       {/* Màn hình trong trận (Game) */}
       {currentScreen === 'game' && phase !== 'game_over' && (
-        <GameScreen
-          socket={socket}
-          roomCode={roomCode}
-          players={players}
-          myRole={myRole}
-          phase={phase}
-          round={round}
-          timeLeft={timeLeft}
-          deadPlayer={deadPlayer}
-          savedPlayer={savedPlayer}
-          wasProtected={wasProtected}
-          lastProtectedTarget={lastProtectedTarget}
-          winner={winner}
-          winMessage={winMessage}
-          messages={messages}
-          onSendMessage={handleSendMessage}
-          onReturnToLobby={handleReturnToLobby}
-          onLeaveGame={handleLeaveRoom}
-          myId={myId}
-          hostId={hostId}
-          initialSeerHistory={seerHistory}
-        />
+        <ErrorBoundary>
+          <GameScreen
+            socket={socket}
+            roomCode={roomCode}
+            players={players}
+            myRole={myRole}
+            phase={phase}
+            round={round}
+            timeLeft={timeLeft}
+            deadPlayer={deadPlayer}
+            savedPlayer={savedPlayer}
+            poisonedPlayer={poisonedPlayer}
+            shieldClashPlayer={shieldClashPlayer}
+            witchSavedPlayer={witchSavedPlayer}
+            attackedPlayer={attackedPlayer}
+            wasProtected={wasProtected}
+            lastProtectedTarget={lastProtectedTarget}
+            wolfVictim={wolfVictim}
+            initialWitchState={witchState}
+            winner={winner}
+            winMessage={winMessage}
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            onReturnToLobby={handleReturnToLobby}
+            onLeaveGame={handleLeaveRoom}
+            myId={myId}
+            hostId={hostId}
+            initialSeerHistory={seerHistory}
+          />
+        </ErrorBoundary>
       )}
 
       {/* Thẻ hiển thị vai trò khi vừa vào trận */}

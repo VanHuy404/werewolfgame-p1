@@ -28,6 +28,8 @@ export default function PlayerAvatar({
   compact = false,
   textColor = '#F1F5F9',
 }) {
+  if (!player) return null;
+
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
   const illuminateAnim = useRef(new Animated.Value(0.4)).current;

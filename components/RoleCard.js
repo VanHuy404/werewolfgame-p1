@@ -55,6 +55,8 @@ export default function RoleCard({ role, visible = false }) {
     wolf: 'KILL OR BE KILLED',
     seer: 'HELP YOUR TEAM WITH YOUR MAGIC',
     bodyguard: 'SHIELD YOUR VILLAGE FROM CLAWS',
+    witch: 'BREW POTIONS TO HEAL OR POISON',
+    hunter: 'ONE BULLET, ONE REVENGE',
     villager: 'SURVIVE AND FIND THE WOLFS',
   };
 

@@ -11,6 +11,9 @@ import { COLORS } from '../utils/colors';
 import SeerInspectionModal from './SeerInspectionModal';
 import WolfClawAttackModal from './WolfClawAttackModal';
 import BodyguardSaveModal from './BodyguardSaveModal';
+import WitchHealSaveModal from './WitchHealSaveModal';
+import WitchPoisonModal from './WitchPoisonModal';
+import HunterShotModal from './HunterShotModal';
 
 /**
  * @param {Object} props
@@ -38,6 +41,8 @@ export default function RoomSettings({
   const [numWolves, setNumWolves] = useState(2);
   const [numSeers, setNumSeers] = useState(1);
   const [numBodyguards, setNumBodyguards] = useState(1);
+  const [numWitches, setNumWitches] = useState(1);
+  const [numHunters, setNumHunters] = useState(1);
   const [dayDiscussionTime, setDayDiscussionTime] = useState(60);
   const [dayVoteTime, setDayVoteTime] = useState(25);
 
@@ -54,71 +59,120 @@ export default function RoomSettings({
   const [saveDemoVisible, setSaveDemoVisible] = useState(false);
   const [saveDemoTarget, setSaveDemoTarget] = useState(null);
 
+  // Thử nghiệm hiệu ứng Phù Thủy Cứu Sống (Dành riêng cho Chủ Phòng)
+  const [witchHealDemoVisible, setWitchHealDemoVisible] = useState(false);
+  const [witchHealDemoTarget, setWitchHealDemoTarget] = useState(null);
+
+  // Thử nghiệm hiệu ứng Phù Thủy Ném Thuốc Độc (Dành riêng cho Chủ Phòng)
+  const [witchPoisonDemoVisible, setWitchPoisonDemoVisible] = useState(false);
+  const [witchPoisonDemoTarget, setWitchPoisonDemoTarget] = useState(null);
+  const [witchShieldClashDemo, setWitchShieldClashDemo] = useState(false);
+
+  // Thử nghiệm hiệu ứng Thợ Săn Nổ Súng Bắn Hạ (Dành riêng cho Chủ Phòng)
+  const [hunterDemoVisible, setHunterDemoVisible] = useState(false);
+  const [hunterDemoTarget, setHunterDemoTarget] = useState(null);
+
+  // Helper lấy mục tiêu test hiệu ứng: Ưu tiên chọn chính Chủ Phòng (host)
+  const getHostTarget = (fallbackName = 'Chủ Phòng', fallbackAvatar = '🧙‍♂️', fallbackColor = '#38BDF8') => {
+    const host = (players && players.find((p) => p.id === myId)) || (players && players[0]);
+    if (host) {
+      return {
+        id: host.id,
+        name: host.name,
+        avatar: host.avatar,
+        avatarColor: host.avatarColor,
+      };
+    }
+    return {
+      id: myId || 'host-target',
+      name: fallbackName,
+      avatar: fallbackAvatar,
+      avatarColor: fallbackColor,
+    };
+  };
+
   const handleTestSeerEffect = (alignment) => {
     setSeerDemoAlignment(alignment);
-    const target = (players && players.find((p) => p.id !== myId)) || (players && players[0]) || {
-      id: 'demo-target',
-      name: alignment === 'evil' ? 'Ma Sói Khát Máu' : 'Dân Làng Lương Thiện',
-      avatar: alignment === 'evil' ? '🐺' : '🧙‍♂️',
-      avatarColor: alignment === 'evil' ? '#EF4444' : '#38BDF8',
-    };
+    const target = getHostTarget(
+      alignment === 'evil' ? 'Ma Sói Khát Máu' : 'Dân Làng Lương Thiện',
+      alignment === 'evil' ? '🐺' : '🧙‍♂️',
+      alignment === 'evil' ? '#EF4444' : '#38BDF8'
+    );
     setSeerDemoTarget(target);
     setSeerDemoVisible(true);
   };
 
   const handleTestClawEffect = () => {
-    const target = (players && players.find((p) => p.id !== myId)) || (players && players[0]) || {
-      id: 'demo-claw-target',
-      name: 'Người Chơi Số Nhọ',
-      avatar: '🧙‍♂️',
-      avatarColor: '#38BDF8',
-    };
+    const target = getHostTarget('Chủ Phòng (Nạn Nhân)', '🧙‍♂️', '#38BDF8');
     setClawDemoTarget(target);
     setClawDemoVisible(true);
   };
 
   const handleTestSaveEffect = () => {
-    const target = (players && players.find((p) => p.id !== myId)) || (players && players[0]) || {
-      id: 'demo-save-target',
-      name: 'Người Chơi May Mắn',
-      avatar: '🧙‍♂️',
-      avatarColor: '#38BDF8',
-    };
+    const target = getHostTarget('Chủ Phòng (Được Cứu)', '🧙‍♂️', '#38BDF8');
     setSaveDemoTarget(target);
     setSaveDemoVisible(true);
+  };
+
+  const handleTestWitchHealEffect = () => {
+    const target = getHostTarget('Chủ Phòng (Được Hồi Sinh)', '🧙‍♂️', '#38BDF8');
+    setWitchHealDemoTarget(target);
+    setWitchHealDemoVisible(true);
+  };
+
+  const handleTestWitchPoisonEffect = () => {
+    setWitchShieldClashDemo(false);
+    const target = getHostTarget('Chủ Phòng (Bị Ném Độc)', '🧙‍♂️', '#EF4444');
+    setWitchPoisonDemoTarget(target);
+    setWitchPoisonDemoVisible(true);
+  };
+
+  const handleTestShieldClashEffect = () => {
+    setWitchShieldClashDemo(true);
+    const target = getHostTarget('Chủ Phòng (Xung Đột Khiên & Độc)', '🧙‍♂️', '#38BDF8');
+    setWitchPoisonDemoTarget(target);
+    setWitchPoisonDemoVisible(true);
+  };
+
+  const handleTestHunterEffect = () => {
+    const target = getHostTarget('Chủ Phòng (Bị Bắn Hạ)', '🧙‍♂️', '#F59E0B');
+    setHunterDemoTarget(target);
+    setHunterDemoVisible(true);
   };
 
   // Sync settings khi mở modal
   useEffect(() => {
     if (initialSettings && visible) {
       setNumWolves(initialSettings.numWolves !== undefined ? initialSettings.numWolves : 2);
-      setNumSeers(initialSettings.numSeers !== undefined ? initialSettings.numSeers : 1);
-      setNumBodyguards(initialSettings.numBodyguards !== undefined ? initialSettings.numBodyguards : 1);
+      setNumSeers(initialSettings.numSeers !== undefined ? Math.min(1, initialSettings.numSeers) : 1);
+      setNumBodyguards(initialSettings.numBodyguards !== undefined ? Math.min(1, initialSettings.numBodyguards) : 1);
+      setNumWitches(initialSettings.numWitches !== undefined ? Math.min(1, initialSettings.numWitches) : 1);
+      setNumHunters(initialSettings.numHunters !== undefined ? Math.min(1, initialSettings.numHunters) : 1);
       setDayDiscussionTime(initialSettings.dayDiscussionTime || 60);
       setDayVoteTime(initialSettings.dayVoteTime || 25);
     }
   }, [initialSettings, visible]);
 
   // Tính số Dân Làng dựa trên số lượng người tham gia thực tế
-  const numVillagers = Math.max(0, currentPlayerCount - numWolves - numSeers - numBodyguards);
+  const numVillagers = Math.max(0, currentPlayerCount - numWolves - numSeers - numBodyguards - numWitches - numHunters);
 
   // === VALIDATION ===
   // Sói phải nhỏ hơn tổng dân khi đã có từ 4 người chơi trở lên
-  const totalGood = numSeers + numBodyguards + numVillagers;
+  const totalGood = numSeers + numBodyguards + numWitches + numHunters + numVillagers;
   const isWolfValid = currentPlayerCount < 4 || numWolves < totalGood;
-  const isValid = numWolves >= 0 && numSeers >= 0 && numBodyguards >= 0;
+  const isValid = numWolves >= 0 && numSeers >= 0 && numBodyguards >= 0 && numWitches >= 0 && numHunters >= 0;
 
-  // Hàm thay đổi số an toàn
-  const adjustValue = (setter, current, delta, min = 0) => {
+  // Hàm thay đổi số an toàn (giới hạn min và max)
+  const adjustValue = (setter, current, delta, min = 0, max = Infinity) => {
     const newVal = current + delta;
-    if (newVal >= min) {
+    if (newVal >= min && newVal <= max) {
       setter(newVal);
     }
   };
 
   const handleConfirm = () => {
     if (!isValid || readOnly) return;
-    onConfirm({ numWolves, numSeers, numBodyguards, dayDiscussionTime, dayVoteTime });
+    onConfirm({ numWolves, numSeers, numBodyguards, numWitches, numHunters, dayDiscussionTime, dayVoteTime });
   };
 
   return (
@@ -171,9 +225,10 @@ export default function RoomSettings({
               emoji="🔮"
               label="Số Tiên Tri"
               value={numSeers}
-              onDecrease={() => adjustValue(setNumSeers, numSeers, -1, 0)}
-              onIncrease={() => adjustValue(setNumSeers, numSeers, 1, 0)}
+              onDecrease={() => adjustValue(setNumSeers, numSeers, -1, 0, 1)}
+              onIncrease={() => adjustValue(setNumSeers, numSeers, 1, 0, 1)}
               min={0}
+              max={1}
               color={COLORS.seer}
               readOnly={readOnly}
             />
@@ -183,10 +238,37 @@ export default function RoomSettings({
               emoji="🛡️"
               label="Số Bảo Vệ"
               value={numBodyguards}
-              onDecrease={() => adjustValue(setNumBodyguards, numBodyguards, -1, 0)}
-              onIncrease={() => adjustValue(setNumBodyguards, numBodyguards, 1, 0)}
+              onDecrease={() => adjustValue(setNumBodyguards, numBodyguards, -1, 0, 1)}
+              onIncrease={() => adjustValue(setNumBodyguards, numBodyguards, 1, 0, 1)}
               min={0}
+              max={1}
               color={COLORS.bodyguard}
+              readOnly={readOnly}
+            />
+
+            {/* Số Phù Thủy */}
+            <SettingRow
+              emoji="🧙‍♀️"
+              label="Số Phù Thủy"
+              value={numWitches}
+              onDecrease={() => adjustValue(setNumWitches, numWitches, -1, 0, 1)}
+              onIncrease={() => adjustValue(setNumWitches, numWitches, 1, 0, 1)}
+              min={0}
+              max={1}
+              color={COLORS.witch}
+              readOnly={readOnly}
+            />
+
+            {/* Số Thợ Săn */}
+            <SettingRow
+              emoji="🏹"
+              label="Số Thợ Săn"
+              value={numHunters}
+              onDecrease={() => adjustValue(setNumHunters, numHunters, -1, 0, 1)}
+              onIncrease={() => adjustValue(setNumHunters, numHunters, 1, 0, 1)}
+              min={0}
+              max={1}
+              color={COLORS.hunter}
               readOnly={readOnly}
             />
 
@@ -247,6 +329,8 @@ export default function RoomSettings({
                 <SummaryItem emoji="🐺" label="Sói" count={numWolves} color={COLORS.wolf} />
                 <SummaryItem emoji="🔮" label="T.Tri" count={numSeers} color={COLORS.seer} />
                 <SummaryItem emoji="🛡️" label="B.Vệ" count={numBodyguards} color={COLORS.bodyguard} />
+                <SummaryItem emoji="🧙‍♀️" label="P.Thủy" count={numWitches} color={COLORS.witch} />
+                <SummaryItem emoji="🏹" label="T.Săn" count={numHunters} color={COLORS.hunter} />
                 <SummaryItem emoji="🧑‍🌾" label="Dân" count={numVillagers} color={COLORS.villager} />
                 <SummaryItem emoji="👥" label="Tổng" count={currentPlayerCount} color={COLORS.primary} />
               </View>
@@ -307,6 +391,42 @@ export default function RoomSettings({
                 >
                   <Text style={styles.saveDemoBtnText}>🛡️ Thử Hiệu Ứng Khiên Bảo Vệ Thành Công</Text>
                 </TouchableOpacity>
+
+                {/* Nút thử nghiệm Phù Thủy Cứu Sống */}
+                <TouchableOpacity
+                  style={styles.witchHealDemoBtn}
+                  onPress={handleTestWitchHealEffect}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.witchHealDemoBtnText}>🧪 Thử Hiệu Ứng Phù Thủy Cứu Sống (Bình Cứu)</Text>
+                </TouchableOpacity>
+
+                {/* Nút thử nghiệm Phù Thủy Ném Thuốc Độc */}
+                <TouchableOpacity
+                  style={styles.witchPoisonDemoBtn}
+                  onPress={handleTestWitchPoisonEffect}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.witchPoisonDemoBtnText}>☠️ Thử Hiệu Ứng Phù Thủy Ném Thuốc Độc</Text>
+                </TouchableOpacity>
+
+                {/* Nút thử nghiệm Xung Đột Khiên Bảo Vệ & Thuốc Độc Phù Thủy */}
+                <TouchableOpacity
+                  style={styles.clashDemoBtn}
+                  onPress={handleTestShieldClashEffect}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.clashDemoBtnText}>🛡️☠️ Thử Xung Đột: Khiên Bảo Vệ + Phù Thủy Độc</Text>
+                </TouchableOpacity>
+
+                {/* Nút thử nghiệm Thợ Săn Nổ Súng Bắn Hạ */}
+                <TouchableOpacity
+                  style={styles.hunterDemoBtn}
+                  onPress={handleTestHunterEffect}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.hunterDemoBtnText}>🏹💥 Thử Hiệu Ứng Thợ Săn Nổ Súng Bắn Hạ</Text>
+                </TouchableOpacity>
               </View>
             )}
           </ScrollView>
@@ -353,6 +473,36 @@ export default function RoomSettings({
           savedPlayer={saveDemoTarget}
           timeLeft={5}
           onClose={() => setSaveDemoVisible(false)}
+        />
+
+        {/* Modal chạy thử hiệu ứng Phù Thủy Cứu Sống (Dành riêng cho Chủ phòng) */}
+        <WitchHealSaveModal
+          visible={witchHealDemoVisible}
+          victimPlayer={witchHealDemoTarget}
+          savedPlayer={witchHealDemoTarget}
+          timeLeft={8}
+          onClose={() => setWitchHealDemoVisible(false)}
+        />
+
+        {/* Modal chạy thử hiệu ứng Phù Thủy Ném Thuốc Độc (Dành riêng cho Chủ phòng) */}
+        <WitchPoisonModal
+          visible={witchPoisonDemoVisible}
+          victimPlayer={witchPoisonDemoTarget}
+          poisonedPlayer={witchPoisonDemoTarget}
+          isShieldClash={witchShieldClashDemo}
+          timeLeft={8}
+          onClose={() => {
+            setWitchPoisonDemoVisible(false);
+            setWitchShieldClashDemo(false);
+          }}
+        />
+
+        {/* Modal chạy thử hiệu ứng Thợ Săn Nổ Súng (Dành riêng cho Chủ phòng) */}
+        <HunterShotModal
+          visible={hunterDemoVisible}
+          targetPlayer={hunterDemoTarget}
+          timeLeft={6}
+          onClose={() => setHunterDemoVisible(false)}
         />
       </View>
     </Modal>
@@ -741,6 +891,78 @@ const styles = StyleSheet.create({
   },
   saveDemoBtnText: {
     color: '#BAE6FD',
+    fontWeight: '900',
+    fontSize: 12.5,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  witchHealDemoBtn: {
+    backgroundColor: 'rgba(16, 185, 129, 0.25)',
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  witchHealDemoBtnText: {
+    color: '#A7F3D0',
+    fontWeight: '900',
+    fontSize: 12.5,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  witchPoisonDemoBtn: {
+    backgroundColor: 'rgba(168, 85, 247, 0.25)',
+    borderWidth: 1.5,
+    borderColor: '#C084FC',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  witchPoisonDemoBtnText: {
+    color: '#E9D5FF',
+    fontWeight: '900',
+    fontSize: 12.5,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  clashDemoBtn: {
+    backgroundColor: 'rgba(244, 63, 94, 0.22)',
+    borderWidth: 1.5,
+    borderColor: '#FB7185',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  clashDemoBtnText: {
+    color: '#FECDD3',
+    fontWeight: '900',
+    fontSize: 12.5,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  hunterDemoBtn: {
+    backgroundColor: 'rgba(245, 158, 11, 0.25)',
+    borderWidth: 1.5,
+    borderColor: '#F59E0B',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  hunterDemoBtnText: {
+    color: '#FDE68A',
     fontWeight: '900',
     fontSize: 12.5,
     letterSpacing: 0.5,

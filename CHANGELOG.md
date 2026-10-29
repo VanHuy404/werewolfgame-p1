@@ -4,6 +4,95 @@ Tất cả các thay đổi, cập nhật kiến trúc và tính năng của d�
 
 ---
 
+## [2.0.1] - 2026-10-28
+
+### 🎬 Hoàn Thiện Hoạt Ảnh & Trì Hoãn Xét Thắng Thua Cho Đến Khi Chiếu Xong Toàn Bộ Điện Ảnh
+- **Trì hoãn xét thắng thua sau đêm ([server/index.js](file:///d:/code%20game/Werewolfdemo/server/index.js)):**
+  - Gỡ bỏ lệnh `checkWinCondition` sớm ở đầu hàm `startDayAnnounce`. Trước đây khi Sói cuối cùng bị Phù Thủy ném độc chết hoặc bầy Sói cắn chết người quyết định, server lập tức kết thúc game khiến người chơi bị văng thẳng vào màn hình `GAME_OVER` mà không hề được xem các hoạt ảnh điện ảnh.
+  - Chuyển `checkWinCondition` vào callback kết thúc của `startPhaseTimer`: đảm bảo toàn bộ người chơi xem trọn vẹn hoạt ảnh móng vuốt Sói, Phù Thủy hồi sinh, Khiên Bảo Vệ, và Phù Thủy ném độc (thời gian thông báo 6s nếu 1 hoạt ảnh hoặc 10s nếu nhiều hoạt ảnh tuần tự).
+  - Cả phe Ma Sói lẫn phe Dân Làng đều thấy rõ chính xác ai đã bị hạ độc hay ai bị cắn chết trước khi xuất hiện bảng thông báo Chiến thắng.
+- **Tuần tự hóa hoạt ảnh sáng ([screens/GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js)):**
+  - Ưu tiên hiển thị đòn tấn công đêm qua của Ma Sói / Hồi sinh / Bảo vệ trước.
+  - Khi modal đầu tiên đóng lại, hàm `handleFirstModalClose` sẽ tự động kích hoạt tiếp hoạt ảnh Phù Thủy ném thuốc độc hoặc Xung đột Khiên & Độc.
+  - Sau biểu quyết treo cổ ban ngày, tăng thời gian chờ lên 4.5s để người chơi thấy rõ hiệu ứng xử tử và số lượng Sói còn lại trước khi chuyển sang màn hình chiến thắng hoặc đêm tiếp theo.
+
+### 🛡️ Vá Lỗi Phù Thủy Cứu Sống, Bổ Sung Kho Thuốc & Dọn Dẹp Đấu Trường
+- **Khắc phục lỗi Phù Thủy chọn cứu mà nạn nhân vẫn chết ([server/index.js](file:///d:/code%20game/Werewolfdemo/server/index.js), [screens/GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js)):**
+  - Thêm socket event độc lập `witch-heal-action`: khi Phù Thủy bấm `🟢 CỨU SỐNG`, client phát ngay tín hiệu lên server khóa chặt trạng thái `witchSavedThisNight = true; player.witchState.hasHeal = false;`. Lựa chọn cứu vĩnh viễn được bảo toàn ngay cả khi người chơi không chọn độc, bỏ qua lượt hoặc hết giờ đêm.
+- **Kho bình thuốc mini nhỏ gọn đặt ngay cạnh badge Role ([screens/GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js)):**
+  - Chuyển toàn bộ kho bình thuốc về góc trái header, đặt cạnh nút vai trò của Phù Thủy với thiết kế mini 2 ô màu: **Xanh lục** (Bình Cứu) và **Tím** (Bình Độc).
+  - Khi bình thuốc còn: hiển thị sáng rõ rực rỡ với hiệu ứng hào quang tương ứng.
+  - Khi bình thuốc đã sử dụng: mất hoàn toàn màu đó (chuyển sang xám tối trong suốt mờ ảo) cho đến khi hết cả 2 bình.
+  - Trả lại 100% diện tích thoáng đãng cho đấu trường bên dưới.
+- **Quy tắc bỏ độc & cứu sống của Phù Thủy ([screens/GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js), [server/index.js](file:///d:/code%20game/Werewolfdemo/server/index.js)):**
+  - Phù Thủy **không thể ném độc chính mình** (`!isMe` ở client và chặn `poisonTargetId === socket.id` ở server).
+  - Phù Thủy **vẫn có thể dùng bình Cứu chính mình** khi là nạn nhân bị Sói cắn.
+  - Loại bỏ hoàn toàn nút chốt xác nhận sau khi chọn người: bấm trực tiếp vào avatar người chơi trên đấu trường là **ném độc ngay lập tức**, không cần xác nhận lại vì đã có bước vote "Có muốn dùng thuốc độc không" trước đó.
+- **Tương tác Khiên Bảo Vệ & Độc Phù Thủy ([server/gameLogic.js](file:///d:/code%20game/Werewolfdemo/server/gameLogic.js), [server/index.js](file:///d:/code%20game/Werewolfdemo/server/index.js)):**
+  - Khiên Bảo Vệ chỉ che chở được đòn cào của Sói, **không thể bảo vệ khỏi thuốc độc của Phù Thủy**. Người bị Phù Thủy ném độc vẫn tử nạn bình thường.
+- **Hoạt ảnh đặc biệt: Xung Đột Khiên & Độc ([components/WitchPoisonModal.js](file:///d:/code%20game/Werewolfdemo/components/WitchPoisonModal.js), [components/RoomSettings.js](file:///d:/code%20game/Werewolfdemo/components/RoomSettings.js)):**
+  - Kích hoạt khi Bảo Vệ và Phù Thủy cùng chọn che chở và ném độc vào cùng một người chơi trong một đêm:
+    - Khiên Bảo Vệ bung lên phát sáng xanh lam bao bọc quanh nạn nhân.
+    - Dòng chữ chạy typewriter phía trên Avatar: `"Một người muốn cứu một người muốn giết , thảm hại thật"`.
+    - Bình thuốc độc lao tới phát nổ phá vỡ khiên, avatar chuyển đỏ rồi phủ xám đen tử nạn.
+    - Huy hiệu thông báo bên dưới: `☠️ <Tên người> đã bị phù thủy giết chết`.
+    - Thêm nút thử nghiệm `🛡️☠️ Thử Xung Đột: Khiên Bảo Vệ + Phù Thủy Độc` trong bảng cài đặt phòng ngoài sảnh.
+- **Dọn dẹp giao diện đấu trường & loại bỏ code test trong trận ([screens/GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js)):**
+  - Xóa bỏ nút và dropdown test Tiên Tri (`headerTestSeerBtn`, `demoDropdownContainer`) khỏi màn hình trong trận (chỉ giữ lại ở sảnh cài đặt ngoài phòng).
+  - Loại bỏ các hộp text box đè nặng nề phía trên danh sách Avatar (`announceCard`, `eliminationNotice`) vì đã có hoạt ảnh điện ảnh toàn màn hình và tin nhắn hệ thống trong chat.
+  - Sửa điều kiện hiển thị thanh hành động dưới đáy màn hình (`bottomActionBar`) để kích hoạt đầy đủ trong lượt Phù Thủy (`NIGHT_WITCH`).
+- **Khắc phục lỗi ngắt kết nối đồng loạt khi bấm Bắt đầu trận ([screens/GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js), [App.js](file:///d:/code%20game/Werewolfdemo/App.js)):**
+  - Chuyển khai báo `me`, `amAlive`, `alivePlayers`, `isNight...` lên đầu component trước các `useEffect`, khắc phục triệt để lỗi `ReferenceError: Cannot access 'amAlive' before initialization` làm crash sập React Native của toàn bộ người chơi khi vừa chuyển từ sảnh vào trận.
+  - Bọc `ErrorBoundary` bảo vệ `GameScreen` trong `App.js` ngăn ngừa crash giao diện làm đóng kết nối socket.
+  - Bổ sung vai trò `witch` vào thẻ hiển thị vai trò [components/RoleCard.js](file:///d:/code%20game/Werewolfdemo/components/RoleCard.js).
+- **Khắc phục lỗi ngắt kết nối khi vào phòng ([server/index.js](file:///d:/code%20game/Werewolfdemo/server/index.js)):**
+  - Thêm listener toàn cục `process.on('uncaughtException')` và `process.on('unhandledRejection')` tránh crash sập process NodeJS.
+  - Kiểm tra kiểu dữ liệu chuỗi `roomCode` trong socket handlers `create-room`, `join-room`, `reconnect-room` bọc trong `try/catch`.
+  - Khóa chat công khai ban đêm trong lượt Phù Thủy: bổ sung `room.phase === PHASES.NIGHT_WITCH` vào điều kiện kiểm tra `isNightTime`.
+- **Phòng thủ render PlayerAvatar ([components/PlayerAvatar.js](file:///d:/code%20game/Werewolfdemo/components/PlayerAvatar.js)):**
+  - Bổ sung `if (!player) return null;` tránh crash component khi dữ liệu player chưa hoàn chỉnh lúc kết nối.
+- **Tối ưu tương tác giữa Bảo Vệ & Phù Thủy ([server/index.js](file:///d:/code%20game/Werewolfdemo/server/index.js)):**
+  - Khi nạn nhân bị Sói cắn đã được Bảo Vệ che chở thành công, đòn tấn công được tính là đã bị chặn đứng hoàn toàn.
+  - Phù Thủy thức dậy sẽ thấy không có ai bị chết (bỏ qua bước bình Cứu, tiến thẳng tới lựa chọn bình Độc hoặc bỏ qua, tránh lãng phí bình Cứu).
+- **Mục tiêu test hiệu ứng là Chủ Phòng ([components/RoomSettings.js](file:///d:/code%20game/Werewolfdemo/components/RoomSettings.js)):**
+  - Cập nhật hàm `getHostTarget`: ưu tiên lấy chính Chủ Phòng (`p.id === myId`) làm mục tiêu mô phỏng trong tất cả hiệu ứng (Tiên Tri, Sói cào, Bảo Vệ, Phù Thủy Cứu, Phù Thủy Độc), tránh fallback về "Người chơi vô danh".
+- **Hiệu ứng gõ phím & vị trí câu thoại Phù Thủy ([components/WitchHealSaveModal.js](file:///d:/code%20game/Werewolfdemo/components/WitchHealSaveModal.js) & [components/WitchPoisonModal.js](file:///d:/code%20game/Werewolfdemo/components/WitchPoisonModal.js)):**
+  - Bỏ toàn bộ viền và nền textbox bao quanh (`backgroundColor: transparent`).
+  - Đưa câu thoại màu tím neon (`#D8B4FE`) lên vị trí **phía trên Avatar** của nạn nhân.
+  - Bỏ hoàn toàn dấu ngoặc kép `"..."`.
+  - Tích hợp hiệu ứng gõ phím typewriter: dòng chữ chạy dần từng ký tự một (25ms/ký tự). Khi gõ xong trọn vẹn, bình thuốc mới bắt đầu được ném tới mục tiêu.
+  - Hỗ trợ đầy đủ cả `victimPlayer`, `savedPlayer` và `poisonedPlayer`.
+
+---
+
+## [2.0.0] - 2026-10-28
+
+### 🧙‍♀️ Ra Mắt Nhân Vật Mới: Phù Thủy (Witch 🧙‍♀️), Bình Cứu & Bình Độc, Tối Ưu Bỏ Phiếu Sói
+- **Assets Bình Thuốc Thần Kỳ ([assets/potion_heal.png](file:///d:/code%20game/Werewolfdemo/assets/potion_heal.png) & [assets/potion_poison.png](file:///d:/code%20game/Werewolfdemo/assets/potion_poison.png)):**
+  - Trích xuất và khử phông trong suốt (transparent PNG) từ ảnh người dùng cung cấp.
+  - Bình Cứu màu xanh lục phát quang ma thuật, Bình Độc màu tím đỏ tỏa khói độc hại.
+- **Backend & Logic Game ([server/constants.js](file:///d:/code%20game/Werewolfdemo/server/constants.js), [server/gameLogic.js](file:///d:/code%20game/Werewolfdemo/server/gameLogic.js), [server/index.js](file:///d:/code%20game/Werewolfdemo/server/index.js)):**
+  - Thêm vai trò `ROLES.WITCH = 'witch'`, màu `#A855F7`, pha `PHASES.NIGHT_WITCH = 'night_witch'` (thời gian 30s).
+  - Khởi tạo trạng thái Phù Thủy `player.witchState = { hasHeal: true, hasPoison: true }`.
+  - Phù Thủy thức giấc ngay sau khi đàn Sói cắn người để biết ai là nạn nhân bị cắn đêm đó.
+  - Xử lý hành động đêm `witch-action`: nhận `{ save, poisonTargetId }`, cập nhật tiêu hao bình thuốc và tự động rút thời gian xuống 3s khi hoàn tất.
+  - Tính toán tổng hợp kết quả đêm `processNightActions`: xử lý đồng thời cắn sói, bảo vệ che chở, phù thủy cứu và phù thủy ném độc.
+- **Tối Ưu Hóa Bỏ Phiếu Của Sói Ban Đêm ([screens/GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js)):**
+  - Loại bỏ hoàn toàn nút chốt (`wolf-confirm` / `wolfConfirmed`). Sói bỏ phiếu trực tiếp giống như biểu quyết ban ngày.
+  - Cho phép đổi phiếu tự do; khi tất cả Sói còn sống đã chọn mục tiêu thì tự động rút thời gian xuống 5s để chuyển tiếp mượt mà.
+- **Giao Diện Ban Đêm Của Phù Thủy ([screens/GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js)):**
+  - **Bước 1 (Bình Cứu):** Modal trung tâm hiện Avatar nạn nhân bị Sói cắn với 2 lựa chọn: `🟢 CỨU SỐNG` hoặc `❌ BỎ MẶC`.
+  - **Bước 2 (Bình Độc):** Thanh công cụ nhắm bình độc, cho phép bấm chọn 1 người chơi bất kỳ trên đấu trường để ném độc hoặc bấm `🏳️ BỎ QUA`.
+- **Hoạt Ảnh Điện Ảnh Buổi Sáng Riêng Biệt ([components/WitchHealSaveModal.js](file:///d:/code%20game/Werewolfdemo/components/WitchHealSaveModal.js) & [components/WitchPoisonModal.js](file:///d:/code%20game/Werewolfdemo/components/WitchPoisonModal.js)):**
+  - **Phù Thủy Hồi Sinh:** Sau khi vuốt sói chém qua avatar, xuất hiện dòng thoại tím: `"Chưa đến lúc để chết đâu, hãy sống dậy giúp mọi người đi"`, ném bình Cứu màu xanh vỡ tung đè lên vết cào làm lành hoàn toàn vết thương và khôi phục màu sắc avatar. Huy hiệu: `🧪 ĐÃ ĐƯỢC PHÙ THỦY CỨU SỐNG`.
+  - **Phù Thủy Ném Độc Tử Vong:** Hoạt ảnh tách riêng phát tuần tự sau hoạt ảnh của Sói với lời thoại: `"Hãy nhắm mắt đi , ngươi đã làm phiền mọi người đủ rồi"`, ném bình Độc màu tím vỡ tan, avatar chuyển đỏ như bị thiêu đốt rồi lịm dần sang sắc đen xám tử nạn. Huy hiệu: `☠️ ĐÃ BỊ TRÚNG ĐỘC TỬ VONG`.
+- **Cài Đặt Phòng & Thử Nghiệm ([components/RoomSettings.js](file:///d:/code%20game/Werewolfdemo/components/RoomSettings.js)):**
+  - Thêm hàng chỉnh số lượng Phù Thủy và 2 nút thử nghiệm trong khối `THỬ CÁC HIỆU ỨNG` dành cho Chủ phòng.
+- **Hướng Dẫn Vai Trò ([components/RoleGuideModal.js](file:///d:/code%20game/Werewolfdemo/components/RoleGuideModal.js)):**
+  - Bổ sung hồ sơ nhân vật Phù Thủy 🧙‍♀️ chi tiết về mục tiêu, hành động ban đêm và mẹo chiến thuật.
+
+---
+
 ## [1.9.2] - 2026-10-27
 
 ### 🛡️ Hoạt Ảnh Khiên Bảo Vệ Thành Công (Morning Bodyguard Save Cinematic Animation)

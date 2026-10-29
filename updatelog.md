@@ -4,6 +4,118 @@ Chào mừng các dân làng và bầy sói! Dưới đây là tổng hợp tấ
 
 ---
 
+## 🛠️ Phiên Bản 2.0.1 - BẢN VÁ PHÙ THỦY, BỔ SUNG KHO THUỐC & DỌN DẸP ĐẤU TRƯỜNG
+*(Cập nhật ngày: 28/10/2026)*
+
+### 🎬 Hoàn Thiện Điện Ảnh & Trì Hoãn Thông Báo Chiến Thắng Cho Đến Khi Chiếu Xong Hoạt Ảnh
+- **Trì hoãn xét thắng thua sau đêm:**
+  - Không còn tình trạng khi Sói cuối cùng bị trúng độc chết hoặc dân làng bị tiêu diệt thì game lập tức nhảy sang màn hình Kết Thúc/Chiến Thắng.
+  - Máy chủ hiện tại sẽ để pha Thông báo ban ngày (`DAY_ANNOUNCE`) chiếu hết toàn bộ các hoạt ảnh điện ảnh (Sói cào, Hồi sinh cứu sống, Khiên bảo vệ, Phù Thủy ném độc, Xung đột khiên & độc).
+  - Sau khi các hoạt ảnh kết thúc trọn vẹn (6 giây hoặc 10 giây đối với các đêm có nhiều hoạt ảnh tuần tự), hệ thống mới xét xem phe Sói hay phe Dân Làng đã chiến thắng. Điều này giúp mọi người chơi nắm rõ lý do vì sao Sói chết hoặc ai đã bị tiêu diệt trước khi vinh danh đội thắng cuộc!
+- **Chuỗi hoạt ảnh tuần tự mượt mà:**
+  - Đòn tấn công của Sói (cào xé / được cứu) được phát trước. Khi modal đóng, hoạt ảnh ném thuốc độc hoặc xung đột khiên sẽ tự động mở tiếp nối.
+  - Kéo dài thời gian biểu quyết ban ngày (4.5s) để hiển thị đầy đủ hiệu ứng treo cổ và số lượng Sói còn lại trước khi chuyển sang màn hình kết thúc trận.
+
+### 🧙‍♀️ Nâng Cấp Hoàn Thiện Cơ Chế Phù Thủy
+- **Khắc phục lỗi Cứu sống mà nạn nhân vẫn chết:** Đã bổ sung kênh xử lý khóa tức thì `witch-heal-action`. Ngay khi Phù Thủy bấm `🟢 CỨU SỐNG`, server ghi nhận ngay trạng thái hồi sinh nạn nhân đêm đó. Lựa chọn này được bảo toàn tuyệt đối, không bao giờ bị hủy ngay cả khi Phù Thủy không thao tác tiếp bình độc hoặc thời gian đêm kết thúc.
+- **Kho Bình Thuốc Mini Thu Nhỏ Bên Cạnh Role:**
+  - Thiết kế siêu nhỏ gọn dạng capsule đặt ngay cạnh badge vai trò ở góc trên bên trái header.
+  - Chỉ gồm đúng 2 ô màu: **Xanh lục** (Bình Cứu) và **Tím** (Bình Độc).
+  - Khi còn thuốc: 2 ô phát sáng màu xanh và tím rực rỡ.
+  - Khi đã dùng: ô đó **mất đi màu** (chuyển sang xám mờ tối) cho đến khi dùng hết cả 2 bình.
+  - Đấu trường bên dưới hoàn toàn sạch sẽ, không bị vướng bất kỳ hộp nào đè lên Avatar.
+- **Hộp thoại hỏi Phù Thủy có muốn dùng thuốc độc không & Ném độc tức thì:**
+  - `☠️ CÓ, CHỌN MỤC TIÊU`: Chuyển sang đấu trường để Phù Thủy bấm chọn người chơi ném độc.
+  - **Ném độc tức thì, xóa bỏ xác nhận rườm rà:** Do đã có bước hỏi trước, khi Phù Thủy bấm vào bất kỳ người chơi nào trên đấu trường là **ném độc ngay lập tức**, không cần bấm nút xác nhận chốt nữa.
+  - `❌ KHÔNG, ĐI NGỦ` (hoặc nút Bỏ qua ở thanh dưới nếu đổi ý): Giữ bình độc cho các đêm sau, kết thúc lượt ngay lập tức.
+- **Quy tắc tự độc & tự cứu:**
+  - Phù Thủy **không thể ném độc chính mình** (không thể click trúng bản thân ở đấu trường và server kiểm tra chặn chặt chẽ).
+  - Phù Thủy **vẫn có thể dùng bình Cứu tự cứu sống mình** nếu đêm đó bị Ma Sói cắn.
+- **Khiên Bảo Vệ không bảo vệ được người bị trúng độc:**
+  - Bảo Vệ chỉ che chở được nạn nhân khỏi nanh vuốt Ma Sói, **không thể đỡ được độc dược Phù Thủy**. Người trúng độc vẫn tử vong.
+- **Hoạt ảnh đặc biệt: "Một người muốn cứu một người muốn giết, thảm hại thật":**
+  - Khi Bảo Vệ và Phù Thủy cùng nhắm vào một người:
+    - Khiên Bảo Vệ bung lên phát sáng quanh nạn nhân.
+    - Dòng chữ chạy typewriter phía trên Avatar: `Một người muốn cứu một người muốn giết , thảm hại thật`.
+    - Bình thuốc độc bay tới phát nổ phá vỡ khiên, nạn nhân chuyển đỏ rồi gục ngã phủ xám đen tử nạn.
+    - Bên dưới hiển thị: `<Tên người> đã bị phù thủy giết chết`.
+    - Chủ phòng có thể thử nghiệm trực tiếp hoạt ảnh này ở bảng Cài đặt phòng ngoài sảnh.
+
+### 🧹 Tinh Gọn & Làm Sạch Giao Diện Đấu Trường
+- **Xóa bỏ nút Test Tiên Tri trong trận:** Xóa nút `🔮 Test Soi` và menu dropdown trong trận để trả lại không gian tối đa cho trận đấu. Các nút test vẫn được giữ đầy đủ ở màn hình Cài đặt phòng ngoài sảnh.
+- **Xóa các hộp thông báo che avatar:** Loại bỏ các khối textbox thông báo ban ngày và kết quả vote đè lên trên danh sách người chơi (`announceCard`, `eliminationNotice`). Mọi thông tin đã được truyền tải trọn vẹn và đẹp mắt qua Hoạt ảnh điện ảnh toàn màn hình và Chat hệ thống!
+
+### 🛡️ Sửa Lỗi Nghiêm Trọng Vào Phòng & Ngắt Kết Nối
+- **Khắc phục triệt để lỗi sập game khi bấm Bắt đầu trận:** Sửa lỗi biến `amAlive` bị gọi trước khi khai báo trong `GameScreen.js` (gây lỗi `ReferenceError`), tích hợp `ErrorBoundary` ngăn ngừa ứng dụng bị crash làm rớt toàn bộ kết nối của người chơi khi vào trận.
+- **Khắc phục lỗi sập máy chủ & vỡ game:** Bổ sung cơ chế bảo vệ bắt lỗi toàn cục `uncaughtException` và `unhandledRejection` tại server, bọc an toàn các sự kiện kết nối phòng `create-room`, `join-room`, `reconnect-room`.
+- **Khóa chat đêm chuẩn xác:** Bổ sung chặn chat công khai trong suốt lượt hành động của Phù Thủy (`NIGHT_WITCH`).
+- **Phòng vệ render giao diện:** Kiểm tra null an toàn cho `PlayerAvatar`, ngăn chặn tình trạng vỡ màn hình khi người chơi vừa bước vào phòng.
+- **Tối ưu tương tác Bảo Vệ & Phù Thủy:** Nếu Bảo Vệ đã đỡ đòn thành công cho người bị Sói cắn, Phù Thủy thức dậy sẽ thấy như không ai bị cắn (bỏ qua bình Cứu, tiến thẳng tới bình Độc, không bị mất bình Cứu oan).
+
+### 👑 Thử Nghiệm Hiệu Ứng Dành Cho Chủ Phòng
+- **Avatar thử nghiệm chính là Chủ Phòng:** Toàn bộ các tính năng thử hiệu ứng trong bảng cài đặt phòng (Tiên Tri soi, Sói cào, Khiên Bảo Vệ, Phù Thủy Cứu, Phù Thủy Ném Độc) giờ đây lấy chính tên và Avatar của Chủ Phòng để mô phỏng, xóa bỏ hoàn toàn tên mặc định "Người chơi vô danh".
+
+### 🔮 Nâng Cấp Hiệu Ứng Điện Ảnh Phù Thủy (Bình Cứu & Bình Độc)
+- **Câu thoại nằm phía trên Avatar (Không dùng textbox):** Loại bỏ hộp thoại bao quanh rườm rà. Dòng thoại màu tím phát sáng neon (`#D8B4FE`) huyền bí nổi bật trực tiếp phía trên Avatar nạn nhân.
+- **Bỏ dấu ngoặc kép:** Câu thoại được tinh chỉnh tự nhiên và liền mạch:
+  - Bình Cứu: `Chưa đến lúc để chết đâu, hãy sống dậy giúp mọi người đi`
+  - Bình Độc: `Hãy nhắm mắt đi , ngươi đã làm phiền mọi người đủ rồi`
+- **Hiệu ứng gõ phím (Typewriter Effect):** Từng ký tự chạy dần ra từng chữ một như đang gõ phím trước khi bình thuốc được ném ra, tạo cảm giác kịch tính và ma mị.
+
+---
+
+## 🧙‍♀️ Phiên Bản 2.0 - ĐẠI CẬP NHẬT: RA MẮT PHÙ THỦY, BÌNH CỨU & BÌNH ĐỘC, TỐI ƯU BỎ PHIẾU CẮN CỦA SÓI
+*(Cập nhật ngày: 28/10/2026)*
+
+### 🧙‍♀️ Nhân Vật Mới: Phù Thủy (Witch 🧙‍♀️)
+- **Bậc Thầy Độc Dược & Hồi Sinh:**
+  - Phù Thủy thức dậy ngay sau khi đàn Sói cắn người xong.
+  - Sở hữu 2 bình thuốc cực mạnh (mỗi bình chỉ dùng được DUY NHẤT 1 LẦN trong cả trận đấu):
+    - 🧪 **Bình Cứu (Hồi sinh màu xanh lục):** Cứu sống nạn nhân bị Ma Sói cắn trong đêm, giúp họ sống sót khi trời sáng.
+    - ☠️ **Bình Độc (Thuốc độc màu tím đỏ):** Ném vào 1 người bất kỳ mà Phù Thủy nghi ngờ để tiêu diệt họ trong đêm.
+- **Quy Trình Ban Đêm Trực Quan Của Phù Thủy:**
+  - **Bước 1 (Bình Cứu):** Khi thức giấc, nếu có người bị Sói cắn và Phù Thủy còn bình Cứu, một giao diện trung tâm sẽ hiện lên với Avatar to rõ của nạn nhân kèm 2 nút lựa chọn:
+    - `🟢 CỨU SỐNG (+ Hồi sinh)`
+    - `❌ BỎ MẶC (Không dùng)`
+    *(Nếu không ai bị cắn hoặc bình Cứu đã dùng trước đó, trò chơi sẽ tự động bỏ qua bước này).*
+  - **Bước 2 (Bình Độc):** Nếu Phù Thủy còn bình Độc, thanh công cụ sẽ chuyển sang chế độ ném thuốc độc:
+    - Bấm chọn trực tiếp vào 1 người chơi bất kỳ trên đấu trường để nhắm bình độc (hiện huy hiệu `☠️ Mục tiêu ném độc`).
+    - Nút `☠️ NÉM BÌNH ĐỘC`: Xác nhận ném độc vào người đã chọn.
+    - Nút `🏳️ BỎ QUA`: Không dùng độc đêm nay và đi ngủ an toàn.
+
+---
+
+### 🐺 Tối Ưu Bỏ Phiếu Cắn Của Bầy Sói
+- **Bỏ Xác Nhận Chốt - Bỏ Phiếu Nhanh Gọn Như Ban Ngày:**
+  - Loại bỏ hoàn toàn nút chốt mục tiêu rườm rà.
+  - Ban đêm, các Sói chỉ cần bấm chọn người muốn cắn (giống bỏ phiếu treo cổ ban ngày), bấm lại để hủy phiếu hoặc đổi sang người khác bất cứ lúc nào.
+  - Hiển thị trực quan số phiếu của từng Sói dưới Avatar con mồi. Con mồi nhận nhiều phiếu nhất sẽ bị cắn khi hết giờ!
+
+---
+
+### 🎬 Hiệu Ứng Điện Ảnh Buổi Sáng Riêng Biệt Cho Phù Thủy
+- **Hiệu Ứng Phù Thủy Cứu Sống (Ném Thuốc Đè Lên Vết Chém Của Sói):**
+  - Sau khi vuốt sói bổ nhào cào rách Avatar nạn nhân, dòng thoại màu tím xuất hiện phía trên Avatar:
+    > *"Chưa đến lúc để chết đâu, hãy sống dậy giúp mọi người đi"*
+  - Bình Cứu màu xanh lục bay vút tới, ném vỡ tung ngay trên vết cào của sói.
+  - Hào quang thần dược tỏa sáng, hồi phục hoàn toàn màu sắc sinh động cho Avatar nạn nhân và gắn huy hiệu `🧪 ĐÃ ĐƯỢC PHÙ THỦY CỨU SỐNG`.
+- **Hiệu Ứng Phù Thủy Ném Thuốc Độc Tử Vong:**
+  - Hoạt ảnh tách riêng, xuất hiện tuần tự sau hoạt ảnh của Sói.
+  - Dòng thoại xuất hiện phía trên Avatar kẻ bị độc:
+    > *"Hãy nhắm mắt đi , ngươi đã làm phiền mọi người đủ rồi"*
+  - Bình Độc màu tím đỏ ném vút tới vỡ tan, dung dịch độc bắn tung tóe.
+  - Avatar kẻ trúng độc chuyển sang màu đỏ rực như bị thiêu đốt, sau đó lịm dần sang sắc đen xám tử nạn cùng huy hiệu `☠️ ĐÃ BỊ TRÚNG ĐỘC TỬ VONG`.
+
+---
+
+### ⚙️ Thử Hiệu Ứng & Cài Đặt Phòng (Host Only)
+- Thêm hàng cài đặt số lượng **🧙‍♀️ Số Phù Thủy** (0 - 2) trong bảng cài đặt phòng.
+- Thêm 2 nút xem trước hoạt ảnh trong mục `THỬ CÁC HIỆU ỨNG`:
+  - `🧪 Thử Hiệu Ứng Phù Thủy Cứu Sống (Bình Cứu)`
+  - `☠️ Thử Hiệu Ứng Phù Thủy Ném Thuốc Độc`
+
+---
+
 ## 🛡️ Phiên Bản 1.9.2 - HIỆU ỨNG ĐIỆN ẢNH BẢO VỆ CỨU NGƯỜI THÀNH CÔNG (KHIÊN CHẶN VUỐT SÓI)
 *(Cập nhật ngày: 27/10/2026)*
 
@@ -155,7 +267,7 @@ Chào mừng các dân làng và bầy sói! Dưới đây là tổng hợp tấ
   - Nếu số phiếu trắng nhiều nhất hoặc số phiếu giữa các người bị nghi ngờ bằng nhau (hòa phiếu), làng sẽ an toàn qua ngày mới và **không ai bị treo cổ**.
 - **Chủ Phòng Bỏ Qua Vote Nhanh:** Chủ phòng có nút `⏩ Bỏ qua Vote` để kết thúc nhanh giờ biểu quyết nếu mọi người đã thống nhất.
 - **Tự Động Kết Thúc Vote Khi Đủ Phiếu:** Khi tất cả mọi người còn sống đã bỏ phiếu xong, hệ thống sẽ chốt kết quả ngay lập tức thay vì phải chờ hết giờ.
-- **Sách Hướng Dẫn / Cẩm Nang Vai Trò (`📖`):**
+- **Sách Hướng Dẫn / Cẩm Nang Vai TrÒ (`📖`):**
   - Bổ sung nút bấm ngay tại Phòng chờ để xem nhanh chi tiết năng lực, mẹo chơi của từng vai trò (Ma Sói, Tiên Tri, Bảo Vệ, Dân Làng).
 
 ### 🎨 Sửa Lại UI

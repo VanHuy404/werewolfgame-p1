@@ -59,7 +59,8 @@ export default function LobbyScreen({
   const numWolves = settings.numWolves !== undefined ? settings.numWolves : 2;
   const numSeers = settings.numSeers !== undefined ? settings.numSeers : 1;
   const numBodyguards = settings.numBodyguards !== undefined ? settings.numBodyguards : 1;
-  const numVillagers = Math.max(0, players.length - numWolves - numSeers - numBodyguards);
+  const numWitches = settings.numWitches !== undefined ? settings.numWitches : 1;
+  const numVillagers = Math.max(0, players.length - numWolves - numSeers - numBodyguards - numWitches);
 
   // Điều kiện bắt đầu game: Có tối thiểu 4 người chơi
   const canStart = players.length >= 4;
@@ -230,7 +231,7 @@ export default function LobbyScreen({
           <Text style={styles.guideActionEmoji}>📖</Text>
           <View style={styles.guideActionTextCol}>
             <Text style={styles.guideActionTitle}>Xem Nhân Vật & Hướng Dẫn Chơi</Text>
-            <Text style={styles.guideActionSub}>Khám phá kỹ năng Ma Sói, Tiên Tri & Dân Làng</Text>
+            <Text style={styles.guideActionSub}>Khám phá kỹ năng Ma Sói, Tiên Tri, Bảo Vệ & Phù Thủy</Text>
           </View>
           <Text style={styles.guideActionArrow}>→</Text>
         </TouchableOpacity>
