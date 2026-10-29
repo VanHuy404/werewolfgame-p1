@@ -84,6 +84,7 @@ export default function App() {
   const [lastProtectedTarget, setLastProtectedTarget] = useState(null);
   const [wolfVictim, setWolfVictim] = useState(null);
   const [witchState, setWitchState] = useState({ hasHeal: true, hasPoison: true });
+  const [hunter, setHunter] = useState(null);
   const [winner, setWinner] = useState(null);
   const [winMessage, setWinMessage] = useState('');
   const [messages, setMessages] = useState([]);
@@ -257,6 +258,7 @@ export default function App() {
       if (data.lastProtectedTarget !== undefined) setLastProtectedTarget(data.lastProtectedTarget);
       if (data.wolfVictim !== undefined) setWolfVictim(data.wolfVictim);
       if (data.witchState !== undefined) setWitchState(data.witchState);
+      if (data.hunter !== undefined) setHunter(data.hunter);
       if (data.players) setPlayers(data.players);
       if (data.winner) setWinner(data.winner);
       if (data.message) setWinMessage(data.message);
@@ -428,6 +430,7 @@ export default function App() {
             lastProtectedTarget={lastProtectedTarget}
             wolfVictim={wolfVictim}
             initialWitchState={witchState}
+            hunter={hunter}
             winner={winner}
             winMessage={winMessage}
             messages={messages}

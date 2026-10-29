@@ -4,6 +4,29 @@ Chào mừng các dân làng và bầy sói! Dưới đây là tổng hợp tấ
 
 ---
 
+## 🏹 Phiên Bản 2.1.0 - VAI TRÒ MỚI THỢ SĂN (HUNTER 🏹) & KHÓA ROLE ĐẶC BIỆT (0 - 1)
+*(Cập nhật ngày: 29/10/2026)*
+
+### 🎯 Vai Trò Mới: Thợ Săn (Hunter 🏹)
+- **Hình ảnh nhận diện:** Biểu tượng nỏ săn `🏹`, màu vàng cam hổ phách rực rỡ (`#F59E0B`).
+- **Khóa số lượng các vai trò đặc biệt (0 - 1):** Tất cả các nhân vật chức năng trừ Dân Làng và Sói (Tiên Tri, Bảo Vệ, Phù Thủy, Thợ Săn) được cố định số lượng trong khoảng `0 - 1` để giữ trận đấu luôn cân bằng và hấp dẫn.
+- **Kỹ năng tối thượng - Phát Súng Trăn Trối Báo Thù:**
+  - Khi Thợ Săn bị chết (bị Ma Sói cắn trong đêm hoặc bị dân làng treo cổ ban ngày), hệ thống kích hoạt pha đặc biệt **12 giây** cho Thợ Săn:
+    - Thợ Săn bấm chọn 1 người chơi còn sống bất kỳ trên đấu trường để khóa tâm ngắm và nổ súng kết liễu.
+    - Hoặc chọn `🏳️ BẮN CHỈ THIÊN (BỎ QUA)` nếu không muốn mạo hiểm bắn nhầm phe mình.
+    - Hết 12s nếu Thợ Săn không thao tác, hệ thống tự động bắn chỉ thiên phòng chống đơ trận.
+- **Hoạt ảnh điện ảnh nổ súng cực ngầu:**
+  - Tâm ngắm màu đỏ rực rỡ xoay và thu nhỏ khóa chặt Avatar mục tiêu.
+  - Dòng chữ chạy typewriter gõ từng ký tự một phía trên Avatar:
+    > *Sẽ có những con cá phải trả gió!*
+  - Âm thanh nổ súng đanh thép `BANG!`, màn hình rung chấn chớp sáng, nạn nhân gục ngã phủ xám tử nạn cùng huy hiệu: `🎯 ĐÃ BỊ THỢ SĂN BẮN HẠ`.
+- **Cơ chế tê liệt khi bị Phù Thủy hạ độc:**
+  - Nếu Thợ Săn bị chết vì Thuốc Độc của Phù Thủy, chất độc ngấm sâu gây tê liệt toàn thân. Thợ Săn sẽ thấy modal thông báo tê liệt và **hoàn toàn không thể nổ súng**.
+- **Thử nghiệm ngoài sảnh:**
+  - Chủ phòng có thể bấm nút `🏹💥 Thử Hiệu Ứng Thợ Săn Nổ Súng Bắn Hạ` trong bảng cài đặt phòng để xem trước hoạt ảnh!
+
+---
+
 ## 🛠️ Phiên Bản 2.0.1 - BẢN VÁ PHÙ THỦY, BỔ SUNG KHO THUỐC & DỌN DẸP ĐẤU TRƯỜNG
 *(Cập nhật ngày: 28/10/2026)*
 

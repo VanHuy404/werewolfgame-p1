@@ -4,6 +4,30 @@ Tất cả các thay đổi, cập nhật kiến trúc và tính năng của d�
 
 ---
 
+## [2.1.0] - 2026-10-29
+
+### 🏹 Ra Mắt Vai Trò Mới: Thợ Săn (Hunter 🏹) & Giới Hạn Role Đặc Biệt (0 - 1)
+- **Giới hạn số lượng các vai trò đặc biệt ([components/RoomSettings.js](file:///d:/code%20game/Werewolfdemo/components/RoomSettings.js), [server/gameLogic.js](file:///d:/code%20game/Werewolfdemo/server/gameLogic.js)):**
+  - Tất cả các role đặc biệt ngoài Dân và Sói gồm **Tiên Tri (0 - 1)**, **Bảo Vệ (0 - 1)**, **Phù Thủy (0 - 1)** và **Thợ Săn (0 - 1)** đều được khóa chặt ở khoảng `0 - 1` để đảm bảo độ cân bằng cho các ván chơi ít người (4 - 8 người).
+- **Hình ảnh đại diện của Thợ Săn:** Emoji nỏ săn `🏹`, màu hổ phách ấm `#F59E0B`.
+- **Kỹ năng tối thượng: Phát Súng Trăn Trối Báo Thù ([server/index.js](file:///d:/code%20game/Werewolfdemo/server/index.js), [screens/GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js)):**
+  - Khi Thợ Săn tử nạn (bị Ma Sói cắn trong đêm HOẶC bị Dân Làng bỏ phiếu treo cổ ban ngày), hệ thống kích hoạt pha đặc biệt `PHASES.HUNTER_SHOT` (12 giây).
+  - Thợ Săn có quyền chọn 1 người chơi còn sống bất kỳ trên đấu trường để nổ súng kết liễu mang theo xuống mồ (hoặc chọn `🏳️ BẮN CHỈ THIÊN (BỎ QUA)` nếu không muốn bắn nhầm dân làng).
+  - Nếu hết giờ mà Thợ Săn AFK / không chọn, hệ thống tự động bắn chỉ thiên để phòng chống treo game.
+- **Hoạt ảnh điện ảnh nổ súng chân thực ([components/HunterShotModal.js](file:///d:/code%20game/Werewolfdemo/components/HunterShotModal.js)):**
+  - Tâm ngắm màu đỏ rực rỡ từ hình ảnh `hunter_crosshair.png` xoay và thu nhỏ khóa chặt Avatar mục tiêu.
+  - Dòng chữ chạy typewriter (25ms/ký tự) màu vàng hổ phách đặt ngay trên Avatar mục tiêu (không viền textbox, không ngoặc kép):
+    `Sẽ có những con cá phải trả gió!`
+  - Âm thanh nổ súng tổng hợp đanh thép `BANG!`, rung chấn màn hình giật nảy, chớp sáng đỏ cam và tia lửa bung tỏa.
+  - Nạn nhân ngã xuống phủ xám tử nạn cùng huy hiệu: `🎯 ĐÃ BỊ THỢ SĂN BẮN HẠ`.
+- **Cơ chế tê liệt khi bị Phù Thủy ném độc ([components/HunterParalyzedModal.js](file:///d:/code%20game/Werewolfdemo/components/HunterParalyzedModal.js), [server/index.js](file:///d:/code%20game/Werewolfdemo/server/index.js)):**
+  - Nếu Thợ Săn chết do Thuốc Độc của Phù Thủy, độc dược ngấm vào người làm tê liệt toàn thân. Màn hình của Thợ Săn sẽ bật modal thông báo tê liệt và **hoàn toàn không thể nổ súng**.
+- **Chế độ thử nghiệm sảnh & Hướng dẫn chơi:**
+  - Thêm nút `🏹💥 Thử Hiệu Ứng Thợ Săn Nổ Súng Bắn Hạ` trong bảng Cài đặt phòng ngoài sảnh.
+  - Cập nhật cẩm nang chi tiết vai trò Thợ Săn trong [components/RoleGuideModal.js](file:///d:/code%20game/Werewolfdemo/components/RoleGuideModal.js) và thẻ vai trò [components/RoleCard.js](file:///d:/code%20game/Werewolfdemo/components/RoleCard.js).
+
+---
+
 ## [2.0.1] - 2026-10-28
 
 ### 🎬 Hoàn Thiện Hoạt Ảnh & Trì Hoãn Xét Thắng Thua Cho Đến Khi Chiếu Xong Toàn Bộ Điện Ảnh

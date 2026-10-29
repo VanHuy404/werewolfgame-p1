@@ -24,6 +24,8 @@ import WolfClawAttackModal from '../components/WolfClawAttackModal';
 import BodyguardSaveModal from '../components/BodyguardSaveModal';
 import WitchHealSaveModal from '../components/WitchHealSaveModal';
 import WitchPoisonModal from '../components/WitchPoisonModal';
+import HunterShotModal from '../components/HunterShotModal';
+import HunterParalyzedModal from '../components/HunterParalyzedModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -36,6 +38,7 @@ const PHASES = {
   NIGHT_SEER: 'night_seer',
   NIGHT: 'night',
   DAY_ANNOUNCE: 'day_announce',
+  HUNTER_SHOT: 'hunter_shot',
   DAY_DISCUSSION: 'day_discussion',
   DAY_VOTE: 'day_vote',
   GAME_OVER: 'game_over',
@@ -59,6 +62,7 @@ export default function GameScreen({
   lastProtectedTarget = null,
   wolfVictim = null,
   initialWitchState = null,
+  hunter = null,
   winner = null,
   winMessage = '',
   messages = [],
@@ -139,7 +143,16 @@ export default function GameScreen({
   const isNightWitch = phase === PHASES.NIGHT_WITCH;
   const isNightSeer = phase === PHASES.NIGHT_SEER;
   const isNight = isNightBodyguard || isNightWolf || isNightWitch || isNightSeer || phase === PHASES.NIGHT;
+  const isHunterShot = phase === PHASES.HUNTER_SHOT;
   const isGameOver = phase === PHASES.GAME_OVER;
+
+  const amHunter = myRole === 'hunter';
+  const isMeActiveHunter = hunter?.id === myId || (amHunter && isHunterShot);
+
+  const [hunterShotTargetId, setHunterShotTargetId] = useState(null);
+  const [hunterShotModalVisible, setHunterShotModalVisible] = useState(false);
+  const [hunterShotResultData, setHunterShotResultData] = useState(null);
+  const [hunterParalyzedModalVisible, setHunterParalyzedModalVisible] = useState(false);
   const [illuminatedPlayerId, setIlluminatedPlayerId] = useState(null);
   const [bodyguardTarget, setBodyguardTarget] = useState(null);
   const [bodyguardSkipped, setBodyguardSkipped] = useState(false);
@@ -365,12 +378,27 @@ export default function GameScreen({
       }
     };
 
+    // Thợ Săn nổ súng kết quả
+    const handleHunterShotResult = (data) => {
+      setHunterShotResultData(data);
+      if (!data.passed && data.target) {
+        setHunterShotModalVisible(true);
+      }
+    };
+
+    // Thợ Săn bị Phù Thủy ném thuốc độc tê liệt
+    const handleHunterParalyzed = () => {
+      setHunterParalyzedModalVisible(true);
+    };
+
     socket.on('wolf-vote-update', handleWolfVoteUpdate);
     socket.on('seer-result', handleSeerResult);
     socket.on('bodyguard-update', handleBodyguardUpdate);
     socket.on('vote-update', handleVoteUpdate);
     socket.on('vote-result', handleVoteResult);
     socket.on('witch-state-update', handleWitchStateUpdate);
+    socket.on('hunter-shot-result', handleHunterShotResult);
+    socket.on('hunter-poisoned-paralyzed', handleHunterParalyzed);
 
     return () => {
       socket.off('wolf-vote-update', handleWolfVoteUpdate);
@@ -379,6 +407,8 @@ export default function GameScreen({
       socket.off('vote-update', handleVoteUpdate);
       socket.off('vote-result', handleVoteResult);
       socket.off('witch-state-update', handleWitchStateUpdate);
+      socket.off('hunter-shot-result', handleHunterShotResult);
+      socket.off('hunter-poisoned-paralyzed', handleHunterParalyzed);
     };
   }, [socket]);
 
@@ -396,6 +426,9 @@ export default function GameScreen({
     }
     if (phase !== PHASES.NIGHT_WITCH) {
       setWitchPendingPoison(null);
+    }
+    if (phase !== PHASES.HUNTER_SHOT) {
+      setHunterShotTargetId(null);
     }
     if (phase === PHASES.DAY_ANNOUNCE || phase === PHASES.DAY_DISCUSSION) {
       setSeerResult(null);
@@ -671,7 +704,8 @@ export default function GameScreen({
                     const isMyWolfTarget = isNightWolf && myRole === 'wolf' && (wolfVotes[myId] === player.id || selectedTarget === player.id);
                     const isMyBodyguardTarget = isNightBodyguard && myRole === 'bodyguard' && (bodyguardTarget === player.id || selectedTarget === player.id);
                     const isMyPoisonTarget = isNightWitch && myRole === 'witch' && witchPendingPoison === player.id;
-                    const isTarget = isMyWolfTarget || dayVoteTarget === player.id || (isNightSeer && selectedTarget === player.id) || isMyBodyguardTarget || isMyPoisonTarget;
+                    const isMyHunterTarget = isHunterShot && isMeActiveHunter && hunterShotTargetId === player.id;
+                    const isTarget = isMyWolfTarget || dayVoteTarget === player.id || (isNightSeer && selectedTarget === player.id) || isMyBodyguardTarget || isMyPoisonTarget || isMyHunterTarget;
                     const votes = dayVoteCount[player.id] || 0;
                     const voters = dayVoterMap[player.id] || [];
 
@@ -690,7 +724,8 @@ export default function GameScreen({
                     const canWolfTarget = isNightWolf && myRole === 'wolf' && amAlive && isAlive && !isWolfTeammate;
                     const canSeerTarget = isNightSeer && myRole === 'seer' && amAlive && isAlive && !isMe && !seerResult;
                     const canWitchPoisonTarget = isNightWitch && myRole === 'witch' && amAlive && isAlive && !isMe && witchStep === 'poison' && witchState?.hasPoison;
-                    const isClickable = canVoteDay || canWolfTarget || canSeerTarget || canBodyguardTarget || canWitchPoisonTarget;
+                    const canHunterTarget = isHunterShot && isMeActiveHunter && isAlive && !isMe;
+                    const isClickable = canVoteDay || canWolfTarget || canSeerTarget || canBodyguardTarget || canWitchPoisonTarget || canHunterTarget;
 
                     return (
                       <TouchableOpacity
@@ -702,6 +737,7 @@ export default function GameScreen({
                           isUltraCompact && styles.discordBoxUltraCompact,
                           isClickable && styles.discordBoxClickable,
                           isTarget && styles.discordBoxSelected,
+                          isMyHunterTarget && styles.discordBoxHunterTarget,
                           !isAlive && styles.discordBoxDead,
                           isLastProtected && styles.discordBoxDisabled,
                         ]}
@@ -712,6 +748,7 @@ export default function GameScreen({
                           else if (canSeerTarget) handleSeerTarget(player.id);
                           else if (canBodyguardTarget) handleBodyguardTarget(player.id);
                           else if (canWitchPoisonTarget) handleWitchPoisonTarget(player.id);
+                          else if (canHunterTarget) setHunterShotTargetId(player.id);
                         }}
                         activeOpacity={0.8}
                       >
@@ -815,6 +852,13 @@ export default function GameScreen({
                         {isMyPoisonTarget && (
                           <View style={[styles.discordPoisonTargetBadge, isCompact && { paddingHorizontal: 4, paddingVertical: 1, marginTop: 2 }]}>
                             <Text style={[styles.discordPoisonTargetText, isCompact && { fontSize: 8.5 }]}>☠️ Mục tiêu ném độc</Text>
+                          </View>
+                        )}
+
+                        {/* Mục tiêu khóa bắn của Thợ Săn */}
+                        {isMyHunterTarget && (
+                          <View style={[styles.discordHunterTargetBadge, isCompact && { paddingHorizontal: 4, paddingVertical: 1, marginTop: 2 }]}>
+                            <Text style={[styles.discordHunterTargetText, isCompact && { fontSize: 8.5 }]}>🏹💥 Mục tiêu ngắm bắn</Text>
                           </View>
                         )}
 
@@ -1013,6 +1057,80 @@ export default function GameScreen({
                       </View>
                     </View>
                   )}
+
+                  {/* --- BANNER HÀNH ĐỘNG CỦA PHA THỢ SĂN (HUNTER_SHOT) --- */}
+                  {isHunterShot && (() => {
+                    const hunterTargetPlayer = players.find((p) => p.id === hunterShotTargetId);
+
+                    if (isMeActiveHunter) {
+                      return (
+                        <View style={styles.hunterActionCard}>
+                          <View style={styles.hunterActionHeader}>
+                            <Text style={styles.hunterActionEmoji}>🏹💥</Text>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.hunterActionTitle}>PHÁT SÚNG TRĂN TRỐI BÁO THÙ</Text>
+                              <Text style={styles.hunterActionSub}>
+                                {hunterTargetPlayer
+                                  ? `Đang nhắm vào: ${hunterTargetPlayer.name}. Bấm "NỔ SÚNG" để bắn hoặc đổi người khác!`
+                                  : 'Bấm vào 1 người chơi còn sống trên đấu trường để khóa tâm ngắm và nổ súng:'}
+                              </Text>
+                            </View>
+                            <View style={styles.hunterTimerBadge}>
+                              <Text style={styles.hunterTimerText}>⏳ {timeLeft}s</Text>
+                            </View>
+                          </View>
+
+                          <View style={styles.hunterButtonsRow}>
+                            <TouchableOpacity
+                              style={[
+                                styles.hunterShootBtn,
+                                !hunterShotTargetId && styles.hunterShootBtnDisabled,
+                              ]}
+                              disabled={!hunterShotTargetId}
+                              onPress={() => {
+                                if (hunterShotTargetId) {
+                                  socket.emit('hunter-shoot', { targetId: hunterShotTargetId });
+                                }
+                              }}
+                              activeOpacity={0.8}
+                            >
+                              <Text style={styles.hunterShootBtnText}>
+                                {hunterTargetPlayer ? `💥 NỔ SÚNG BẮN (${hunterTargetPlayer.name})` : '🎯 CHỌN MỤC TIÊU ĐỂ BẮN'}
+                              </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              style={styles.hunterSkipBtn}
+                              onPress={() => {
+                                socket.emit('hunter-shoot', { pass: true });
+                              }}
+                              activeOpacity={0.8}
+                            >
+                              <Text style={styles.hunterSkipBtnText}>🏳️ BẮN CHỈ THIÊN (BỎ QUA)</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      );
+                    }
+
+                    // Với các người chơi khác:
+                    return (
+                      <View style={styles.hunterSuspenseCard}>
+                        <Text style={styles.hunterSuspenseEmoji}>🏹⚡</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.hunterSuspenseTitle}>
+                            THỢ SĂN ĐANG LÊN ĐẠN BÁO THÙ...
+                          </Text>
+                          <Text style={styles.hunterSuspenseSub}>
+                            {hunter?.name || 'Thợ Săn'} đang hấp hối và chuẩn bị bóp cò phát súng cuối cùng kéo theo một kẻ xuống mồ!
+                          </Text>
+                        </View>
+                        <View style={styles.hunterTimerBadge}>
+                          <Text style={styles.hunterTimerText}>⏳ {timeLeft}s</Text>
+                        </View>
+                      </View>
+                    );
+                  })()}
     
                   {/* Banner bỏ phiếu ban ngày */}
                   {phase === PHASES.DAY_VOTE && (
@@ -1175,6 +1293,21 @@ export default function GameScreen({
             isShieldClash={!!shieldClashPlayer}
             timeLeft={timeLeft || 8}
             onClose={() => setWitchPoisonModalVisible(false)}
+          />
+
+          {/* ================= MODAL HIỆU ỨNG THỢ SĂN NỔ SÚNG BẮN HẠ ================= */}
+          <HunterShotModal
+            visible={hunterShotModalVisible && !!hunterShotResultData?.target}
+            targetPlayer={hunterShotResultData?.target}
+            hunterPlayer={hunterShotResultData?.hunter}
+            timeLeft={timeLeft || 6}
+            onClose={() => setHunterShotModalVisible(false)}
+          />
+
+          {/* ================= MODAL CẢNH BÁO THỢ SĂN BỊ PHÙ THỦY ĐẦU ĐỘC TÊ LIỆT ================= */}
+          <HunterParalyzedModal
+            visible={hunterParalyzedModalVisible}
+            onClose={() => setHunterParalyzedModalVisible(false)}
           />
 
           {/* ================= MODAL PHÙ THỦY CHỌN CỨU NẠN NHÂN TRONG ĐÊM ================= */}
@@ -3392,5 +3525,138 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: '#93C5FD',
+  },
+
+  // ===== THỢ SĂN (HUNTER) STYLES =====
+  discordBoxHunterTarget: {
+    borderColor: '#F59E0B',
+    boxShadow: '0 0 16px rgba(245, 158, 11, 0.8)',
+    borderWidth: 2,
+  },
+  discordHunterTargetBadge: {
+    backgroundColor: 'rgba(245, 158, 11, 0.25)',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  discordHunterTargetText: {
+    color: '#FDE68A',
+    fontWeight: '900',
+    fontSize: 9.5,
+  },
+  hunterActionCard: {
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#F59E0B',
+    marginHorizontal: 12,
+    marginVertical: 10,
+    boxShadow: '0 4px 20px rgba(245, 158, 11, 0.35)',
+  },
+  hunterActionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  hunterActionEmoji: {
+    fontSize: 32,
+  },
+  hunterActionTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FBBF24',
+    letterSpacing: 0.8,
+  },
+  hunterActionSub: {
+    fontSize: 12,
+    color: '#E2E8F0',
+    marginTop: 2,
+  },
+  hunterTimerBadge: {
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  hunterTimerText: {
+    color: '#FDE68A',
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  hunterButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  hunterShootBtn: {
+    flex: 1,
+    backgroundColor: '#EF4444',
+    paddingVertical: 11,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.2,
+    borderColor: '#FCA5A5',
+    boxShadow: '0 2px 10px rgba(239, 68, 68, 0.4)',
+  },
+  hunterShootBtnDisabled: {
+    backgroundColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    opacity: 0.6,
+  },
+  hunterShootBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 12.5,
+    letterSpacing: 0.5,
+  },
+  hunterSkipBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  hunterSkipBtnText: {
+    color: '#E2E8F0',
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  hunterSuspenseCard: {
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(245, 158, 11, 0.6)',
+    marginHorizontal: 12,
+    marginVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.4)',
+  },
+  hunterSuspenseEmoji: {
+    fontSize: 32,
+  },
+  hunterSuspenseTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FBBF24',
+    letterSpacing: 0.8,
+  },
+  hunterSuspenseSub: {
+    fontSize: 12,
+    color: '#CBD5E1',
+    marginTop: 2,
   },
 });

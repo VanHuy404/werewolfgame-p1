@@ -1113,6 +1113,29 @@ io.on('connection', (socket) => {
     io.to(room.code).emit('timer-update', { timeLeft: 5 });
   });
 
+  // ---------- THỢ SĂN NỔ SÚNG TRĂN TRỐI ----------
+  socket.on('hunter-shoot', ({ targetId, pass }) => {
+    try {
+      const room = getRoom(socket.roomCode);
+      if (!room || room.phase !== PHASES.HUNTER_SHOT) return;
+      if (!room.hunterShotContext || room.hunterShotContext.hunterId !== socket.id) return;
+      if (room.hunterShotContext.hasShot) return;
+
+      const hunterPlayer = room.players.get(socket.id);
+      if (!hunterPlayer) return;
+
+      if (pass || !targetId) {
+        processHunterShot(room, hunterPlayer, null, true, room.hunterShotContext.cause);
+      } else {
+        const target = room.players.get(targetId);
+        if (!target || !target.alive || target.id === socket.id) return;
+        processHunterShot(room, hunterPlayer, target, false, room.hunterShotContext.cause);
+      }
+    } catch (e) {
+      console.error('hunter-shoot error:', e);
+    }
+  });
+
   // ---------- BỎ PHIẾU BAN NGÀY ----------
   socket.on('day-vote', ({ targetId }) => {
     const room = getRoom(socket.roomCode);
