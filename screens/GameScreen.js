@@ -25,7 +25,7 @@ import BodyguardSaveModal from '../components/BodyguardSaveModal';
 import WitchHealSaveModal from '../components/WitchHealSaveModal';
 import WitchPoisonModal from '../components/WitchPoisonModal';
 import HunterShotModal from '../components/HunterShotModal';
-import HunterParalyzedModal from '../components/HunterParalyzedModal';
+import ThreeWayClashModal from '../components/ThreeWayClashModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -153,7 +153,6 @@ export default function GameScreen({
   const [hunterShotTargetId, setHunterShotTargetId] = useState(null);
   const [hunterShotModalVisible, setHunterShotModalVisible] = useState(false);
   const [hunterShotResultData, setHunterShotResultData] = useState(null);
-  const [hunterParalyzedModalVisible, setHunterParalyzedModalVisible] = useState(false);
   const [illuminatedPlayerId, setIlluminatedPlayerId] = useState(null);
   const [bodyguardTarget, setBodyguardTarget] = useState(null);
   const [bodyguardSkipped, setBodyguardSkipped] = useState(false);
@@ -177,6 +176,9 @@ export default function GameScreen({
 
   // Hiệu ứng Khiên Bảo Vệ che chở thành công buổi sáng
   const [bodyguardSaveModalVisible, setBodyguardSaveModalVisible] = useState(false);
+
+  // Hiệu ứng Tương tác ba bên liên tục (Bảo Vệ + Ma Sói + Phù Thủy)
+  const [threeWayClashModalVisible, setThreeWayClashModalVisible] = useState(false);
 
   // Trạng thái & Hiệu ứng Phù Thủy
   const [witchState, setWitchState] = useState(initialWitchState || { hasHeal: true, hasPoison: true });
@@ -261,30 +263,41 @@ export default function GameScreen({
   // Quản lý hiển thị hoạt ảnh điện ảnh buổi sáng (DAY_ANNOUNCE)
   useEffect(() => {
     if (phase === PHASES.DAY_ANNOUNCE) {
-      // 1. Ưu tiên tuần tự: Hiển thị hoạt ảnh của Sói cào / Phép màu Cứu sống / Khiên bảo vệ trước
-      if (witchSavedPlayer) {
+      if (shieldClashPlayer) {
+        // YÊU CẦU: Hoạt ảnh mới đè hiệu ứng liên tục tương tác tay ba (Sói cào -> Khiên đỡ thành công -> Phù Thủy ném độc vỡ khiên -> Tử trận)
+        setThreeWayClashModalVisible(true);
+        setBodyguardSaveModalVisible(false);
+        setWitchHealModalVisible(false);
+        setWolfClawModalVisible(false);
+        setWitchPoisonModalVisible(false);
+      } else if (witchSavedPlayer) {
         setWitchHealModalVisible(true);
         setBodyguardSaveModalVisible(false);
         setWolfClawModalVisible(false);
         setWitchPoisonModalVisible(false);
+        setThreeWayClashModalVisible(false);
       } else if (savedPlayer) {
         setBodyguardSaveModalVisible(true);
         setWitchHealModalVisible(false);
         setWolfClawModalVisible(false);
         setWitchPoisonModalVisible(false);
+        setThreeWayClashModalVisible(false);
       } else if (deadPlayer) {
         setWolfClawModalVisible(true);
         setWitchHealModalVisible(false);
         setBodyguardSaveModalVisible(false);
         setWitchPoisonModalVisible(false);
-      } else if (shieldClashPlayer || poisonedPlayer) {
-        // Không có ai bị sói cắn (hoặc đêm yên bình), chỉ có trúng độc hoặc xung đột khiên & độc
+        setThreeWayClashModalVisible(false);
+      } else if (poisonedPlayer) {
+        // Chỉ trúng độc thông thường của Phù Thủy
         setWitchPoisonModalVisible(true);
         setWolfClawModalVisible(false);
         setBodyguardSaveModalVisible(false);
         setWitchHealModalVisible(false);
+        setThreeWayClashModalVisible(false);
       }
     } else {
+      setThreeWayClashModalVisible(false);
       setWolfClawModalVisible(false);
       setBodyguardSaveModalVisible(false);
       setWitchHealModalVisible(false);
@@ -297,7 +310,7 @@ export default function GameScreen({
     setWolfClawModalVisible(false);
     setBodyguardSaveModalVisible(false);
     setWitchHealModalVisible(false);
-    if (poisonedPlayer || shieldClashPlayer) {
+    if (poisonedPlayer && !shieldClashPlayer) {
       setTimeout(() => {
         setWitchPoisonModalVisible(true);
       }, 350);
@@ -426,11 +439,6 @@ export default function GameScreen({
       }
     };
 
-    // Thợ Săn bị Phù Thủy ném thuốc độc tê liệt
-    const handleHunterParalyzed = () => {
-      setHunterParalyzedModalVisible(true);
-    };
-
     socket.on('wolf-vote-update', handleWolfVoteUpdate);
     socket.on('seer-result', handleSeerResult);
     socket.on('bodyguard-update', handleBodyguardUpdate);
@@ -438,7 +446,6 @@ export default function GameScreen({
     socket.on('vote-result', handleVoteResult);
     socket.on('witch-state-update', handleWitchStateUpdate);
     socket.on('hunter-shot-result', handleHunterShotResult);
-    socket.on('hunter-poisoned-paralyzed', handleHunterParalyzed);
 
     return () => {
       socket.off('wolf-vote-update', handleWolfVoteUpdate);
@@ -448,7 +455,6 @@ export default function GameScreen({
       socket.off('vote-result', handleVoteResult);
       socket.off('witch-state-update', handleWitchStateUpdate);
       socket.off('hunter-shot-result', handleHunterShotResult);
-      socket.off('hunter-poisoned-paralyzed', handleHunterParalyzed);
     };
   }, [socket]);
 
@@ -1378,14 +1384,22 @@ export default function GameScreen({
             onClose={handleFirstModalClose}
           />
 
-          {/* ================= MODAL HIỆU ỨNG PHÙ THỦY NÉM THUỐC ĐỘC BUỔI SÁNG (HỖ TRỢ XUNG ĐỘT KHIÊN & ĐỘC) ================= */}
+          {/* ================= MODAL HIỆU ỨNG PHÙ THỦY NÉM THUỐC ĐỘC BUỔI SÁNG ================= */}
           <WitchPoisonModal
-            visible={witchPoisonModalVisible && (!!poisonedPlayer || !!shieldClashPlayer)}
-            victimPlayer={shieldClashPlayer || poisonedPlayer}
-            poisonedPlayer={shieldClashPlayer || poisonedPlayer}
-            isShieldClash={!!shieldClashPlayer}
+            visible={witchPoisonModalVisible && !!poisonedPlayer && !shieldClashPlayer}
+            victimPlayer={poisonedPlayer}
+            poisonedPlayer={poisonedPlayer}
+            isShieldClash={false}
             timeLeft={timeLeft || 8}
             onClose={() => setWitchPoisonModalVisible(false)}
+          />
+
+          {/* ================= MODAL TƯƠNG TÁC TAY BA ĐÈ HIỆU ỨNG LIÊN TỤC (BẢO VỆ + SÓI + PHÙ THỦY) ================= */}
+          <ThreeWayClashModal
+            visible={threeWayClashModalVisible && !!shieldClashPlayer}
+            victimPlayer={shieldClashPlayer}
+            timeLeft={timeLeft || 9}
+            onClose={() => setThreeWayClashModalVisible(false)}
           />
 
           {/* ================= MODAL HIỆU ỨNG THỢ SĂN NỔ SÚNG BẮN HẠ ================= */}
@@ -1393,14 +1407,8 @@ export default function GameScreen({
             visible={hunterShotModalVisible && !!hunterShotResultData?.target}
             targetPlayer={hunterShotResultData?.target}
             hunterPlayer={hunterShotResultData?.hunter}
-            timeLeft={timeLeft || 6}
+            timeLeft={timeLeft || 8}
             onClose={() => setHunterShotModalVisible(false)}
-          />
-
-          {/* ================= MODAL CẢNH BÁO THỢ SĂN BỊ PHÙ THỦY ĐẦU ĐỘC TÊ LIỆT ================= */}
-          <HunterParalyzedModal
-            visible={hunterParalyzedModalVisible}
-            onClose={() => setHunterParalyzedModalVisible(false)}
           />
 
           {/* ================= MODAL PHÙ THỦY CHỌN CỨU NẠN NHÂN TRONG ĐÊM ================= */}

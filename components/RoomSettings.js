@@ -14,6 +14,7 @@ import BodyguardSaveModal from './BodyguardSaveModal';
 import WitchHealSaveModal from './WitchHealSaveModal';
 import WitchPoisonModal from './WitchPoisonModal';
 import HunterShotModal from './HunterShotModal';
+import ThreeWayClashModal from './ThreeWayClashModal';
 
 /**
  * @param {Object} props
@@ -71,6 +72,10 @@ export default function RoomSettings({
   // Thử nghiệm hiệu ứng Thợ Săn Nổ Súng Bắn Hạ (Dành riêng cho Chủ Phòng)
   const [hunterDemoVisible, setHunterDemoVisible] = useState(false);
   const [hunterDemoTarget, setHunterDemoTarget] = useState(null);
+
+  // Thử nghiệm hiệu ứng Tương Tác Ba Bên Liên Tục: Bảo Vệ + Ma Sói + Phù Thủy (Dành riêng cho Chủ Phòng)
+  const [threeWayDemoVisible, setThreeWayDemoVisible] = useState(false);
+  const [threeWayDemoTarget, setThreeWayDemoTarget] = useState(null);
 
   // Helper lấy mục tiêu test hiệu ứng: Ưu tiên chọn chính Chủ Phòng (host)
   const getHostTarget = (fallbackName = 'Chủ Phòng', fallbackAvatar = '🧙‍♂️', fallbackColor = '#38BDF8') => {
@@ -134,8 +139,20 @@ export default function RoomSettings({
     setWitchPoisonDemoVisible(true);
   };
 
-  const handleTestHunterEffect = () => {
-    const target = getHostTarget('Chủ Phòng (Bị Bắn Hạ)', '🧙‍♂️', '#F59E0B');
+  const handleTestThreeWayClashEffect = () => {
+    const target = getHostTarget('Chủ Phòng (Bảo Vệ + Sói + Phù Thủy)', '🧙‍♂️', '#38BDF8');
+    setThreeWayDemoTarget(target);
+    setThreeWayDemoVisible(true);
+  };
+
+  const handleTestHunterNormalEffect = () => {
+    const target = { ...getHostTarget('Dân Làng (Bị Bắn)', '🧑‍🌾', '#10B981'), role: 'villager', isWolf: false };
+    setHunterDemoTarget(target);
+    setHunterDemoVisible(true);
+  };
+
+  const handleTestHunterWolfEffect = () => {
+    const target = { ...getHostTarget('Ma Sói (Bị Bắn)', '🐺', '#EF4444'), role: 'wolf', isWolf: true };
     setHunterDemoTarget(target);
     setHunterDemoVisible(true);
   };
@@ -419,13 +436,31 @@ export default function RoomSettings({
                   <Text style={styles.clashDemoBtnText}>🛡️☠️ Thử Xung Đột: Khiên Bảo Vệ + Phù Thủy Độc</Text>
                 </TouchableOpacity>
 
-                {/* Nút thử nghiệm Thợ Săn Nổ Súng Bắn Hạ */}
+                {/* Nút thử nghiệm Tương Tác Giữa Bảo Vệ, Ma Sói & Phù Thủy */}
                 <TouchableOpacity
-                  style={styles.hunterDemoBtn}
-                  onPress={handleTestHunterEffect}
+                  style={[styles.clashDemoBtn, { backgroundColor: 'rgba(56, 189, 248, 0.15)', borderColor: '#38BDF8' }]}
+                  onPress={handleTestThreeWayClashEffect}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.hunterDemoBtnText}>🏹💥 Thử Hiệu Ứng Thợ Săn Nổ Súng Bắn Hạ</Text>
+                  <Text style={[styles.clashDemoBtnText, { color: '#7DD3FC' }]}>🛡️🐺☠️ Thử Tương Tác: Bảo Vệ + Ma Sói + Phù Thủy</Text>
+                </TouchableOpacity>
+
+                {/* Nút thử nghiệm Thợ Săn Bắn Vào Dân */}
+                <TouchableOpacity
+                  style={styles.hunterDemoBtn}
+                  onPress={handleTestHunterNormalEffect}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.hunterDemoBtnText}>🏹 Thợ Săn Bắn Vào Dân</Text>
+                </TouchableOpacity>
+
+                {/* Nút thử nghiệm Thợ Săn Bắn Vào Sói */}
+                <TouchableOpacity
+                  style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(127, 29, 29, 0.4)', borderColor: '#EF4444' }]}
+                  onPress={handleTestHunterWolfEffect}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.hunterDemoBtnText, { color: '#FECACA' }]}>🏹🐺 Thợ Săn Bắn Vào Sói</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -501,8 +536,16 @@ export default function RoomSettings({
         <HunterShotModal
           visible={hunterDemoVisible}
           targetPlayer={hunterDemoTarget}
-          timeLeft={6}
+          timeLeft={8}
           onClose={() => setHunterDemoVisible(false)}
+        />
+
+        {/* Modal chạy thử hiệu ứng Tương Tác Ba Bên Liên Tục: Bảo Vệ + Sói + Phù Thủy (Dành riêng cho Chủ phòng) */}
+        <ThreeWayClashModal
+          visible={threeWayDemoVisible}
+          victimPlayer={threeWayDemoTarget}
+          timeLeft={9}
+          onClose={() => setThreeWayDemoVisible(false)}
         />
       </View>
     </Modal>

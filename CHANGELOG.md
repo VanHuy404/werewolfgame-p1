@@ -4,6 +4,30 @@ Tất cả các thay đổi, cập nhật kiến trúc và tính năng của d�
 
 ---
 
+## [2.4.0] - 2026-10-30
+
+### 🧙‍♀️ Phù Thủy Dùng Được Cả 2 Lọ Thuốc Trong 1 Đêm (Cứu + Độc)
+- **Cải tiến logic dùng thuốc ban đêm ([server/index.js](file:///d:/code%20game/Werewolfdemo/server/index.js), [screens/GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js)):**
+  - Khi Phù Thủy chọn Cứu (hoặc Bỏ Mặc), nếu vẫn còn bình Độc thì server không ép kết thúc lượt bằng timer 5s ngay, cho phép Phù Thủy tiếp tục lựa chọn ném bình độc thứ 2.
+  - Cho phép chọn/đổi mục tiêu ném độc linh hoạt trong pha đêm.
+- **Nối tiếp hoạt ảnh buổi sáng mượt mà ([components/WitchHealSaveModal.js](file:///d:/code%20game/Werewolfdemo/components/WitchHealSaveModal.js), [screens/GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js)):**
+  - Tự động chuyển tiếp từ hoạt ảnh Cứu sống (`WitchHealSaveModal`) sang hoạt ảnh Ném độc (`WitchPoisonModal`) sau 4.8s để cả làng chứng kiến đầy đủ cả 2 sự kiện. Tăng thời gian công bố ban sáng (`announceTime`) lên 12s khi có nhiều hoạt ảnh liên tiếp.
+
+### 🏹 Nâng Cấp Hiệu Ứng Thợ Săn Bắn Hạ & Tương Tác Ba Bên Trong Cài Đặt
+- **Bắn xong mới hiện Sói rồi chuyển qua chết ([components/HunterShotModal.js](file:///d:/code%20game/Werewolfdemo/components/HunterShotModal.js)):**
+  - Khi Thợ Săn ngắm bắn Sói, lúc phát đạn nổ vẫn giữ avatar người chơi bình thường. Bắn xong (tiếng súng dứt), mục tiêu mới lột xác hiện nguyên hình Ma Sói ([assets/werewolf.jpg](file:///d:/code%20game/Werewolfdemo/assets/werewolf.jpg)) viền đỏ rực rỡ, sau đó mới từ từ gục ngã phủ xám tử nạn kèm huy hiệu `🐺 MA SÓI ĐÃ BỊ THỢ SĂN BẮN HẠ!`.
+- **Xóa biểu tượng vỡ của cả 2 hoạt ảnh:**
+  - Loại bỏ hoàn toàn vết nứt kính vỡ ở cả hoạt ảnh bắn vào Dân và bắn vào Sói.
+- **Tinh gọn nút xem hoạt ảnh Thợ Săn & Hoạt ảnh Tương tác Ba Bên liên tục ([components/ThreeWayClashModal.js](file:///d:/code%20game/Werewolfdemo/components/ThreeWayClashModal.js), [components/RoomSettings.js](file:///d:/code%20game/Werewolfdemo/components/RoomSettings.js)):**
+  - Tinh gọn 2 nút bắn Thợ Săn: `🏹 Thợ Săn Bắn Vào Dân` và `🏹🐺 Thợ Săn Bắn Vào Sói`.
+  - Tạo mới hoàn toàn component `ThreeWayClashModal.js`: đè hiệu ứng liên tục không bị ngắt quãng giữa các modal (Sói cào $\rightarrow$ Khiên đỡ đòn thành công $\rightarrow$ Bình độc Phù Thủy bay tới đập vỡ toang khiên $\rightarrow$ Chạy dòng chữ *"Số phận của ngươi vẫn không thoát khỏi cái chết đâu"* $\rightarrow$ Tử trận với thông báo *"[Tên người] đã bị phù thủy giết chết!"*).
+  - Thêm nút xem thử nghiệm ngay dưới nút xung đột cũ trong Cài Đặt: `🛡️🐺☠️ Thử Tương Tác: Bảo Vệ + Ma Sói + Phù Thủy`.
+
+### 🕊️ Chuẩn Hóa Hiệu Ứng Sau Khi Chết Của Thợ Săn Giống Mọi Người Khác
+- Loại bỏ modal cảnh báo tê liệt `HunterParalyzedModal` và dòng chat `[THỢ SĂN BỊ TÊ LIỆT]`. Khi Thợ Săn qua đời (dù do trúng độc hay bị cắn), trạng thái hiển thị là `💀 Hồn ma` với phong cách tiêu chuẩn như mọi người chơi khác.
+
+---
+
 ## [2.3.0] - 2026-10-30
 
 ### 🏹 Hoàn Thiện Thợ Săn Bắn Khi Bị Treo Cổ & Chết Đêm

@@ -428,15 +428,6 @@ function startDayAnnounce(room, nightResult = {}) {
     announceChat += `\n🛡️ [BẢO VỆ CỨU SỐNG]: ${savedPlayer.name} đã được Bảo Vệ che chở an toàn!`;
   }
 
-  // Kiểm tra Thợ Săn bị Phù Thủy hạ độc gây tê liệt
-  const poisonedHunter = (poisonedPlayer && poisonedPlayer.role === ROLES.HUNTER) || (shieldClashPlayer && shieldClashPlayer.role === ROLES.HUNTER)
-    ? (poisonedPlayer || shieldClashPlayer)
-    : null;
-  if (poisonedHunter) {
-    io.to(poisonedHunter.id).emit('hunter-poisoned-paralyzed', { reason: 'witch_poison' });
-    announceChat += `\n☠️🏹 [THỢ SĂN BỊ TÊ LIỆT]: Thuốc độc ngấm sâu khiến Thợ Săn ${poisonedHunter.name} hoàn toàn tê liệt, không thể nổ phát súng cuối cùng!`;
-  }
-
   // Kiểm tra Thợ Săn bị Sói cắn tử nạn (và không bị Phù Thủy ném độc)
   const wolfKilledHunter = (deadPlayer && deadPlayer.role === ROLES.HUNTER && (!poisonedPlayer || poisonedPlayer.id !== deadPlayer.id))
     ? deadPlayer
@@ -452,9 +443,9 @@ function startDayAnnounce(room, nightResult = {}) {
     isSystem: true,
   });
 
-  // Nếu có nhiều hoạt ảnh tuần tự (vừa chết sói/cứu vừa chết độc/xung đột khiên) -> cho thêm thời gian hiển thị (10s), ngược lại 6s
+  // Nếu có nhiều hoạt ảnh tuần tự (vừa chết sói/cứu vừa chết độc/xung đột khiên) -> cho đủ thời gian hiển thị (12s), ngược lại 6s
   const hasMultipleModals = (poisonedPlayer || shieldClashPlayer) && (deadPlayer || witchSavedPlayer || savedPlayer);
-  const announceTime = hasMultipleModals ? 10 : TIMERS.DAY_ANNOUNCE;
+  const announceTime = hasMultipleModals ? 12 : TIMERS.DAY_ANNOUNCE;
 
   startPhaseTimer(room, announceTime, () => {
     // Nếu Thợ Săn bị Sói cắn chết -> Kích hoạt phát súng trăn trối báo thù trước khi vào thảo luận ngày!
@@ -695,7 +686,7 @@ function processHunterShot(room, hunterPlayer, targetPlayer, passed, cause) {
     isSystem: true,
   });
 
-  // Chờ 6s để cả phòng xem xong toàn bộ hoạt ảnh điện ảnh nổ súng
+  // Chờ 8.5s để cả phòng xem xong toàn bộ hoạt ảnh điện ảnh nổ súng (kính vỡ, lột xác Ma Sói, gục ngã tử trận)
   setTimeout(() => {
     const winCheck = checkWinCondition(room);
     if (winCheck.gameOver) {
@@ -707,7 +698,7 @@ function processHunterShot(room, hunterPlayer, targetPlayer, passed, cause) {
     } else {
       startNightPhase(room);
     }
-  }, 6000);
+  }, 8500);
 }
 
 /** Kết thúc game - Lật bài, hiển thị kết quả */
@@ -1038,11 +1029,15 @@ io.on('connection', (socket) => {
       witchState: { ...player.witchState },
     });
 
-    // Khi Phù Thủy chọn cứu / bỏ mặc: Nếu không thay đổi thì trong 5s sẽ chuyển pha
-    startPhaseTimer(room, 5, () => {
-      finishWitchTurn(room);
-    });
-    io.to(room.code).emit('timer-update', { timeLeft: 5 });
+    // YÊU CẦU: Phù Thủy có thể dùng cả 2 lọ thuốc trong 1 đêm!
+    // Nếu Phù Thủy KHÔNG CÒN BÌNH ĐỘC -> tự động đếm lùi 5s chuyển pha
+    // Nếu VẪN CÒN BÌNH ĐỘC -> Không rút 5s ngay mà để Phù Thủy tiếp tục lựa chọn dùng bình độc thứ 2!
+    if (!player.witchState.hasPoison) {
+      startPhaseTimer(room, 5, () => {
+        finishWitchTurn(room);
+      });
+      io.to(room.code).emit('timer-update', { timeLeft: 5 });
+    }
   });
 
   // ---------- PHÙ THỦY HÀNH ĐỘNG (CỨU HOẶC HẠ ĐỘC) ----------
@@ -1064,14 +1059,17 @@ io.on('connection', (socket) => {
       console.log(`🧪 Phù Thủy ${player.name} đã dùng bình Cứu trong đêm.`);
     }
 
-    // Xử lý Độc (Phù Thủy KHÔNG THỂ bỏ độc chính mình):
-    if (poisonTargetId && poisonTargetId !== socket.id && player.witchState.hasPoison) {
+    // Xử lý Độc (Phù Thủy KHÔNG THỂ bỏ độc chính mình, hỗ trợ chọn/đổi mục tiêu hoặc bỏ qua):
+    if (poisonTargetId && poisonTargetId !== socket.id) {
       const target = room.players.get(poisonTargetId);
       if (target && target.alive) {
         player.witchState.hasPoison = false;
         room.nightActions.witchPoisonTarget = poisonTargetId;
         console.log(`☠️ Phù Thủy ${player.name} đã dùng bình Độc nhắm vào ${target.name}.`);
       }
+    } else if (poisonTargetId === null) {
+      room.nightActions.witchPoisonTarget = null;
+      console.log(`❌ Phù Thủy ${player.name} chọn không dùng bình Độc đêm nay.`);
     }
 
     socket.emit('witch-state-update', {

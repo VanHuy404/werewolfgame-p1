@@ -286,12 +286,18 @@ export default function WitchHealSaveModal({
       ]).start();
     }, 4200);
 
+    // 6. Sau 4.8s: Tự động đóng modal chuyển tiếp mượt mà (đặc biệt khi Phù Thủy dùng cả 2 bình Cứu & Độc trong 1 đêm)
+    const timerAutoClose = setTimeout(() => {
+      if (onClose) onClose();
+    }, 4800);
+
     return () => {
       clearTimeout(timerSlash);
       clearTimeout(timerChant);
       if (typingInterval) clearInterval(typingInterval);
       clearTimeout(timerThrow);
       clearTimeout(timerHeal);
+      clearTimeout(timerAutoClose);
     };
   }, [visible, victimPlayer, savedPlayer]);
 

@@ -25,7 +25,7 @@ const potionPoisonImg = require('../assets/potion_poison.png');
 const shieldImg = require('../assets/shield.png');
 
 const POISON_CHANT_NORMAL = 'Hãy nhắm mắt đi , ngươi đã làm phiền mọi người đủ rồi';
-const POISON_CHANT_SHIELD_CLASH = 'Một người muốn cứu một người muốn giết , thảm hại thật';
+const POISON_CHANT_SHIELD_CLASH = 'Một người muốn cứu một người muốn giết, thảm hại thật';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
