@@ -4,7 +4,6 @@
 // - 🐾 Động vật
 // - 🍎 Hoa quả & Món ăn
 // - ⚔️ Nhân vật & Phép thuật
-// - 📷 Tải ảnh đại diện tùy chọn từ máy
 // ============================================
 
 import React, { useState } from 'react';
@@ -58,7 +57,6 @@ export default function AvatarPickerModal({
   currentAvatar,
   onSelectAvatar,
   onClose,
-  onPickCustomImage,
 }) {
   const [activeTab, setActiveTab] = useState('animals');
 
@@ -131,20 +129,6 @@ export default function AvatarPickerModal({
               );
             })}
           </ScrollView>
-
-          {/* Nút upload ảnh từ thiết bị nếu có callback */}
-          {onPickCustomImage && (
-            <TouchableOpacity
-              style={styles.uploadCustomBtn}
-              onPress={() => {
-                onClose();
-                onPickCustomImage();
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.uploadCustomText}>📷 Tải ảnh đại diện từ thiết bị máy tính</Text>
-            </TouchableOpacity>
-          )}
 
           {/* Nút đóng */}
           <TouchableOpacity style={styles.doneBtn} onPress={onClose} activeOpacity={0.8}>
@@ -286,22 +270,6 @@ const styles = StyleSheet.create({
     color: '#000',
     fontSize: 10,
     fontWeight: '900',
-  },
-
-  // Upload Custom
-  uploadCustomBtn: {
-    backgroundColor: 'rgba(99, 102, 241, 0.2)',
-    borderWidth: 1.5,
-    borderColor: '#6366F1',
-    borderRadius: 14,
-    paddingVertical: 10,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  uploadCustomText: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: '#C7D2FE',
   },
 
   // Done button

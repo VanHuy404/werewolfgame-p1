@@ -257,18 +257,33 @@ function startNightWitchPhase(room, wolfVictimId) {
 
   const wolfVictim = effectiveVictimId ? room.players.get(effectiveVictimId) : null;
 
+  const aliveWitches = [...room.players.values()].filter(
+    (p) => p.role === ROLES.WITCH && p.alive
+  );
+
+  aliveWitches.forEach((w) => {
+    if (!w.witchState) {
+      w.witchState = { hasHeal: true, hasPoison: true };
+    }
+  });
+
+  // Kiểm tra xem có phù thủy nào còn ít nhất 1 bình thuốc (cứu hoặc độc) không
+  const anyWitchHasPotions = aliveWitches.some(
+    (w) => w.witchState.hasHeal || w.witchState.hasPoison
+  );
+
+  // YÊU CẦU: Khi phù thủy hết thuốc thì chỉ cần xem đc ai bị cắn đêm này rồi chờ 10s là qua đc role tiếp
+  const witchDuration = anyWitchHasPotions ? (TIMERS.NIGHT_WITCH || 30) : 10;
+
   room.players.forEach((player, playerId) => {
     let victimData = null;
     let witchState = null;
 
     if (player.role === ROLES.WITCH && player.alive) {
-      if (!player.witchState) {
-        player.witchState = { hasHeal: true, hasPoison: true };
-      }
       witchState = { ...player.witchState };
 
-      // Nếu còn bình cứu và có nạn nhân bị cắn
-      if (player.witchState.hasHeal && wolfVictim) {
+      // YÊU CẦU: Phù thủy vẫn có thể xem đc ai chết đêm đó kể cả đã dùng thuốc cứu hay chx dùng
+      if (wolfVictim) {
         victimData = {
           id: wolfVictim.id,
           name: wolfVictim.name,
@@ -290,7 +305,7 @@ function startNightWitchPhase(room, wolfVictimId) {
     });
   });
 
-  startPhaseTimer(room, TIMERS.NIGHT_WITCH || 30, () => {
+  startPhaseTimer(room, witchDuration, () => {
     finishWitchTurn(room);
   });
 }
@@ -1016,15 +1031,11 @@ io.on('connection', (socket) => {
       witchState: { ...player.witchState },
     });
 
-    // Nếu Phù Thủy không còn bình độc nữa, tự động rút thời gian xuống 3s để kết thúc lượt
-    if (!player.witchState.hasPoison) {
-      if (room.timeLeft > 3) {
-        startPhaseTimer(room, 3, () => {
-          finishWitchTurn(room);
-        });
-        io.to(room.code).emit('timer-update', { timeLeft: 3 });
-      }
-    }
+    // Khi Phù Thủy chọn cứu / bỏ mặc: Nếu không thay đổi thì trong 5s sẽ chuyển pha
+    startPhaseTimer(room, 5, () => {
+      finishWitchTurn(room);
+    });
+    io.to(room.code).emit('timer-update', { timeLeft: 5 });
   });
 
   // ---------- PHÙ THỦY HÀNH ĐỘNG (CỨU HOẶC HẠ ĐỘC) ----------
@@ -1060,13 +1071,11 @@ io.on('connection', (socket) => {
       witchState: { ...player.witchState },
     });
 
-    // Rút thời gian xuống 3s để chuyển sang pha tiếp theo
-    if (room.timeLeft > 3) {
-      startPhaseTimer(room, 3, () => {
-        finishWitchTurn(room);
-      });
-      io.to(room.code).emit('timer-update', { timeLeft: 3 });
-    }
+    // Rút thời gian xuống 5s như Bảo Vệ để nếu không đổi thì tự động chuyển pha
+    startPhaseTimer(room, 5, () => {
+      finishWitchTurn(room);
+    });
+    io.to(room.code).emit('timer-update', { timeLeft: 5 });
   });
 
   // ---------- TIÊN TRI SOI ----------

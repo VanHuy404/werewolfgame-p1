@@ -53,9 +53,6 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
     setSessionItem(STORAGE_KEYS.PLAYER_AVATAR, val);
   };
 
-  // Hidden file input ref for web
-  const fileInputRef = useRef(null);
-
   // Danh sách các ngôi sao tĩnh được memoize
   const stars = useMemo(() => generateStars(60), []);
 
@@ -87,81 +84,6 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
       ])
     ).start();
   }, []);
-
-  // Nén ảnh trên client xuống kích thước gọn nhẹ (~10-15KB) để gửi mượt qua Socket.io
-  const compressImage = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (typeof window === 'undefined') {
-          resolve(e.target.result);
-          return;
-        }
-        const img = new window.Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const maxDim = 128;
-          let w = img.width;
-          let h = img.height;
-          if (w > h) {
-            if (w > maxDim) {
-              h = Math.round((h * maxDim) / w);
-              w = maxDim;
-            }
-          } else {
-            if (h > maxDim) {
-              w = Math.round((w * maxDim) / h);
-              h = maxDim;
-            }
-          }
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL('image/jpeg', 0.85));
-        };
-        img.onerror = () => resolve(e.target.result);
-        img.src = e.target.result;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-
-  // Mở trình chọn file trên máy tính
-  const handlePickAvatar = () => {
-    if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-      input.onchange = async (e) => {
-        const file = e.target?.files?.[0];
-        if (file) {
-          try {
-            const compressed = await compressImage(file);
-            setCustomAvatar(compressed);
-          } catch (err) {
-            console.error('Error compressing image:', err);
-          }
-        }
-      };
-      input.click();
-    } else {
-      alert('Vui lòng chọn ảnh từ trình duyệt web.');
-    }
-  };
-
-  const handleFileChange = async (e) => {
-    const file = e.target?.files?.[0];
-    if (file) {
-      try {
-        const compressed = await compressImage(file);
-        setCustomAvatar(compressed);
-      } catch (err) {
-        console.error('Error compressing image:', err);
-      }
-    }
-  };
 
   const handleCreateRoom = () => {
     const trimmed = playerName.trim();
@@ -268,17 +190,6 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
         <View style={styles.ambientGlow2} />
       </View>
 
-      {/* Hidden file input for web */}
-      {Platform.OS === 'web' && (
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          style={{ display: 'none' }}
-          onChange={handleFileChange}
-        />
-      )}
-
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -313,11 +224,11 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
 
           {/* ================= CARD CHÍNH ================= */}
           <View style={styles.card}>
-            {/* ================= PHẦN ĐẶT AVATAR TỪ MÁY TÍNH & PRESETS ================= */}
+            {/* ================= PHẦN CHỌN AVATAR PRESETS ================= */}
             <View style={styles.avatarPickerSection}>
               <TouchableOpacity
                 style={styles.avatarPreviewWrapper}
-                onPress={handlePickAvatar}
+                onPress={() => setShowAvatarPickerModal(true)}
                 activeOpacity={0.8}
               >
                 {customAvatar && (customAvatar.startsWith('data:') || customAvatar.startsWith('http') || customAvatar.startsWith('blob:')) ? (
@@ -328,15 +239,15 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
                   </View>
                 )}
 
-                {/* Badge icon camera để chỉ dẫn bấm vô */}
+                {/* Badge icon để chỉ dẫn đổi avatar */}
                 <View style={styles.cameraBadge}>
-                  <Text style={styles.cameraIcon}>📷</Text>
+                  <Text style={styles.cameraIcon}>🎭</Text>
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={handlePickAvatar} activeOpacity={0.7}>
+              <TouchableOpacity onPress={() => setShowAvatarPickerModal(true)} activeOpacity={0.7}>
                 <Text style={styles.avatarPickerText}>
-                  {customAvatar && customAvatar.startsWith('data:') ? '✨ Đổi ảnh khác từ máy tính' : '📷 Bấm vào để tải ảnh đại diện từ máy tính'}
+                  ✨ Bấm vào để mở bộ sưu tập biểu tượng
                 </Text>
               </TouchableOpacity>
 
@@ -481,7 +392,6 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
         currentAvatar={customAvatar}
         onSelectAvatar={(emoji) => setCustomAvatar(emoji)}
         onClose={() => setShowAvatarPickerModal(false)}
-        onPickCustomImage={handlePickAvatar}
       />
     </KeyboardAvoidingView>
   );

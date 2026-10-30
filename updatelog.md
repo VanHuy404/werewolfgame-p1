@@ -4,8 +4,49 @@ Chào mừng các dân làng và bầy sói! Dưới đây là tổng hợp tấ
 
 ---
 
+## 📱 Phiên Bản 2.2.0 - TỐI ƯU TOÀN DIỆN GIAO DIỆN DI ĐỘNG, ĐỒNG MINH SÓI & NÂNG CẤP PHÙ THỦY
+*(Cập nhật ngày: 30/10/2026)*
+
+### 📱 1. Tối Ưu Toàn Diện Giao Diện Điện Thoại (Mobile Responsive UI)
+- **Khung Chat Drawer nhỏ gọn & vừa vặn:**
+  - Thu hẹp chiều rộng slidebar chat trên điện thoại xuống mức lý tưởng (`Math.min(windowWidth * 0.78, 280px)` thay vì chiếm trọn gần hết màn hình như trước).
+  - Tinh gọn cỡ chữ (12px), giảm padding khung chat, tin nhắn và thanh input, giúp việc đọc và gõ tin nhắn cực kỳ mượt mà trên tất cả các dòng điện thoại.
+- **Tự động co giãn (auto-scale) vừa khít khung hình, không tràn viền:**
+  - Thiết lập thuộc tính `overflow: 'hidden'`, `minHeight: 0`, `maxWidth` động cho lưới Discord và đấu trường.
+  - Tự động bật chế độ `isCompact` và `isUltraCompact` trên màn hình điện thoại, thu gọn thẻ người chơi vừa vặn, không xuất hiện thanh cuộn ngang khó chịu.
+- **Thanh nút hành động (Action Buttons) nằm trọn trong khuôn hình:**
+  - Header và Bottom Action Bar (Bảo Vệ, Sói, Phù Thủy, Tiên Tri, Thợ Săn, Biểu Quyết) được tối ưu kích thước, hỗ trợ xuống dòng linh hoạt (`flexWrap: 'wrap'`), các nút bấm rõ ràng, đầy đủ chữ, không bị che khuất hay tràn ra ngoài màn hình.
+
+### 🐺 2. Khóa Cắn Đồng Đội & Nhận Biết Đồng Minh Sói Suốt Trận Đấu
+- **Sói không thể cắn nhau:**
+  - Vô hiệu hóa hoàn toàn khả năng Sói tự cắn mình hoặc bỏ phiếu cắn đồng đội cả ở giao diện bấm chọn và bộ kiểm tra logic của server.
+- **Hiển thị huy hiệu đồng minh ngay dưới tên:**
+  - Dưới thanh tên (Name Pill) của mỗi người chơi thuộc phe Sói, xuất hiện huy hiệu nổi bật:
+    - Với đồng đội: `🐺 ĐỒNG MINH SÓI` (nền đỏ viền đậm).
+    - Với chính bản thân: `🐺 BẠN LÀ SÓI`.
+  - Giúp bầy Sói luôn nắm rõ ai là đồng đội của mình trong suốt cả ngày lẫn đêm!
+
+### 🧙‍♀️ 3. Nâng Cấp Tầm Nhìn & Cơ Chế 10 Giây Khi Hết Thuốc Của Phù Thủy
+- **Phù Thủy luôn biết ai bị cắn trong đêm:**
+  - Cho dù Phù Thủy đã dùng hết bình Cứu trong các đêm trước hay chưa dùng, Phù Thủy vẫn luôn thấy được thông tin Avatar và Tên của người bị bầy Sói tấn công đêm đó.
+  - Nếu đã hết bình Cứu nhưng còn bình Độc: Màn hình hiển thị thông báo ai bị cắn kèm lời nhắc đã hết bình Cứu, rồi cho phép bấm `➡️ TIẾP TỤC (XEM THUỐC ĐỘC)` hoặc `❌ BỎ QUA`.
+- **Hết thuốc chỉ cần xem ai bị cắn rồi tự chuyển sau 10 giây:**
+  - Khi Phù Thủy đã cạn kiệt cả 2 bình thuốc (Cứu & Độc), thời gian pha đêm Phù Thủy tự động rút ngắn xuống chỉ còn **10 giây**.
+  - Phù Thủy sẽ thấy bảng quan sát thông báo ai bị cắn đêm nay (hoặc đêm yên bình) và đồng hồ đếm lùi `⏳ Tự động chuyển vai trò tiếp theo sau {timeLeft}s...`. Sau 10 giây sẽ tự động bước sang lượt Tiên Tri/Trời Sáng mà không cần thêm thao tác nào!
+
+---
+
 ## 🏹 Phiên Bản 2.1.0 - VAI TRÒ MỚI THỢ SĂN (HUNTER 🏹) & KHÓA ROLE ĐẶC BIỆT (0 - 1)
 *(Cập nhật ngày: 29/10/2026)*
+
+### 🧙‍♀️ Đồng Bộ Cơ Chế Đếm Giờ Phù Thủy Giống Bảo Vệ
+- **Chuyển pha tự động trong 5 giây, tránh treo game:**
+  - Tương tự như cơ chế của Bảo Vệ: Khi Phù Thủy chọn Cứu/Bỏ Mặc hoặc chọn ném Độc vào một người chơi, hệ thống sẽ tự động đếm lùi **5 giây** để chốt kết quả và chuyển lượt.
+  - Phù Thủy có thể tự do bấm đổi sang người khác bất cứ lúc nào trong thời gian này.
+  - Hiển thị thông báo trạng thái rõ ràng: `⏳ Đang chốt: chuyển sau {timeLeft}s`, giúp ván đấu luôn trôi chảy, không bao giờ bị đơ hay kẹt thời gian ban đêm nếu người chơi không thao tác lại.
+
+### 🧹 Tinh Gọn Chọn Avatar
+- **Loại bỏ tải ảnh từ máy tính:** Xóa bỏ nút và chức năng tải file ảnh từ máy tính. Khi bấm vào avatar hoặc nút `➕`, người chơi sẽ mở thẳng bộ sưu tập biểu tượng cảm xúc (Động vật, Hoa quả & Đồ ăn, Thần bí & Nhân vật) mượt mà và trực quan hơn.
 
 ### 🎯 Vai Trò Mới: Thợ Săn (Hunter 🏹)
 - **Hình ảnh nhận diện:** Biểu tượng nỏ săn `🏹`, màu vàng cam hổ phách rực rỡ (`#F59E0B`).

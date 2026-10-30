@@ -418,6 +418,9 @@ function checkWinCondition(room) {
  * @param {string|null} forPlayerId - Hiển thị role cho người chơi này
  */
 function getPlayersData(room, forPlayerId = null) {
+  const requestingPlayer = forPlayerId ? room.players.get(forPlayerId) : null;
+  const isWolfViewer = requestingPlayer && requestingPlayer.role === ROLES.WOLF;
+
   return [...room.players.values()].map((p) => ({
     id: p.id,
     name: p.name,
@@ -425,8 +428,8 @@ function getPlayersData(room, forPlayerId = null) {
     avatar: p.avatar,
     avatarColor: p.avatarColor,
     connected: p.connected,
-    // Chỉ hiện role cho chính mình hoặc khi game over
-    role: (forPlayerId === p.id || room.phase === PHASES.GAME_OVER) ? p.role : null,
+    // Hiện role cho chính mình, hoặc đồng minh sói nếu mình là sói, hoặc khi game over
+    role: (forPlayerId === p.id || (isWolfViewer && p.role === ROLES.WOLF) || room.phase === PHASES.GAME_OVER) ? p.role : null,
   }));
 }
 

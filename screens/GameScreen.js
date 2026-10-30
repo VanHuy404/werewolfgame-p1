@@ -75,6 +75,7 @@ export default function GameScreen({
 }) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isMobile = windowWidth <= 860;
+  const isSmallPhone = windowWidth < 420;
 
   // Trạng thái bật/tắt Chat dạng Slidebar (Mặc định ở trạng thái OFF, không auto bật)
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -96,13 +97,13 @@ export default function GameScreen({
   // Chiều rộng khả dụng của khu vực đấu trường
   const arenaWidth = isMobile || !isChatOpen ? windowWidth : windowWidth - 340;
 
-  // Số lượng người chơi & tính toán hitbox thu nhỏ động (không để cuộn kéo quá dài)
+  // Số lượng người chơi & tính toán hitbox thu nhỏ động (vừa khít với từng thiết bị)
   const playerCount = players.length;
-  // Hitbox to gấp đôi: chỉ thu nhỏ nếu số người chơi vượt quá 12
-  const isCompact = playerCount > 12;
-  const isUltraCompact = playerCount > 16;
+  // Tự động thu nhỏ trên màn hình điện thoại hoặc khi đông người chơi
+  const isCompact = isMobile || playerCount > 12;
+  const isUltraCompact = (isMobile && playerCount > 8) || playerCount > 16;
 
-  // Xác định số cột tối ưu (ít cột hơn để mỗi box to hơn 100%)
+  // Xác định số cột tối ưu (đảm bảo không bị tràn viền trên mọi kích thước màn hình)
   const getColCount = () => {
     if (arenaWidth >= 1150) {
       if (playerCount <= 4) return 2;
@@ -123,7 +124,7 @@ export default function GameScreen({
   };
 
   const colCount = getColCount();
-  const boxWidthPercent = `${Math.floor((100 / colCount) - 2)}%`;
+  const boxWidthPercent = isMobile ? '48.5%' : `${Math.floor((100 / colCount) - 2)}%`;
 
   // Trạng thái hành động
   const [selectedTarget, setSelectedTarget] = useState(null);
@@ -205,12 +206,24 @@ export default function GameScreen({
       setWitchPendingSave(null);
       setWitchPendingPoison(null);
       if (myRole === 'witch' && amAlive) {
-        if (witchVictim && witchState?.hasHeal) {
+        const hasHeal = !!witchState?.hasHeal;
+        const hasPoison = !!witchState?.hasPoison;
+
+        if (witchVictim && hasHeal) {
+          // Còn bình cứu và có nạn nhân bị cắn -> Hiện modal chọn cứu/bỏ mặc
           setWitchStep('heal');
-        } else if (witchState?.hasPoison) {
+        } else if (witchVictim && !hasHeal && hasPoison) {
+          // YÊU CẦU: Phù thủy vẫn có thể xem đc ai chết đêm đó kể cả đã dùng thuốc cứu! Còn bình độc -> sang bước độc
+          setWitchStep('view_victim_has_poison');
+        } else if (witchVictim && !hasHeal && !hasPoison) {
+          // YÊU CẦU: Khi phù thủy hết thuốc thì chỉ cần xem đc ai bị cắn đêm này rồi chờ 10s là qua đc role tiếp
+          setWitchStep('out_of_potions');
+        } else if (!witchVictim && hasPoison) {
+          // Không ai bị cắn đêm nay, còn độc -> Hỏi có muốn dùng thuốc độc không
           setWitchStep('ask_poison');
         } else {
-          setWitchStep('done');
+          // Hết cả 2 bình thuốc và không ai bị cắn -> Chờ 10s chuyển tiếp
+          setWitchStep('out_of_potions');
         }
       }
     } else {
@@ -498,9 +511,11 @@ export default function GameScreen({
     socket.emit('bodyguard-skip');
   };
 
-  // Sói vote cắn (bỏ phiếu giống như vote ban ngày, bấm lại để hủy hoặc đổi người khác)
+  // Sói vote cắn (YÊU CẦU: Sói không thể cắn nhau và không thể tự cắn mình)
   const handleWolfTarget = (targetId) => {
     if (!amAlive || myRole !== 'wolf' || !isNightWolf) return;
+    const targetPlayer = players.find((p) => p.id === targetId);
+    if (!targetPlayer || targetPlayer.role === 'wolf' || targetId === myId) return;
     const currentVote = wolfVotes[myId];
     const newTarget = currentVote === targetId ? null : targetId;
     setSelectedTarget(newTarget);
@@ -524,12 +539,11 @@ export default function GameScreen({
     }
   };
 
-  // Phù Thủy chọn người để ném thuốc độc (Bấm là ném độc ngay, không cần xác nhận lại vì đã có bước hỏi trước)
+  // Phù Thủy chọn người để ném thuốc độc (Bấm chọn hoặc đổi người, nếu không đổi thì trong 5s sẽ chuyển pha như Bảo Vệ)
   const handleWitchPoisonTarget = (targetId) => {
     if (!amAlive || myRole !== 'witch' || !isNightWitch || witchStep !== 'poison' || !witchState?.hasPoison) return;
     if (targetId === myId) return; // Phù thủy KHÔNG được phép bỏ độc chính mình!
     setWitchPendingPoison(targetId);
-    setWitchStep('done');
     socket.emit('witch-action', {
       save: witchPendingSave !== null ? witchPendingSave : false,
       poisonTargetId: targetId,
@@ -538,6 +552,7 @@ export default function GameScreen({
 
   // Phù Thủy bỏ qua không dùng bình độc
   const handleWitchSkipPoison = () => {
+    setWitchPendingPoison(null);
     setWitchStep('done');
     socket.emit('witch-action', {
       save: witchPendingSave !== null ? witchPendingSave : false,
@@ -602,26 +617,27 @@ export default function GameScreen({
       <View style={[styles.darkOverlay, isNight ? styles.overlayNight : styles.overlayDay]}>
         <SafeAreaView style={styles.safeArea}>
           {/* ================= HEADER TRẬN ĐẤU ================= */}
-          <View style={styles.header}>
+          <View style={[styles.header, isMobile && styles.headerMobile]}>
             {/* Vai trò của mình & Kho bình thuốc Phù Thủy */}
-            <View style={styles.headerLeftGroup}>
+            <View style={[styles.headerLeftGroup, isMobile && styles.headerLeftGroupMobile]}>
               <TouchableOpacity
-                style={[styles.myRoleBadge, { backgroundColor: getRoleColor(myRole) + '35', borderColor: getRoleColor(myRole) }]}
+                style={[styles.myRoleBadge, isMobile && styles.myRoleBadgeMobile, { backgroundColor: getRoleColor(myRole) + '35', borderColor: getRoleColor(myRole) }]}
                 onPress={() => setShowRoleBrief(true)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.myRoleEmoji}>{getRoleEmoji(myRole)}</Text>
-                <Text style={styles.myRoleText}>{getRoleName(myRole)}</Text>
-                {!amAlive && <Text style={styles.deadLabel}> (Hồn ma)</Text>}
+                <Text style={[styles.myRoleEmoji, isMobile && { fontSize: 14, marginRight: 3 }]}>{getRoleEmoji(myRole)}</Text>
+                <Text style={[styles.myRoleText, isMobile && { fontSize: 11.5 }]}>{getRoleName(myRole)}</Text>
+                {!amAlive && <Text style={[styles.deadLabel, isMobile && { fontSize: 10 }]}> (Chết)</Text>}
               </TouchableOpacity>
 
               {/* Kho bình thuốc mini bên cạnh role (Chỉ 2 màu: Xanh & Tím, dùng thì mất màu) */}
               {myRole === 'witch' && amAlive && (
-                <View style={styles.witchMiniPotionBar}>
+                <View style={[styles.witchMiniPotionBar, isMobile && styles.witchMiniPotionBarMobile]}>
                   {/* Bình Cứu (Xanh) */}
                   <View
                     style={[
                       styles.witchMiniPotionSlot,
+                      isMobile && styles.witchMiniPotionSlotMobile,
                       witchState?.hasHeal
                         ? styles.witchMiniPotionHealActive
                         : styles.witchMiniPotionSpent,
@@ -631,6 +647,7 @@ export default function GameScreen({
                       source={require('../assets/potion_heal.png')}
                       style={[
                         styles.witchMiniPotionIcon,
+                        isMobile && styles.witchMiniPotionIconMobile,
                         !witchState?.hasHeal && styles.witchMiniPotionIconSpent,
                       ]}
                       resizeMode="contain"
@@ -641,6 +658,7 @@ export default function GameScreen({
                   <View
                     style={[
                       styles.witchMiniPotionSlot,
+                      isMobile && styles.witchMiniPotionSlotMobile,
                       witchState?.hasPoison
                         ? styles.witchMiniPotionPoisonActive
                         : styles.witchMiniPotionSpent,
@@ -650,6 +668,7 @@ export default function GameScreen({
                       source={require('../assets/potion_poison.png')}
                       style={[
                         styles.witchMiniPotionIcon,
+                        isMobile && styles.witchMiniPotionIconMobile,
                         !witchState?.hasPoison && styles.witchMiniPotionIconSpent,
                       ]}
                       resizeMode="contain"
@@ -661,18 +680,18 @@ export default function GameScreen({
 
             {/* Tiêu đề & Đồng hồ */}
             <View style={styles.phaseInfo}>
-              <Text style={styles.phaseTitle}>{getPhaseTitle()}</Text>
+              <Text style={[styles.phaseTitle, isMobile && styles.phaseTitleMobile]} numberOfLines={1}>{getPhaseTitle()}</Text>
               {phase !== PHASES.GAME_OVER && (
-                <Animated.View style={[styles.timerBadge, { transform: [{ scale: pulseAnim }] }]}>
-                  <Text style={styles.timerText}>⏳ {timeLeft}s</Text>
+                <Animated.View style={[styles.timerBadge, isMobile && styles.timerBadgeMobile, { transform: [{ scale: pulseAnim }] }]}>
+                  <Text style={[styles.timerText, isMobile && { fontSize: 11 }]}>⏳ {timeLeft}s</Text>
                 </Animated.View>
               )}
             </View>
 
             {/* Nút thao tác góc phải */}
             <View style={styles.headerRightActions}>
-              <TouchableOpacity style={styles.leaveButton} onPress={onLeaveGame} activeOpacity={0.7}>
-                <Text style={styles.leaveText}>Rời</Text>
+              <TouchableOpacity style={[styles.leaveButton, isMobile && styles.leaveButtonMobile]} onPress={onLeaveGame} activeOpacity={0.7}>
+                <Text style={[styles.leaveText, isMobile && { fontSize: 11 }]}>Rời</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -709,8 +728,8 @@ export default function GameScreen({
                     const votes = dayVoteCount[player.id] || 0;
                     const voters = dayVoterMap[player.id] || [];
 
-                    // Sói teammates
-                    const isWolfTeammate = isNightWolf && myRole === 'wolf' && player.role === 'wolf';
+                    // Sói teammates (nhận biết đồng minh ở mọi pha trong trận)
+                    const isWolfTeammate = myRole === 'wolf' && player.role === 'wolf';
                     const wolfVoters = Object.entries(wolfVotes)
                       .filter(([_, tid]) => tid === player.id)
                       .map(([wid]) => players.find((p) => p.id === wid)?.name || 'Sói');
@@ -719,9 +738,9 @@ export default function GameScreen({
                     const isLastProtected = isNightBodyguard && myRole === 'bodyguard' && player.id === lastProtectedTarget;
                     const canBodyguardTarget = isNightBodyguard && myRole === 'bodyguard' && amAlive && isAlive && !isLastProtected;
 
-                    // Điều kiện bấm vào ô (cho phép bấm chọn và đổi chọn bất cứ lúc nào)
+                    // Điều kiện bấm vào ô (Sói không thể cắn nhau và không tự cắn mình)
                     const canVoteDay = phase === PHASES.DAY_VOTE && amAlive && isAlive;
-                    const canWolfTarget = isNightWolf && myRole === 'wolf' && amAlive && isAlive && !isWolfTeammate;
+                    const canWolfTarget = isNightWolf && myRole === 'wolf' && amAlive && isAlive && !isWolfTeammate && !isMe;
                     const canSeerTarget = isNightSeer && myRole === 'seer' && amAlive && isAlive && !isMe && !seerResult;
                     const canWitchPoisonTarget = isNightWitch && myRole === 'witch' && amAlive && isAlive && !isMe && witchStep === 'poison' && witchState?.hasPoison;
                     const canHunterTarget = isHunterShot && isMeActiveHunter && isAlive && !isMe;
@@ -732,7 +751,8 @@ export default function GameScreen({
                         key={player.id}
                         style={[
                           styles.discordBox,
-                          { flexBasis: boxWidthPercent },
+                          { flexBasis: boxWidthPercent, maxWidth: boxWidthPercent },
+                          isMobile && styles.discordBoxMobile,
                           isCompact && styles.discordBoxCompact,
                           isUltraCompact && styles.discordBoxUltraCompact,
                           isClickable && styles.discordBoxClickable,
@@ -869,6 +889,27 @@ export default function GameScreen({
                           </Text>
                         </View>
 
+                        {/* ================= HIỂN THỊ ĐỒNG MINH SÓI DƯỚI TÊN ================= */}
+                        {myRole === 'wolf' && player.role === 'wolf' && (
+                          <View
+                            style={[
+                              styles.wolfTeammateBadgeUnderName,
+                              isMe && styles.wolfTeammateBadgeUnderNameMe,
+                              isCompact && styles.wolfTeammateBadgeUnderNameCompact,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.wolfTeammateBadgeUnderNameText,
+                                isCompact && { fontSize: 8.5 },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {isMe ? '🐺 BẠN LÀ SÓI' : '🐺 ĐỒNG MINH SÓI'}
+                            </Text>
+                          </View>
+                        )}
+
                         {/* ================= HIỂN THỊ THIỆN HOẶC ÁC DƯỚI TÊN CHO TIÊN TRI ================= */}
                         {myRole === 'seer' && seerHistory[player.id] && (
                           <View
@@ -908,7 +949,7 @@ export default function GameScreen({
 
               {/* ================= THANH HÀNH ĐỘNG CỐ ĐỊNH DƯỚI ĐÁY MÀN HÌNH ================= */}
               {(isNightBodyguard && myRole === 'bodyguard' && amAlive) || (isNightWolf && myRole === 'wolf' && amAlive) || (isNightWitch && myRole === 'witch' && amAlive) || (isNightSeer && myRole === 'seer' && amAlive) || phase === PHASES.DAY_VOTE ? (
-                <View style={styles.bottomActionBar}>
+                <View style={[styles.bottomActionBar, isMobile && styles.bottomActionBarMobile]}>
                   {/* --- BANNER HÀNH ĐỘNG CỦA PHA BẢO VỆ (30S & 5S CHUYỂN TIẾP) --- */}
                   {isNightBodyguard && myRole === 'bodyguard' && amAlive && (() => {
                     const targetPlayer = players.find((p) => p.id === (bodyguardTarget || selectedTarget));
@@ -1005,7 +1046,9 @@ export default function GameScreen({
                             <View style={{ flex: 1 }}>
                               <Text style={styles.witchActionTitle}>☠️ BÌNH THUỐC ĐỘC (BẤM VÀO NGƯỜI CHƠI ĐỂ NÉM)</Text>
                               <Text style={styles.witchActionSub}>
-                                Bấm trực tiếp vào 1 người trên đấu trường để ném độc tiêu diệt (hoặc bấm Bỏ qua nếu đổi ý):
+                                {poisonTargetPlayer
+                                  ? `Đang nhắm độc vào: ${poisonTargetPlayer.name}. (Sẽ chuyển pha trong ${timeLeft}s nếu không đổi người khác)`
+                                  : 'Bấm trực tiếp vào 1 người trên đấu trường để ném độc (hoặc bấm Bỏ qua nếu không dùng):'}
                               </Text>
                             </View>
                           </View>
@@ -1016,8 +1059,29 @@ export default function GameScreen({
                               onPress={handleWitchSkipPoison}
                               activeOpacity={0.8}
                             >
-                              <Text style={styles.witchPoisonSkipBtnText}>🏳️ BỎ QUA (ĐỔI Ý, KHÔNG DÙNG ĐỘC)</Text>
+                              <Text style={styles.witchPoisonSkipBtnText}>🏳️ BỎ QUA (KHÔNG DÙNG ĐỘC)</Text>
                             </TouchableOpacity>
+                            {witchPendingPoison && (
+                              <View style={styles.bodyguardCountdownBadge}>
+                                <Text style={styles.bodyguardCountdownText}>⏳ Đang chốt: chuyển sau {timeLeft}s</Text>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                      );
+                    }
+
+                    if (witchStep === 'out_of_potions') {
+                      return (
+                        <View style={styles.witchDoneCard}>
+                          <Text style={styles.witchDoneEmoji}>🧙‍♀️✨</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.witchDoneTitle}>BẠN ĐÃ HẾT BÌNH THUỐC ĐÊM NAY</Text>
+                            <Text style={styles.witchDoneSub}>
+                              {witchVictim
+                                ? `Nạn nhân bị cắn đêm nay: ${witchVictim.name}. Đang quan sát... (⏳ ${timeLeft}s)`
+                                : `Đêm nay không ai bị Sói cắn. Đang chờ chuyển qua vai trò tiếp theo... (⏳ ${timeLeft}s)`}
+                            </Text>
                           </View>
                         </View>
                       );
@@ -1206,7 +1270,7 @@ export default function GameScreen({
                 activeOpacity={1}
                 onPress={() => setIsChatOpen(false)}
               />
-              <View style={styles.chatMobileDrawerContent}>
+              <View style={[styles.chatMobileDrawerContent, { width: Math.min(windowWidth * 0.78, 280) }]}>
                 <ChatBox
                   messages={messages}
                   onSend={onSendMessage}
@@ -1361,6 +1425,116 @@ export default function GameScreen({
                     <Text style={styles.witchHealNoBtnText}>❌ BỎ MẶC</Text>
                   </TouchableOpacity>
                 </View>
+              </View>
+            </View>
+          </Modal>
+
+          {/* ================= MODAL PHÙ THỦY XEM NẠN NHÂN KHI ĐÃ HẾT BÌNH CỨU (CÒN BÌNH ĐỘC) ================= */}
+          <Modal
+            visible={isNightWitch && myRole === 'witch' && amAlive && witchStep === 'view_victim_has_poison' && !!witchVictim}
+            transparent
+            animationType="fade"
+          >
+            <View style={styles.witchHealModalOverlay}>
+              <View style={styles.witchHealModalCard}>
+                <View style={styles.witchHealBadge}>
+                  <Text style={styles.witchHealBadgeText}>🧙‍♀️ PHÙ THỦY QUAN SÁT</Text>
+                </View>
+                <Text style={styles.witchHealModalTitle}>BẦY SÓI ĐÃ TẤN CÔNG!</Text>
+                <Text style={styles.witchHealModalSubtitle}>
+                  Nạn nhân bị Sói cắn đêm nay là:
+                </Text>
+
+                <View style={styles.witchVictimContainer}>
+                  <PlayerAvatar
+                    player={witchVictim}
+                    size="large"
+                    showRole={false}
+                    textColor="#FFFFFF"
+                  />
+                  <Text style={styles.witchVictimName}>{witchVictim?.name}</Text>
+                  <Text style={[styles.witchVictimHint, { color: '#FCA5A5' }]}>
+                    ⚠️ Bạn đã dùng hết bình Cứu trong trận nên không thể cứu người này!
+                  </Text>
+                </View>
+
+                <View style={styles.witchHealActionsRow}>
+                  <TouchableOpacity
+                    style={styles.witchHealYesBtn}
+                    onPress={() => setWitchStep('ask_poison')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.witchHealYesBtnText}>➡️ TIẾP TỤC (XEM THUỐC ĐỘC)</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.witchHealNoBtn}
+                    onPress={() => {
+                      setWitchStep('done');
+                      socket.emit('witch-action', { save: false, poisonTargetId: null });
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.witchHealNoBtnText}>❌ BỎ QUA</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+
+          {/* ================= MODAL PHÙ THỦY HẾT THUỐC (CHỈ XEM NẠN NHÂN VÀ ĐỢI 10S) ================= */}
+          <Modal
+            visible={isNightWitch && myRole === 'witch' && amAlive && witchStep === 'out_of_potions'}
+            transparent
+            animationType="fade"
+          >
+            <View style={styles.witchHealModalOverlay}>
+              <View style={styles.witchHealModalCard}>
+                <View style={[styles.witchHealBadge, { borderColor: '#A855F7' }]}>
+                  <Text style={styles.witchHealBadgeText}>🧙‍♀️ PHÙ THỦY QUAN SÁT (HẾT THUỐC)</Text>
+                </View>
+                <Text style={styles.witchHealModalTitle}>
+                  {witchVictim ? 'BẦY SÓI ĐÃ TẤN CÔNG!' : 'ĐÊM NAY YÊN BÌNH'}
+                </Text>
+                <Text style={styles.witchHealModalSubtitle}>
+                  {witchVictim ? 'Nạn nhân bị Sói cắn đêm nay:' : 'Không có ai bị Sói cắn đêm nay.'}
+                </Text>
+
+                {witchVictim ? (
+                  <View style={styles.witchVictimContainer}>
+                    <PlayerAvatar
+                      player={witchVictim}
+                      size="large"
+                      showRole={false}
+                      textColor="#FFFFFF"
+                    />
+                    <Text style={styles.witchVictimName}>{witchVictim?.name}</Text>
+                    <Text style={[styles.witchVictimHint, { color: '#CBD5E1' }]}>
+                      Bạn đã hết cả 2 bình thuốc Cứu & Độc. Đang quan sát đêm nay...
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.witchVictimContainer}>
+                    <Text style={{ fontSize: 40, marginBottom: 6 }}>🕊️</Text>
+                    <Text style={[styles.witchVictimHint, { color: '#CBD5E1' }]}>
+                      Không có ai bị thương hoặc nạn nhân đã được Bảo Vệ che chở.
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.witchOutOfPotionsTimerPill}>
+                  <Text style={styles.witchOutOfPotionsTimerText}>
+                    ⏳ Tự động chuyển vai trò tiếp theo sau {timeLeft}s...
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.witchHealNoBtn, { marginTop: 12, width: '100%' }]}
+                  onPress={() => setWitchStep('done')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.witchHealNoBtnText}>ĐÃ HIỂU (ĐÓNG THÔNG BÁO)</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </Modal>
@@ -1626,23 +1800,78 @@ const styles = StyleSheet.create({
   splitLayout: {
     flex: 1,
     flexDirection: 'row',
+    overflow: 'hidden',
+    minHeight: 0,
   },
 
   // Arena Column (Trái)
   arenaColumn: {
     flex: 1,
     height: '100%',
+    overflow: 'hidden',
+    minHeight: 0,
+    display: 'flex',
+    flexDirection: 'column',
   },
   arenaScroll: {
     flex: 1,
+    minHeight: 0,
   },
   bottomActionBar: {
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 6,
-    backgroundColor: 'rgba(10, 8, 25, 0.9)',
+    backgroundColor: 'rgba(10, 8, 25, 0.95)',
     borderTopWidth: 1.5,
     borderTopColor: 'rgba(124, 58, 237, 0.35)',
+    flexShrink: 0,
+  },
+  bottomActionBarMobile: {
+    paddingHorizontal: 8,
+    paddingTop: 6,
+    paddingBottom: 6,
+  },
+  headerMobile: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  headerLeftGroupMobile: {
+    gap: 4,
+  },
+  myRoleBadgeMobile: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 14,
+  },
+  phaseTitleMobile: {
+    fontSize: 12.5,
+    letterSpacing: 0.2,
+  },
+  timerBadgeMobile: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 8,
+    marginTop: 2,
+  },
+  leaveButtonMobile: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  witchMiniPotionBarMobile: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    gap: 3,
+    borderRadius: 10,
+  },
+  witchMiniPotionSlotMobile: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+  },
+  witchMiniPotionIconMobile: {
+    width: 14,
+    height: 14,
   },
   seerVerdictBig: {
     fontSize: 64,
@@ -2589,6 +2818,59 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 10,
+  },
+  discordBoxMobile: {
+    minWidth: 0,
+    minHeight: 135,
+    padding: 7,
+    borderRadius: 12,
+  },
+  wolfTeammateBadgeUnderName: {
+    backgroundColor: 'rgba(220, 38, 38, 0.28)',
+    borderWidth: 1.2,
+    borderColor: '#DC2626',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginTop: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.4,
+    shadowRadius: 3,
+  },
+  wolfTeammateBadgeUnderNameMe: {
+    backgroundColor: 'rgba(185, 28, 28, 0.35)',
+    borderColor: '#EF4444',
+  },
+  wolfTeammateBadgeUnderNameCompact: {
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    marginTop: 2,
+    borderRadius: 6,
+  },
+  wolfTeammateBadgeUnderNameText: {
+    color: '#FCA5A5',
+    fontSize: 9.5,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+  witchOutOfPotionsTimerPill: {
+    backgroundColor: 'rgba(168, 85, 247, 0.22)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#C084FC',
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  witchOutOfPotionsTimerText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#E9D5FF',
+    textAlign: 'center',
   },
   discordBoxCompact: {
     minWidth: 110,

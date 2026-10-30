@@ -4,7 +4,49 @@ Tất cả các thay đổi, cập nhật kiến trúc và tính năng của d�
 
 ---
 
+## [2.2.0] - 2026-10-30
+
+### 📱 Tối Ưu Giao Diện Điện Thoại (Mobile Responsive UI & Fit-To-Screen)
+- **Tối ưu Drawer Chat nhỏ gọn ([components/ChatBox.js](file:///d:/code%20game/Werewolfdemo/components/ChatBox.js), [screens/GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js)):**
+  - Giảm bề rộng slidebar chat trên điện thoại xuống `Math.min(windowWidth * 0.78, 280px)` thay vì chiếm 88% / 400px như trước.
+  - Tối ưu kích cỡ chữ (12px), thu nhỏ padding tin nhắn, bubble chat và thanh gõ văn bản, đảm bảo gõ và xem tin nhắn thuận tiện trên mọi kích thước màn hình mà không che lấp hết đấu trường.
+- **Tự động co giãn giao diện, chống tràn viền (`k bị tràn viền`):**
+  - Thêm thuộc tính `overflow: 'hidden'`, `minHeight: 0`, `maxWidth` động cho lưới Discord và thanh cuộn đấu trường.
+  - Tự động kích hoạt chế độ thu nhỏ linh hoạt (`isCompact` và `isUltraCompact`) trên di động để các ô đại diện người chơi vừa vặn với chiều ngang của thiết bị.
+- **Thanh nút hành động rõ ràng nằm gọn trong khuôn hình:**
+  - Cập nhật header và bottom action bar (Bảo Vệ, Sói, Phù Thủy, Tiên Tri, Thợ Săn, Biểu Quyết Ngày) với padding linh hoạt và `flexWrap: 'wrap'`, giúp các nút luôn hiển thị đầy đủ, không bị cắt xén hay che khuất.
+
+### 🐺 Sói Không Thể Cắn Nhau & Nhận Biết Đồng Minh Suốt Trận
+- **Khóa cắn đồng minh ([server/index.js](file:///d:/code%20game/Werewolfdemo/server/index.js), [screens/GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js)):**
+  - Ngăn chặn triệt để hành động Sói cắn đồng đội cả trên UI và kiểm tra validation trên server.
+- **Hiển thị huy hiệu đồng minh ngay dưới tên:**
+  - Hiển thị huy hiệu `🐺 ĐỒNG MINH SÓI` (hoặc `🐺 BẠN LÀ SÓI`) nằm ngay dưới name pill của mỗi người chơi thuộc phe Sói.
+  - Cập nhật hàm `getPlayersData` trong [server/gameLogic.js](file:///d:/code%20game/Werewolfdemo/server/gameLogic.js) để các Sói luôn nhận được vai trò của nhau suốt trận đấu (ngày lẫn đêm), trong khi phe dân vẫn được giấu kín hoàn toàn.
+
+### 🧙‍♀️ Nâng Cấp Tầm Nhìn & Cơ Chế 10s Khi Hết Thuốc Của Phù Thủy
+- **Luôn thấy nạn nhân bị cắn đêm đó ([server/index.js](file:///d:/code%20game/Werewolfdemo/server/index.js), [screens/GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js)):**
+  - Phù Thủy luôn nhận được danh tính người bị bầy Sói tấn công đêm đó, kể cả khi đã dùng bình Cứu trong các đêm trước.
+  - Nếu đã hết bình Cứu nhưng còn bình Độc: Hiển thị modal thông báo ai bị cắn, nêu rõ đã hết bình Cứu và cung cấp nút `➡️ TIẾP TỤC (XEM THUỐC ĐỘC)` hoặc `❌ BỎ QUA`.
+- **Hết thuốc chỉ cần xem ai bị cắn rồi chờ 10s tự chuyển pha:**
+  - Khi Phù Thủy đã hết cả 2 bình thuốc (Cứu & Độc), server tự động đặt bộ đếm giờ của pha Phù Thủy là **10 giây**.
+  - Phù Thủy sẽ thấy bảng quan sát nạn nhân kèm đồng hồ đếm lùi `⏳ Tự động chuyển vai trò tiếp theo sau {timeLeft}s...`. Sau 10 giây, trò chơi tự động chuyển sang pha tiếp theo mà không cần thêm thao tác nào.
+
+---
+
 ## [2.1.0] - 2026-10-29
+
+### 🧙‍♀️ Đồng Bộ Cơ Chế Đếm Giờ Phù Thủy Giống Bảo Vệ (Chống Treo Thời Gian)
+- **Đếm lùi 5s chuyển tiếp tự động ([server/index.js](file:///d:/code%20game/Werewolfdemo/server/index.js), [screens/GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js)):**
+  - Đồng bộ cơ chế của Phù Thủy hoàn toàn giống như Bảo Vệ:
+    - Khi Phù Thủy chọn Cứu hoặc Bỏ Mặc nạn nhân, server tự động rút thời gian xuống **5 giây** để chuẩn bị chuyển pha.
+    - Trong bước ném Độc, Phù Thủy có thể tự do bấm chọn mục tiêu hoặc đổi người khác bất cứ lúc nào; nếu không thay đổi thì trong **5 giây** hệ thống sẽ tự động chốt và chuyển sang lượt tiếp theo.
+    - Bổ sung huy hiệu đếm ngược `⏳ Đang chốt: chuyển sau {timeLeft}s` trong thanh hành động của Phù Thủy để người chơi nắm rõ thời gian chuyển pha.
+    - Ngăn chặn triệt để tình trạng bị treo thời gian đêm nếu người chơi không thao tác tiếp.
+
+### 🧹 Tinh Gọn Chọn Avatar
+- **Loại bỏ tính năng tải ảnh từ file máy tính ([screens/HomeScreen.js](file:///d:/code%20game/Werewolfdemo/screens/HomeScreen.js), [components/AvatarPickerModal.js](file:///d:/code%20game/Werewolfdemo/components/AvatarPickerModal.js)):**
+  - Xóa bỏ nút và cơ chế chọn ảnh từ file máy tính (`<input type="file">`, `handlePickAvatar`, `compressImage`).
+  - Khi bấm vào khung avatar tròn hoặc nút `➕` ngoài màn hình chính, hệ thống sẽ mở trực tiếp modal bộ sưu tập emoji/emote đa dạng (Động vật, Hoa quả, Thần bí/Nhân vật), giúp giao diện gọn gàng, đồng bộ và tránh tải nặng dữ liệu base64 qua socket.
 
 ### 🏹 Ra Mắt Vai Trò Mới: Thợ Săn (Hunter 🏹) & Giới Hạn Role Đặc Biệt (0 - 1)
 - **Giới hạn số lượng các vai trò đặc biệt ([components/RoomSettings.js](file:///d:/code%20game/Werewolfdemo/components/RoomSettings.js), [server/gameLogic.js](file:///d:/code%20game/Werewolfdemo/server/gameLogic.js)):**

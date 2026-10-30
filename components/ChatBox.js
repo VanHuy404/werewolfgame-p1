@@ -6,7 +6,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  FlatList, StyleSheet, KeyboardAvoidingView, Platform,
+  FlatList, StyleSheet, KeyboardAvoidingView, Platform, useWindowDimensions,
 } from 'react-native';
 import { COLORS } from '../utils/colors';
 
@@ -29,6 +29,9 @@ export default function ChatBox({
   phase = null,
   onMinimize = null,
 }) {
+  const { width: windowWidth } = useWindowDimensions();
+  const isMobile = windowWidth <= 860;
+  const isSmallMobile = windowWidth < 450;
   const isWolf = myRole === 'wolf';
 
   // Sói có 2 kênh: 'village' (Làng) và 'wolf' (Hang Sói)
@@ -127,12 +130,14 @@ export default function ChatBox({
       return (
         <View style={[
           styles.systemBubble,
+          isMobile && styles.systemBubbleMobile,
           isSavedMsg && styles.systemBubbleSaved,
           isDeadMsg && styles.systemBubbleDead,
           isVoteMsg && styles.systemBubbleVote,
         ]}>
           <Text style={[
             styles.systemBubbleText,
+            isMobile && styles.systemBubbleTextMobile,
             isSavedMsg && styles.systemTextSaved,
             isDeadMsg && styles.systemTextDead,
             isVoteMsg && styles.systemTextVote,
@@ -148,6 +153,7 @@ export default function ChatBox({
     return (
       <View style={[
         styles.messageBubble,
+        isMobile && styles.messageBubbleMobile,
         isMe ? styles.myMessage : styles.otherMessage,
         item.isWolfChat && styles.wolfMessage,
         isNight && !isMe && !item.isWolfChat && styles.nightOtherMessage,
@@ -156,6 +162,7 @@ export default function ChatBox({
           <View style={styles.senderRow}>
             <Text style={[
               styles.senderName,
+              isMobile && styles.senderNameMobile,
               item.isWolfChat && styles.senderNameWolf,
             ]}>
               {item.playerName}
@@ -165,6 +172,7 @@ export default function ChatBox({
         )}
         <Text style={[
           styles.messageText,
+          isMobile && styles.messageTextMobile,
           isMe && styles.myMessageText,
         ]}>
           {item.message}
@@ -192,13 +200,14 @@ export default function ChatBox({
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
       {/* ================= CHAT HEADER & TABS ================= */}
-      <View style={styles.topHeaderRow}>
+      <View style={[styles.topHeaderRow, isMobile && styles.topHeaderRowMobile]}>
         {isWolf ? (
           <View style={styles.channelBar}>
             {/* Nút Chat Làng */}
             <TouchableOpacity
               style={[
                 styles.channelTab,
+                isMobile && styles.channelTabMobile,
                 activeChannel === 'village' && styles.channelTabActive,
               ]}
               onPress={() => handleSwitchChannel('village')}
@@ -206,6 +215,7 @@ export default function ChatBox({
             >
               <Text style={[
                 styles.channelTabText,
+                isMobile && styles.channelTabTextMobile,
                 activeChannel === 'village' && styles.channelTabTextActive,
               ]}>
                 💬 Làng
@@ -216,6 +226,7 @@ export default function ChatBox({
             <TouchableOpacity
               style={[
                 styles.channelTab,
+                isMobile && styles.channelTabMobile,
                 activeChannel === 'wolf' && styles.channelTabWolfActive,
               ]}
               onPress={() => handleSwitchChannel('wolf')}
@@ -223,6 +234,7 @@ export default function ChatBox({
             >
               <Text style={[
                 styles.channelTabText,
+                isMobile && styles.channelTabTextMobile,
                 activeChannel === 'wolf' && styles.channelTabWolfTextActive,
               ]}>
                 🐺 Hang Sói
@@ -232,7 +244,7 @@ export default function ChatBox({
           </View>
         ) : (
           <View style={styles.header}>
-            <Text style={[styles.headerText, isNight && { color: COLORS.nightText }]}>
+            <Text style={[styles.headerText, isMobile && { fontSize: 12 }, isNight && { color: COLORS.nightText }]}>
               💬 Thảo luận dân làng
             </Text>
           </View>
@@ -241,20 +253,20 @@ export default function ChatBox({
         {/* Nút Đóng Chat */}
         {onMinimize && (
           <TouchableOpacity
-            style={styles.minimizeChatBtn}
+            style={[styles.minimizeChatBtn, isMobile && styles.minimizeChatBtnMobile]}
             onPress={onMinimize}
             activeOpacity={0.7}
           >
             <Text style={styles.minimizeChatIcon}>✕</Text>
-            <Text style={styles.minimizeChatText}>Đóng chat</Text>
+            <Text style={[styles.minimizeChatText, isMobile && { fontSize: 10 }]}>Đóng chat</Text>
           </TouchableOpacity>
         )}
       </View>
 
       {/* Subtitle nhắc nhở Sói */}
       {isCurrentChannelWolf && (
-        <View style={[styles.wolfSubHeader, isWolfChatLocked && { backgroundColor: 'rgba(239, 68, 68, 0.25)' }]}>
-          <Text style={[styles.wolfSubHeaderText, isWolfChatLocked && { color: '#FCA5A5' }]}>
+        <View style={[styles.wolfSubHeader, isMobile && styles.wolfSubHeaderMobile, isWolfChatLocked && { backgroundColor: 'rgba(239, 68, 68, 0.25)' }]}>
+          <Text style={[styles.wolfSubHeaderText, isMobile && { fontSize: 9.5 }, isWolfChatLocked && { color: '#FCA5A5' }]}>
             {isWolfChatLocked
               ? '🔒 Hang Sói tạm khóa trong giờ Bỏ Phiếu để đảm bảo tính công bằng!'
               : '🔒 Kênh bí mật giữa các Sói - Hoạt động bất cứ lúc nào (tự khóa khi bỏ phiếu)!'}
@@ -306,12 +318,13 @@ export default function ChatBox({
 
       {/* ================= INPUT GỬI TIN NHẮN (HỖ TRỢ NHIỀU DÒNG) ================= */}
       {!disabled && (
-        <View style={styles.inputRow}>
+        <View style={[styles.inputRow, isMobile && styles.inputRowMobile]}>
           <TextInput
             ref={inputRef}
             blurOnSubmit={false}
             style={[
               styles.input,
+              isMobile && styles.inputMobile,
               { backgroundColor: inputBg, color: inputColor },
               isInputDisabled && styles.inputDisabled,
             ]}
@@ -335,6 +348,7 @@ export default function ChatBox({
           <TouchableOpacity
             style={[
               styles.sendBtn,
+              isMobile && styles.sendBtnMobile,
               isCurrentChannelWolf && styles.sendBtnWolf,
               (!text.trim() || isInputDisabled) && styles.sendBtnDisabled,
             ]}
@@ -342,7 +356,7 @@ export default function ChatBox({
             disabled={!text.trim() || isInputDisabled}
             activeOpacity={0.8}
           >
-            <Text style={styles.sendBtnText}>➤</Text>
+            <Text style={[styles.sendBtnText, isMobile && { fontSize: 14 }]}>➤</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -369,6 +383,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
+  topHeaderRowMobile: {
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
   minimizeChatBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -379,6 +397,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
+  },
+  minimizeChatBtnMobile: {
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   minimizeChatIcon: {
     fontSize: 12,
@@ -397,6 +420,13 @@ const styles = StyleSheet.create({
     marginVertical: 6,
     alignSelf: 'center',
     maxWidth: '92%',
+  },
+  systemBubbleMobile: {
+    padding: 6,
+    marginVertical: 3,
+    maxWidth: '96%',
+    borderRadius: 10,
+    borderWidth: 1,
   },
   systemBubbleSaved: {
     backgroundColor: 'rgba(14, 165, 233, 0.24)',
@@ -420,6 +450,10 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
     ...(Platform.OS === 'web' ? { textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' } : {}),
+  },
+  systemBubbleTextMobile: {
+    fontSize: 11,
+    lineHeight: 15,
   },
   systemTextSaved: {
     color: '#38BDF8',
@@ -457,6 +491,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
   },
+  channelTabMobile: {
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
   channelTabActive: {
     backgroundColor: COLORS.primary,
   },
@@ -467,6 +505,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#94A3B8',
+  },
+  channelTabTextMobile: {
+    fontSize: 10.5,
   },
   channelTabTextActive: {
     color: COLORS.white,
@@ -488,6 +529,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(220, 38, 38, 0.25)',
   },
+  wolfSubHeaderMobile: {
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
   wolfSubHeaderText: {
     fontSize: 11,
     color: '#FCA5A5',
@@ -508,6 +553,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 14,
     marginBottom: 6,
+  },
+  messageBubbleMobile: {
+    maxWidth: '88%',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
+    marginBottom: 4,
   },
   myMessage: {
     alignSelf: 'flex-end',
@@ -548,6 +600,9 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
     ...(Platform.OS === 'web' ? { textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' } : {}),
   },
+  senderNameMobile: {
+    fontSize: 10.5,
+  },
   senderNameWolf: {
     color: '#F87171',
   },
@@ -560,6 +615,10 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
     ...(Platform.OS === 'web' ? { textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' } : {}),
+  },
+  messageTextMobile: {
+    fontSize: 12,
+    lineHeight: 16,
   },
   myMessageText: {
     color: '#FFFFFF',
@@ -619,6 +678,9 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.1)',
     backgroundColor: 'rgba(15, 12, 30, 0.96)',
   },
+  inputRowMobile: {
+    padding: 5,
+  },
   input: {
     flex: 1,
     minHeight: 38,
@@ -639,6 +701,16 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
     ...(Platform.OS === 'web' ? { textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' } : {}),
   },
+  inputMobile: {
+    minHeight: 34,
+    fontSize: 12,
+    paddingHorizontal: 10,
+    paddingTop: 6,
+    paddingBottom: 6,
+    borderRadius: 12,
+    marginRight: 6,
+    lineHeight: 16,
+  },
   inputDisabled: {
     opacity: 0.5,
   },
@@ -650,6 +722,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 1,
+  },
+  sendBtnMobile: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
   },
   sendBtnWolf: {
     backgroundColor: COLORS.wolf,
