@@ -186,6 +186,29 @@ export default function GameScreen({
   const [witchPendingPoison, setWitchPendingPoison] = useState(null); // null | playerId
   const [witchHealModalVisible, setWitchHealModalVisible] = useState(false);
   const [witchPoisonModalVisible, setWitchPoisonModalVisible] = useState(false);
+  const [witchViewVictimCountdown, setWitchViewVictimCountdown] = useState(5);
+  const witchNightInitializedRef = useRef(false);
+
+  // Đếm ngược 5 giây cố định khi Phù Thủy xem nạn nhân (ở đêm sau khi đã hết bình cứu) rồi tự chuyển sang hỏi dùng thuốc độc
+  useEffect(() => {
+    let timer;
+    if (isNightWitch && myRole === 'witch' && amAlive && witchStep === 'view_victim_has_poison') {
+      setWitchViewVictimCountdown(5);
+      timer = setInterval(() => {
+        setWitchViewVictimCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            setWitchStep('ask_poison');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isNightWitch, myRole, amAlive, witchStep]);
 
   // Cập nhật khi prop wolfVictim hoặc initialWitchState thay đổi
   useEffect(() => {
@@ -203,30 +226,34 @@ export default function GameScreen({
   // Điều phối các bước hành động của Phù Thủy khi đến pha đêm
   useEffect(() => {
     if (phase === PHASES.NIGHT_WITCH) {
-      setWitchPendingSave(null);
-      setWitchPendingPoison(null);
-      if (myRole === 'witch' && amAlive) {
-        const hasHeal = !!witchState?.hasHeal;
-        const hasPoison = !!witchState?.hasPoison;
+      if (!witchNightInitializedRef.current) {
+        witchNightInitializedRef.current = true;
+        setWitchPendingSave(null);
+        setWitchPendingPoison(null);
+        if (myRole === 'witch' && amAlive) {
+          const hasHeal = !!witchState?.hasHeal;
+          const hasPoison = !!witchState?.hasPoison;
 
-        if (witchVictim && hasHeal) {
-          // Còn bình cứu và có nạn nhân bị cắn -> Hiện modal chọn cứu/bỏ mặc
-          setWitchStep('heal');
-        } else if (witchVictim && !hasHeal && hasPoison) {
-          // YÊU CẦU: Phù thủy vẫn có thể xem đc ai chết đêm đó kể cả đã dùng thuốc cứu! Còn bình độc -> sang bước độc
-          setWitchStep('view_victim_has_poison');
-        } else if (witchVictim && !hasHeal && !hasPoison) {
-          // YÊU CẦU: Khi phù thủy hết thuốc thì chỉ cần xem đc ai bị cắn đêm này rồi chờ 10s là qua đc role tiếp
-          setWitchStep('out_of_potions');
-        } else if (!witchVictim && hasPoison) {
-          // Không ai bị cắn đêm nay, còn độc -> Hỏi có muốn dùng thuốc độc không
-          setWitchStep('ask_poison');
-        } else {
-          // Hết cả 2 bình thuốc và không ai bị cắn -> Chờ 10s chuyển tiếp
-          setWitchStep('out_of_potions');
+          if (witchVictim && hasHeal) {
+            // Còn bình cứu và có nạn nhân bị cắn -> Hiện modal chọn cứu/bỏ mặc
+            setWitchStep('heal');
+          } else if (witchVictim && !hasHeal && hasPoison) {
+            // YÊU CẦU: Phù thủy hết thuốc cứu sẽ xuất hiện ở đêm sau chứ k cùng đêm với lúc dùng thuốc, thông báo 5s cố định rồi chuyển hỏi độc
+            setWitchStep('view_victim_has_poison');
+          } else if (witchVictim && !hasHeal && !hasPoison) {
+            // YÊU CẦU: Khi phù thủy hết thuốc thì chỉ cần xem đc ai bị cắn đêm này rồi chờ 10s là qua đc role tiếp
+            setWitchStep('out_of_potions');
+          } else if (!witchVictim && hasPoison) {
+            // Không ai bị cắn đêm nay, còn độc -> Hỏi có muốn dùng thuốc độc không
+            setWitchStep('ask_poison');
+          } else {
+            // Hết cả 2 bình thuốc và không ai bị cắn -> Chờ 10s chuyển tiếp
+            setWitchStep('out_of_potions');
+          }
         }
       }
     } else {
+      witchNightInitializedRef.current = false;
       setWitchStep('done');
     }
   }, [phase, myRole, amAlive, witchVictim?.id, witchState?.hasHeal, witchState?.hasPoison]);
@@ -600,6 +627,8 @@ export default function GameScreen({
         return `🗣️ Thảo Luận - Hiệp ${round}`;
       case PHASES.DAY_VOTE:
         return `⚖️ Bỏ Phiếu Treo Cổ - Hiệp ${round}`;
+      case PHASES.HUNTER_SHOT:
+        return `🏹 Phát Súng Trăn Trối Của Thợ Săn`;
       case PHASES.GAME_OVER:
         return `🏆 Trận Đấu Kết Thúc`;
       default:
@@ -948,7 +977,7 @@ export default function GameScreen({
             </ScrollView>
 
               {/* ================= THANH HÀNH ĐỘNG CỐ ĐỊNH DƯỚI ĐÁY MÀN HÌNH ================= */}
-              {(isNightBodyguard && myRole === 'bodyguard' && amAlive) || (isNightWolf && myRole === 'wolf' && amAlive) || (isNightWitch && myRole === 'witch' && amAlive) || (isNightSeer && myRole === 'seer' && amAlive) || phase === PHASES.DAY_VOTE ? (
+              {(isNightBodyguard && myRole === 'bodyguard' && amAlive) || (isNightWolf && myRole === 'wolf' && amAlive) || (isNightWitch && myRole === 'witch' && amAlive) || (isNightSeer && myRole === 'seer' && amAlive) || phase === PHASES.DAY_VOTE || isHunterShot ? (
                 <View style={[styles.bottomActionBar, isMobile && styles.bottomActionBarMobile]}>
                   {/* --- BANNER HÀNH ĐỘNG CỦA PHA BẢO VỆ (30S & 5S CHUYỂN TIẾP) --- */}
                   {isNightBodyguard && myRole === 'bodyguard' && amAlive && (() => {
@@ -1186,7 +1215,7 @@ export default function GameScreen({
                             THỢ SĂN ĐANG LÊN ĐẠN BÁO THÙ...
                           </Text>
                           <Text style={styles.hunterSuspenseSub}>
-                            {hunter?.name || 'Thợ Săn'} đang hấp hối và chuẩn bị bóp cò phát súng cuối cùng kéo theo một kẻ xuống mồ!
+                            Thợ Săn {hunter?.name || ''} đang hấp hối và chuẩn bị bóp cò phát súng trăn trối kéo theo một kẻ xuống mồ! Cả làng nín thở chờ đợi...
                           </Text>
                         </View>
                         <View style={styles.hunterTimerBadge}>
@@ -1464,7 +1493,7 @@ export default function GameScreen({
                     onPress={() => setWitchStep('ask_poison')}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.witchHealYesBtnText}>➡️ TIẾP TỤC (XEM THUỐC ĐỘC)</Text>
+                    <Text style={styles.witchHealYesBtnText}>➡️ TIẾP TỤC (XEM THUỐC ĐỘC) ({witchViewVictimCountdown}s)</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity

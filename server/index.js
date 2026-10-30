@@ -610,7 +610,7 @@ function startHunterShotPhase(room, hunterPlayer, cause) {
     playerId: 'system',
     playerName: '📢 Hệ Thống',
     avatar: '🏹',
-    message: `🏹 [TIẾNG LÊN ĐẠN TRĂN TRỐI]: Thợ Săn ${hunterPlayer.name} đang hấp hối! Với hơi tàn cuối cùng, Thợ Săn nâng nỏ nhắm bắn một mục tiêu mang theo xuống mồ!`,
+    message: `🏹 [TIẾNG LÊN ĐẠN TRĂN TRỐI]: Thợ Săn ${hunterPlayer.name} đang nâng nỏ nhắm bắn một mục tiêu trăn trối! Một kẻ sắp phải đền mạng xuống mồ!`,
     timestamp: Date.now(),
     isWolfChat: false,
     isSystem: true,
@@ -673,7 +673,14 @@ function processHunterShot(room, hunterPlayer, targetPlayer, passed, cause) {
 
   io.to(room.code).emit('hunter-shot-result', {
     hunter: { id: hunterPlayer.id, name: hunterPlayer.name, avatar: hunterPlayer.avatar, avatarColor: hunterPlayer.avatarColor },
-    target: { id: targetPlayer.id, name: targetPlayer.name, avatar: targetPlayer.avatar, avatarColor: targetPlayer.avatarColor },
+    target: {
+      id: targetPlayer.id,
+      name: targetPlayer.name,
+      avatar: targetPlayer.avatar,
+      avatarColor: targetPlayer.avatarColor,
+      role: targetPlayer.role,
+      isWolf: targetPlayer.role === ROLES.WOLF,
+    },
     passed: false,
     players: getPlayersData(room),
   });

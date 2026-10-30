@@ -4,6 +4,30 @@ Chào mừng các dân làng và bầy sói! Dưới đây là tổng hợp tấ
 
 ---
 
+## 🎯 Phiên Bản 2.3.0 - HOÀN THIỆN THỢ SĂN TRĂN TRỐI, TƯƠNG TÁC TAY BA & TRƯỢT NGANG KẾT THÚC
+*(Cập nhật ngày: 30/10/2026)*
+
+### 🏹 1. Hoàn Thiện Phát Súng Trăn Trối Của Thợ Săn
+- **Kích hoạt khi bị Treo Cổ & bị Sói cắn đêm:**
+  - Sửa lỗi thanh hành động dưới đáy màn hình (`bottomActionBar`), đảm bảo khi Thợ Săn bị treo cổ hoặc bị Sói cắn chết đêm, Thợ Săn luôn nhìn thấy đầy đủ nút chọn mục tiêu nổ súng và nút bắn chỉ thiên.
+  - Cả làng hồi hộp theo dõi với thông điệp: *"Thợ Săn [Tên] đang hấp hối và chuẩn bị bóp cò phát súng trăn trối kéo theo một kẻ xuống mồ! Cả làng nín thở chờ đợi..."*.
+- **Hiệu ứng đặc biệt khi bắn trúng Sói:**
+  - Nếu mục tiêu bị bắn là Ma Sói: Avatar lập tức biến hình thành Sói (`🐺`) tỏa hào quang đỏ rực, tiếp theo xuất hiện hiệu ứng kính vỡ rạn nứt toác (`glass_crack.png`) đập mạnh vào avatar, rồi gục ngã với huy hiệu `🐺 MA SÓI ĐÃ BỊ THỢ SĂN BẮN HẠ!`.
+
+### 🛡️ 2. Chuỗi Hoạt Ảnh Tương Tác Tay Ba (Bảo Vệ - Sói - Phù Thủy)
+- Khi Bảo Vệ bảo vệ, Sói cắn, và Phù Thủy ném độc cùng một người chơi:
+  - Hệ thống tự động phát chuỗi điện ảnh tuần tự: Hoạt ảnh Khiên Bảo Vệ đỡ đòn cào của Sói thành công hiển thị trước, ngay sau đó nối tiếp bằng hoạt ảnh Phù Thủy ném độc tử nạn kèm câu thoại: *"Một người muốn cứu, một người muốn giết... Thảm hại thật!"*.
+
+### 🧙‍♀️ 3. Chuẩn Hóa Thời Điểm & 5 Giây Thông Báo Hết Bình Cứu Của Phù Thủy
+- Thông báo Phù Thủy hết bình cứu chỉ hiển thị ở **đêm tiếp theo** (không xuất hiện ngay trong đêm vừa dùng bình cứu).
+- Khi hiển thị người bị cắn mà đã hết bình cứu: Xuất hiện đồng hồ đếm ngược **5 giây** cố định (`➡️ TIẾP TỤC (XEM THUỐC ĐỘC) (5s)`). Sau 5 giây hoặc khi bấm nút, hệ thống tự động chuyển mượt sang hỏi dùng thuốc độc.
+
+### 📜 4. Khung Trượt Ngang Danh Tính Người Chơi (GameOver Screen)
+- Toàn bộ danh tính người chơi ở màn hình kết thúc được đưa vào khung có thể trượt ngang (`Horizontal ScrollView`) linh hoạt trên cả điện thoại và máy tính khi phòng đông người.
+- Cố định kích thước thẻ và xử lý chống tràn viền (`numberOfLines={1}`), các nút hành động tự động thích ứng với từng kích thước thiết bị.
+
+---
+
 ## 📱 Phiên Bản 2.2.0 - TỐI ƯU TOÀN DIỆN GIAO DIỆN DI ĐỘNG, ĐỒNG MINH SÓI & NÂNG CẤP PHÙ THỦY
 *(Cập nhật ngày: 30/10/2026)*
 

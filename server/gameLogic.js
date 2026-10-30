@@ -284,10 +284,10 @@ function processNightActions(room) {
     ? poisonedPlayerId
     : null;
 
-  // Nếu người được Bảo Vệ che chở lại bị Phù Thủy đầu độc chết thì không thông báo Bảo Vệ cứu thành công nữa
-  if (shieldClashPlayerId && savedByBodyguardId === shieldClashPlayerId) {
-    savedByBodyguardId = null;
-  }
+  // YÊU CẦU: Khi Bảo Vệ, Sói và Phù Thủy cùng nhắm 1 người:
+  // Vẫn ghi nhận Bảo Vệ đã che chở thành công khỏi nanh vuốt Sói (savedByBodyguardId)
+  // để client ghép hoạt ảnh Bảo Vệ cứu người trước, sau đó nối tiếp Phù Thủy ném độc chết!
+  // (Không đặt savedByBodyguardId = null ở đây nữa)
 
   // Lưu lịch sử người được bảo vệ đêm nay để đêm kế tiếp không được bảo vệ liên tiếp
   room.nightActions.lastProtectedTarget = protectedPlayerId;

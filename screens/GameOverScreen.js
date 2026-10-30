@@ -102,13 +102,17 @@ export default function GameOverScreen({
             <View style={styles.revealCard}>
               <View style={styles.revealHeader}>
                 <Text style={styles.revealHeaderEmoji}>📜</Text>
-                <View>
-                  <Text style={styles.revealHeaderTitle}>DANH TÍNH THẬT SỰ CỦA NGƯỜI CHƠI</Text>
-                  <Text style={styles.revealHeaderSub}>Tất cả bí mật và vai trò đã được hé lộ</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.revealHeaderTitle} numberOfLines={1}>DANH TÍNH THẬT SỰ CỦA NGƯỜI CHƠI</Text>
+                  <Text style={styles.revealHeaderSub} numberOfLines={1}>Trượt ngang ➡️ để xem toàn bộ bí mật vai trò</Text>
                 </View>
               </View>
 
-              <View style={styles.revealGrid}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={true}
+                contentContainerStyle={styles.horizontalRevealScroll}
+              >
                 {players.map((p) => {
                   const isAlive = p.alive !== false;
                   const roleColor = getRoleColor(p.role);
@@ -119,7 +123,6 @@ export default function GameOverScreen({
                       key={p.id}
                       style={[
                         styles.playerRevealTile,
-                        { width: windowWidth > 600 ? 150 : '45%' },
                         isMe && styles.playerRevealTileMe,
                         !isAlive && styles.playerRevealTileDead,
                       ]}
@@ -130,7 +133,7 @@ export default function GameOverScreen({
                           {typeof p.avatar === 'string' && (p.avatar.startsWith('data:') || p.avatar.startsWith('http') || p.avatar.startsWith('blob:') || p.avatar.length > 25) ? (
                             <Image
                               source={{ uri: p.avatar }}
-                              style={{ width: 60, height: 60, borderRadius: 30 }}
+                              style={{ width: 56, height: 56, borderRadius: 28 }}
                               resizeMode="cover"
                             />
                           ) : (
@@ -145,29 +148,29 @@ export default function GameOverScreen({
                       </View>
 
                       {/* Tên */}
-                      <Text style={styles.playerName} numberOfLines={1}>{p.name}</Text>
+                      <Text style={styles.playerName} numberOfLines={1} ellipsizeMode="tail">{p.name}</Text>
 
                       {/* Trạng thái sống/chết */}
-                      <Text style={[styles.statusText, isAlive ? styles.statusAlive : styles.statusDead]}>
+                      <Text style={[styles.statusText, isAlive ? styles.statusAlive : styles.statusDead]} numberOfLines={1}>
                         {isAlive ? '✨ Sống sót' : '💀 Đã hy sinh'}
                       </Text>
 
                       {/* Badge Vai Trò Thật */}
                       <View style={[styles.roleTag, { backgroundColor: roleColor + '20', borderColor: roleColor }]}>
-                        <Text style={[styles.roleTagText, { color: roleColor }]}>
+                        <Text style={[styles.roleTagText, { color: roleColor }]} numberOfLines={1} ellipsizeMode="tail">
                           {getRoleEmoji(p.role)} {getRoleName(p.role)}
                         </Text>
                       </View>
                     </View>
                   );
                 })}
-              </View>
+              </ScrollView>
             </View>
 
             {/* Nút hành động */}
-            <View style={styles.actionButtonsRow}>
+            <View style={[styles.actionButtonsRow, windowWidth < 420 && styles.actionButtonsRowMobile]}>
               <TouchableOpacity
-                style={styles.returnLobbyBtn}
+                style={[styles.returnLobbyBtn, windowWidth < 420 && { width: '100%', flex: 0 }]}
                 onPress={handleReturn}
                 activeOpacity={0.8}
               >
@@ -176,7 +179,7 @@ export default function GameOverScreen({
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.leaveGameBtn}
+                style={[styles.leaveGameBtn, windowWidth < 420 && { width: '100%', flex: 0 }]}
                 onPress={onLeaveGame}
                 activeOpacity={0.8}
               >
@@ -328,12 +331,21 @@ const styles = StyleSheet.create({
     gap: 14,
     justifyContent: 'center',
   },
+  horizontalRevealScroll: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+    alignItems: 'stretch',
+  },
   playerRevealTile: {
     backgroundColor: 'rgba(30, 27, 75, 0.75)',
     borderRadius: 16,
-    padding: 14,
+    padding: 12,
     alignItems: 'center',
-    width: Platform.OS === 'web' && SCREEN_WIDTH > 600 ? 150 : '45%',
+    width: 136,
+    minWidth: 136,
+    maxWidth: 136,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
@@ -410,6 +422,11 @@ const styles = StyleSheet.create({
     gap: 14,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  actionButtonsRowMobile: {
+    flexDirection: 'column',
+    width: '100%',
+    gap: 10,
   },
   returnLobbyBtn: {
     flex: 2,

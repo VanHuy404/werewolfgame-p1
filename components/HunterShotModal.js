@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 
 const crosshairImg = require('../assets/hunter_crosshair.png');
+const glassCrackImg = require('../assets/glass_crack.png');
 
 const HUNTER_CHANT = 'Sẽ có những con cá phải trả gió!';
 
@@ -121,10 +122,12 @@ export default function HunterShotModal({
   onClose = () => {},
 }) {
   const target = targetPlayer || victimPlayer;
+  const isWolf = target?.role === 'wolf' || target?.isWolf === true;
 
   // Stages: 'emerging' -> 'targeting' -> 'chanting' -> 'firing' -> 'fallen'
   const [stage, setStage] = useState('emerging');
   const [typedText, setTypedText] = useState('');
+  const [revealedWolf, setRevealedWolf] = useState(false);
 
   // Animated values
   const backdropAnim = useRef(new Animated.Value(0)).current;
@@ -136,6 +139,10 @@ export default function HunterShotModal({
   const crosshairScale = useRef(new Animated.Value(2.2)).current;
   const crosshairOpacity = useRef(new Animated.Value(0)).current;
   const crosshairRotate = useRef(new Animated.Value(0)).current;
+
+  // Vết nứt trên avatar khi trúng sói
+  const crackOpacity = useRef(new Animated.Value(0)).current;
+  const crackScale = useRef(new Animated.Value(0.7)).current;
 
   // Vết đạn & nổ
   const sparksAnim = useRef(new Animated.Value(0)).current;
@@ -153,6 +160,9 @@ export default function HunterShotModal({
     crosshairScale.setValue(2.2);
     crosshairOpacity.setValue(0);
     crosshairRotate.setValue(0);
+    crackOpacity.setValue(0);
+    crackScale.setValue(0.7);
+    setRevealedWolf(false);
     sparksAnim.setValue(0);
     grayscaleAnim.setValue(0);
     badgeScale.setValue(0.3);
@@ -207,9 +217,15 @@ export default function HunterShotModal({
     }, 1400);
 
     // 4. Sau 2.8s: TIẾNG SÚNG NỔ VANG TRỜI (BANG!)
+    let timerCrack = null;
     const timerFire = setTimeout(() => {
       setStage('firing');
       playSynthSound('gunshot');
+
+      // Nếu bắn trúng Ma Sói: Ngay khi nổ súng Avatar lập tức hiện nguyên hình Ma Sói 🐺
+      if (isWolf) {
+        setRevealedWolf(true);
+      }
 
       // Chớp cam đỏ rực
       Animated.sequence([
@@ -233,9 +249,20 @@ export default function HunterShotModal({
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }).start();
+
+      // Sau phát súng 0.25s: Vết nứt có sẵn (glass_crack.png) xuất hiện rạn vỡ trên Avatar Ma Sói
+      if (isWolf) {
+        timerCrack = setTimeout(() => {
+          playSynthSound('lockOn');
+          Animated.parallel([
+            Animated.timing(crackOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+            Animated.spring(crackScale, { toValue: 1.0, friction: 5, tension: 70, useNativeDriver: true }),
+          ]).start();
+        }, 250);
+      }
     }, 2800);
 
-    // 5. Sau 3.4s: Nạn nhân gục ngã phủ xám tử nạn, hiện huy hiệu
+    // 5. Sau 3.5s: Nạn nhân gục ngã phủ xám tử nạn, hiện huy hiệu
     const timerFallen = setTimeout(() => {
       setStage('fallen');
 
@@ -249,13 +276,14 @@ export default function HunterShotModal({
         Animated.spring(badgeScale, { toValue: 1, friction: 4, tension: 55, useNativeDriver: true }),
         Animated.timing(badgeOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
       ]).start();
-    }, 3400);
+    }, 3500);
 
     return () => {
       clearTimeout(timerCrosshair);
       clearTimeout(timerChant);
       if (typingInterval) clearInterval(typingInterval);
       clearTimeout(timerFire);
+      if (timerCrack) clearTimeout(timerCrack);
       clearTimeout(timerFallen);
     };
   }, [visible, target?.id]);
@@ -305,12 +333,12 @@ export default function HunterShotModal({
       <View style={styles.announceHeaderBox}>
         <Text style={styles.announceMainTitle}>
           {isFallen
-            ? '🎯 MỤC TIÊU ĐÃ BỊ THỢ SĂN BẮN HẠ!'
+            ? (isWolf ? '🐺 MA SÓI ĐÃ BỊ THỢ SĂN BẮN HẠ!' : '🎯 MỤC TIÊU ĐÃ BỊ THỢ SĂN BẮN HẠ!')
             : '🏹 VIÊN ĐẠN BÁO THÙ CỦA THỢ SĂN!'}
         </Text>
         <Text style={styles.announceSubTitle}>
           {isFallen
-            ? 'Phát đạn xé toạc màn đêm — Thợ Săn đã mang theo một kẻ xuống mồ!'
+            ? (isWolf ? 'Phát đạn thần sầu vạch trần chân tướng Ma Sói và tiêu diệt kẻ ác!' : 'Phát đạn xé toạc màn đêm — Thợ Săn đã mang theo một kẻ xuống mồ!')
             : 'Tâm ngắm đã khóa chặt mục tiêu, ngón tay Thợ Săn bóp cò dứt khoát...'}
         </Text>
       </View>
@@ -340,11 +368,14 @@ export default function HunterShotModal({
         <View
           style={[
             styles.avatarCircle,
-            { backgroundColor: isFallen ? '#1E293B' : (target?.avatarColor || '#EF4444') },
+            { backgroundColor: isFallen ? '#1E293B' : (revealedWolf ? '#7F1D1D' : (target?.avatarColor || '#EF4444')) },
+            revealedWolf && styles.avatarCircleWolf,
             isFallen && styles.avatarCircleDead,
           ]}
         >
-          {isCustomImage ? (
+          {revealedWolf ? (
+            <Text style={styles.avatarEmoji}>🐺</Text>
+          ) : isCustomImage ? (
             <Image
               source={{ uri: target.avatar }}
               style={styles.avatarImg}
@@ -354,6 +385,26 @@ export default function HunterShotModal({
             <Text style={styles.avatarEmoji}>
               {target?.avatar || '👤'}
             </Text>
+          )}
+
+          {/* VẾT NỨT CÓ SẴN (glass_crack.png) XUẤT HIỆN TRÊN AVATAR MA SÓI */}
+          {isWolf && (
+            <Animated.View
+              style={[
+                styles.crackOverlay,
+                {
+                  opacity: crackOpacity,
+                  transform: [{ scale: crackScale }],
+                },
+              ]}
+              pointerEvents="none"
+            >
+              <Image
+                source={glassCrackImg}
+                style={styles.crackImage}
+                resizeMode="contain"
+              />
+            </Animated.View>
           )}
 
           {/* Lớp phủ Grayscale đen tối khi bị bắn hạ */}
@@ -448,8 +499,10 @@ export default function HunterShotModal({
             },
           ]}
         >
-          <View style={styles.badgeInner}>
-            <Text style={styles.badgeTitle}>🎯 ĐÃ BỊ THỢ SĂN BẮN HẠ</Text>
+          <View style={[styles.badgeInner, isWolf && styles.badgeInnerWolf]}>
+            <Text style={[styles.badgeTitle, isWolf && styles.badgeTitleWolf]}>
+              {isWolf ? '🐺 MA SÓI ĐÃ BỊ THỢ SĂN BẮN HẠ!' : '🎯 ĐÃ BỊ THỢ SĂN BẮN HẠ'}
+            </Text>
           </View>
         </Animated.View>
       </Animated.View>
@@ -680,6 +733,22 @@ const styles = StyleSheet.create({
     marginTop: 10,
     alignItems: 'center',
   },
+  avatarCircleWolf: {
+    borderColor: '#DC2626',
+    boxShadow: '0 0 28px rgba(220, 38, 38, 0.9)',
+    backgroundColor: '#7F1D1D',
+  },
+  crackOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 15,
+  },
+  crackImage: {
+    width: 230,
+    height: 230,
+    opacity: 0.95,
+  },
   badgeInner: {
     backgroundColor: 'rgba(239, 68, 68, 0.25)',
     borderWidth: 1.5,
@@ -689,11 +758,21 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     boxShadow: '0 0 15px rgba(239, 68, 68, 0.4)',
   },
+  badgeInnerWolf: {
+    backgroundColor: 'rgba(220, 38, 38, 0.35)',
+    borderColor: '#DC2626',
+    boxShadow: '0 0 20px rgba(220, 38, 38, 0.8)',
+  },
   badgeTitle: {
     color: '#FCA5A5',
     fontWeight: '900',
     fontSize: 13,
     letterSpacing: 0.8,
+  },
+  badgeTitleWolf: {
+    color: '#FECACA',
+    fontWeight: '900',
+    fontSize: 13.5,
   },
 
   bottomBar: {

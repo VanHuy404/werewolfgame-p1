@@ -4,6 +4,32 @@ Tất cả các thay đổi, cập nhật kiến trúc và tính năng của d�
 
 ---
 
+## [2.3.0] - 2026-10-30
+
+### 🏹 Hoàn Thiện Thợ Săn Bắn Khi Bị Treo Cổ & Chết Đêm
+- **Hiển thị đầy đủ thanh thao tác khi Thợ Săn bị chết ([screens/GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js)):**
+  - Bổ sung `|| isHunterShot` vào điều kiện hiển thị `bottomActionBar`, khắc phục lỗi Thợ Săn bị treo cổ hoặc bị cắn đêm không thấy thanh điều khiển nổ súng.
+  - Cập nhật thông điệp nín thở chờ đợi cho toàn bộ phòng: *"Thợ Săn [Tên] đang hấp hối và chuẩn bị bóp cò phát súng trăn trối kéo theo một kẻ xuống mồ! Cả làng nín thở chờ đợi..."*.
+- **Hiệu ứng Thợ Săn bắn trúng Sói ([components/HunterShotModal.js](file:///d:/code%20game/Werewolfdemo/components/HunterShotModal.js)):**
+  - Nếu mục tiêu bị Thợ Săn bắn hạ là Ma Sói: Avatar mục tiêu lập tức biến đổi thành Sói (`🐺`) kèm hiệu ứng hào quang đỏ, xuất hiện hình ảnh vết nứt rạn toác kính (`glass_crack.png`) đập mạnh vào avatar và chuyển màu tử nạn xám tro kèm huy hiệu `🐺 MA SÓI ĐÃ BỊ THỢ SĂN BẮN HẠ!`.
+
+### 🛡️ Nối Hoạt Ảnh Tay Ba (Bảo Vệ Đỡ Cào Sói -> Phù Thủy Ném Độc)
+- **Chuỗi hoạt ảnh liên hoàn ([server/gameLogic.js](file:///d:/code%20game/Werewolfdemo/server/gameLogic.js), [screens/GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js)):**
+  - Giữ lại `savedPlayer` khi xảy ra tình huống Bảo Vệ, Sói và Phù Thủy cùng nhắm một người chơi.
+  - Hệ thống tự động trình chiếu tuần tự: Khiên Hộ Mệnh của Bảo Vệ đỡ đòn Sói cào thành công trước, rồi lập tức tiếp nối hoạt ảnh Phù Thủy ném độc tử nạn kèm tiêu đề *"Một người muốn cứu, một người muốn giết... Thảm hại thật!"*.
+
+### 🧙‍♀️ Thông Báo Hết Bình Cứu Đúng Đêm Sau & Đếm Ngược 5 Giây Cố Định
+- **Tránh kích hoạt ngay trong đêm vừa dùng bình cứu ([screens/GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js)):**
+  - Khóa khởi tạo `witchStep` theo vòng lặp pha thông qua ref `witchNightInitializedRef`, giúp Phù Thủy chuyển thẳng sang bước hỏi dùng thuốc độc sau khi dùng bình cứu mà không bị hiện bảng hết thuốc ngay lập tức.
+  - Thông báo hết bình cứu chỉ xuất hiện ở đêm sau, kèm đồng hồ đếm ngược 5 giây cố định (`TIẾP TỤC (XEM THUỐC ĐỘC) (5s)`) rồi tự động chuyển sang hỏi dùng thuốc độc.
+
+### 📜 Khung Trượt Ngang Danh Tính Người Chơi (GameOver Screen)
+- **Tối ưu hiển thị kết thúc trận ([screens/GameOverScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameOverScreen.js)):**
+  - Đưa danh sách thẻ người chơi vào `<ScrollView horizontal showsHorizontalScrollIndicator={true}>`, hỗ trợ trượt ngang mượt mà trên cả điện thoại và máy tính khi phòng đông người.
+  - Cố định kích thước thẻ (136px), chống tràn viền chữ (`numberOfLines={1}`, `ellipsizeMode="tail"`), tự động căn chỉnh các nút bấm thành cột trên thiết bị nhỏ gọn.
+
+---
+
 ## [2.2.0] - 2026-10-30
 
 ### 📱 Tối Ưu Giao Diện Điện Thoại (Mobile Responsive UI & Fit-To-Screen)
