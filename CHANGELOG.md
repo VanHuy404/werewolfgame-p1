@@ -1,3 +1,28 @@
+### 🎬🧪 Video Thổi Sáo Tử Nạn (The_Piper_Death.mp4), Đồng Bộ Ném Thuốc Độc Biến Mất & Xóa Bỏ Vòng Tròn Hào Quang
+- **Chèn Video `The_Piper_Death.mp4` Trước Hoạt Ảnh Thổi Sáo Chết:**
+  - Khi Người Thổi Sáo bị tiêu diệt (`PiedPiperPurifiedModal`), game trình chiếu video toàn màn hình cho đến khi video kết thúc mới chuyển sang hoạt ảnh Cây Sáo Thần gãy đôi.
+  - Tích hợp nút bỏ qua video (`Bỏ qua video ⏭️`) cùng cơ chế xử lý lỗi/fallback an toàn.
+  - Server Express hỗ trợ phục vụ tĩnh thư mục `assets` qua `/assets/...`.
+- **Đồng Bộ Dạng Ném Thuốc Độc & Biến Mất:**
+  - Chuyển toàn bộ hoạt ảnh thuốc độc (`WitchPoisonModal`, `ThreeWayClashModal`, `DualKillClashModal`) sang dạng Phù Thủy ném bình độc xoay tít 360 độ từ góc trên phải vào mục tiêu.
+  - Khi va chạm: Bình thuốc nổ tung và **biến mất hoàn toàn**, giải phóng khói và giọt độc tím bắn tung tóe.
+- **Xóa Bỏ Hoàn Toàn Vòng Tròn Đằng Sau Avatar:**
+  - Gỡ bỏ hoàn toàn `auraRing` đằng sau avatar nạn nhân trong `DualKillClashModal.js` để giao diện sắc nét, gọn gàng và không gây rối mắt.
+
+### 🐺🧪 Đòn Trừng Phạt Kép (Sói & Phù Thủy), Tăng 2s Hoạt Ảnh Thắng Thổi Sáo, Fix Chủ Phòng & Thôi Miên Khi F5
+- **Hoạt Ảnh Cả Sói & Phù Thủy Cùng Giết 1 Người (`DualKillClashModal`):**
+  - Câu thoại chạy chữ bên trên: *"Cả thiện và ác đều nhắm vào ngươi , kẻ phản bội"*.
+  - **Sói cào trước:** Vuốt sói chém qua kèm chớp đỏ, rung chấn và máu bắn ra; **vết cào được lưu lại in hằn vĩnh viễn trên avatar**.
+  - **Thuốc độc ném vào sau rồi biến mất:** Phù Thủy ném bình thuốc độc xoay tít bay vào, vỡ toang chấn động rồi **biến mất hoàn toàn**, để lại khói và 24 giọt độc dược tím bung tỏa đè lên vết cào sói.
+  - Tích hợp 4 lớp SFX: tiếng cào vuốt sói (`clawSlash`), tiếng ném bình (`potionThrow`), tiếng vỡ nổ độc dược (`poisonBurst`) và tiếng chuông tử thần (`death`).
+  - Đẩy nút thử hoạt ảnh lên vị trí ngay dưới nhóm tương tác giữa Bảo Vệ và Phù Thủy trong Cài Đặt Phòng.
+- **Tăng 2s Hoạt Ảnh Chiến Thắng Người Thổi Sáo:**
+  - Nâng thời lượng `PiedPiperVictoryModal` từ 2.2s lên 4.2s để vinh danh trọn vẹn.
+- **Giữ Quyền Chủ Phòng Khi Reload (F5):**
+  - Ghi nhận `hostPlayerName` và tự động bàn giao `hostId` mới cho chủ phòng khi reconnect, đồng bộ `players-update` tới toàn bộ client.
+- **Khôi Phục Trạng Thái Bị Thôi Miên Khi F5:**
+  - Đồng bộ `charmedPlayers`, `charmedHistory` và `player.charmed` khi đổi socket ID, không bị mất bùa mê khi tải lại trang.
+
 ### 🎋✨ Hoạt Ảnh Tử Nạn Độc Quyền Cho Người Thổi Sáo: Sáo Thần Nằm Ngang Gãy Đôi & SFX Tre Gãy Kết Hợp Sáo Rít Lần Cuối
 - **Khác Biệt Hoàn Toàn 100% Với Tất Cả Role Khác:**
   - Loại bỏ hoàn toàn khung Avatar tròn đằng sau. Toàn bộ trọng tâm sân khấu dành trọn cho Cây Sáo Thần giữa không gian huyền ảo.

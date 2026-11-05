@@ -18,6 +18,7 @@ import ThreeWayClashModal from './ThreeWayClashModal';
 import PiedPiperModal from './PiedPiperModal';
 import PiedPiperVictoryModal from './PiedPiperVictoryModal';
 import PiedPiperPurifiedModal from './PiedPiperPurifiedModal';
+import DualKillClashModal from './DualKillClashModal';
 
 /**
  * @param {Object} props
@@ -90,6 +91,7 @@ export default function RoomSettings({
   const [piedPiperDualDemoTargets, setPiedPiperDualDemoTargets] = useState([]);
   const [piedPiperVictoryDemoVisible, setPiedPiperVictoryDemoVisible] = useState(false);
   const [piedPiperPurifiedDemoVisible, setPiedPiperPurifiedDemoVisible] = useState(false);
+  const [dualKillDemoVisible, setDualKillDemoVisible] = useState(false);
 
   // Helper lấy mục tiêu test hiệu ứng: Ưu tiên chọn chính Chủ Phòng (host)
   const getHostTarget = (fallbackName = 'Chủ Phòng', fallbackAvatar = '🧙‍♂️', fallbackColor = '#38BDF8') => {
@@ -555,6 +557,15 @@ export default function RoomSettings({
                   <Text style={[styles.clashDemoBtnText, { color: '#7DD3FC' }]}>🛡️🐺☠️ Thử Tương Tác: Bảo Vệ + Ma Sói + Phù Thủy</Text>
                 </TouchableOpacity>
 
+                {/* Nút thử nghiệm Hoạt Ảnh Cả Sói và Phù Thủy cùng giết 1 người */}
+                <TouchableOpacity
+                  style={[styles.clashDemoBtn, { backgroundColor: 'rgba(220, 38, 38, 0.25)', borderColor: '#DC2626' }]}
+                  onPress={() => setDualKillDemoVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.clashDemoBtnText, { color: '#FCA5A5' }]}>🐺🧪 Thử Hoạt Ảnh Sói & Phù Thủy Cùng Giết (Cả Thiện & Ác)</Text>
+                </TouchableOpacity>
+
                 {/* Nút thử nghiệm Thợ Săn Bắn Vào Dân */}
                 <TouchableOpacity
                   style={styles.hunterDemoBtn}
@@ -729,6 +740,14 @@ export default function RoomSettings({
           ]}
           duration={6}
           onClose={() => setPiedPiperPurifiedDemoVisible(false)}
+        />
+
+        {/* Modal chạy thử Hoạt ảnh Cả Sói & Phù Thủy cùng giết 1 người */}
+        <DualKillClashModal
+          visible={dualKillDemoVisible}
+          victimPlayer={getHostTarget('Mục Tiêu Thử Nghiệm', '🧑‍🌾', '#EF4444')}
+          duration={5}
+          onClose={() => setDualKillDemoVisible(false)}
         />
       </View>
     </Modal>

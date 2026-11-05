@@ -160,10 +160,12 @@ export default function WitchPoisonModal({
   const shieldOpacity = useRef(new Animated.Value(0)).current;
   const shieldAuraPulse = useRef(new Animated.Value(1)).current;
 
-  // Bình thuốc độc
-  const potionScale = useRef(new Animated.Value(0.1)).current;
-  const potionOpacity = useRef(new Animated.Value(0)).current;
+  // Bình thuốc độc ném vào (xoay tít từ góc rồi vỡ tan biến mất)
+  const potionTranslateX = useRef(new Animated.Value(200)).current;
   const potionTranslateY = useRef(new Animated.Value(-120)).current;
+  const potionRotate = useRef(new Animated.Value(0)).current;
+  const potionScale = useRef(new Animated.Value(0.4)).current;
+  const potionOpacity = useRef(new Animated.Value(0)).current;
 
   // Hạt độc dược bắn tung tóe
   const poisonExplosionAnim = useRef(new Animated.Value(0)).current;
@@ -184,9 +186,11 @@ export default function WitchPoisonModal({
     shieldScale.setValue(0.1);
     shieldOpacity.setValue(0);
     shieldAuraPulse.setValue(1);
-    potionScale.setValue(0.1);
-    potionOpacity.setValue(0);
+    potionTranslateX.setValue(200);
     potionTranslateY.setValue(-120);
+    potionRotate.setValue(0);
+    potionScale.setValue(0.4);
+    potionOpacity.setValue(0);
     poisonExplosionAnim.setValue(0);
     redTintAnim.setValue(0);
     grayscaleAnim.setValue(0);
@@ -250,19 +254,21 @@ export default function WitchPoisonModal({
       }, 25);
     }, 800);
 
-    // 3. Sau 2.3s: GÕ XONG CÂU THOẠI, MỚI HIỂN THỊ DÙNG THUỐC ĐỘC (NÉM BÌNH ĐỘC LAO TỚI)
+    // 3. Sau 2.3s: GÕ XONG CÂU THOẠI, PHÙ THỦY NÉM BÌNH ĐỘC XOAY TÍT BAY VÀO
     const timerThrow = setTimeout(() => {
       playSynthSound('potionThrow');
 
-      // Bình thuốc độc bay vụt tới avatar
+      // Bình thuốc độc xoay tít bay vụt từ góc trên phải vào ngực avatar
       Animated.parallel([
-        Animated.timing(potionOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
-        Animated.spring(potionScale, { toValue: 1.0, friction: 5, tension: 60, useNativeDriver: true }),
-        Animated.timing(potionTranslateY, { toValue: 0, duration: 350, useNativeDriver: true }),
+        Animated.timing(potionOpacity, { toValue: 1, duration: 70, useNativeDriver: true }),
+        Animated.timing(potionTranslateX, { toValue: 0, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(potionTranslateY, { toValue: 0, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(potionRotate, { toValue: 1, duration: 240, useNativeDriver: true }),
+        Animated.spring(potionScale, { toValue: 1.15, friction: 4, tension: 60, useNativeDriver: true }),
       ]).start();
     }, 2300);
 
-    // 4. Sau 2.85s: BÌNH VỠ TUNG TÓE (PHÁ VỠ KHIÊN NẾU CÓ), AVATAR CHUYỂN ĐỎ NHIỄM ĐỘC
+    // 4. Sau 2.85s: BÌNH VỠ TUNG TÓE RỒI BIẾN MẤT HOÀN TOÀN (PHÁ VỠ KHIÊN NẾU CÓ)
     const timerExplode = setTimeout(() => {
       setStage('exploding');
       playSynthSound('poisonBurst');
@@ -278,10 +284,12 @@ export default function WitchPoisonModal({
 
       // Rung chấn màn hình
       Animated.sequence([
-        Animated.timing(shakeAnim, { toValue: 16, duration: 40, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: -14, duration: 40, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 10, duration: 40, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 0, duration: 40, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 18, duration: 35, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: -15, duration: 35, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 12, duration: 35, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: -8, duration: 35, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 5, duration: 35, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 0, duration: 35, useNativeDriver: true }),
       ]).start();
 
       // Khiên bị độc dược xuyên thủng tan biến
@@ -290,15 +298,16 @@ export default function WitchPoisonModal({
         if (pulseLoop) pulseLoop.stop();
       }
 
-      // Hạt độc bắn tung tóe & avatar chuyển đỏ như bị sói cắn
+      // BÌNH THUỐC ĐỘC NỔ VỠ VÀ BIẾN MẤT HOÀN TOÀN
       Animated.parallel([
+        Animated.timing(potionOpacity, { toValue: 0, duration: 160, useNativeDriver: true }),
+        Animated.timing(potionScale, { toValue: 1.8, duration: 200, easing: Easing.out(Easing.ease), useNativeDriver: true }),
         Animated.timing(poisonExplosionAnim, {
           toValue: 1,
           duration: 700,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
-        Animated.timing(potionOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
         Animated.timing(redTintAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
       ]).start();
     }, 2850);
@@ -347,6 +356,11 @@ export default function WitchPoisonModal({
       target.avatar.length > 30);
 
   const isFallen = stage === 'fallen';
+
+  const potionSpin = potionRotate.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   return (
     <Animated.View style={[styles.overlay, { opacity: backdropAnim }]}>
@@ -472,28 +486,30 @@ export default function WitchPoisonModal({
             <Text style={styles.deathSkullWatermark}>💀</Text>
             <View style={styles.deathFilterTone} />
           </Animated.View>
-
-          {/* BÌNH THUỐC ĐỘC LAO VÀO */}
-          <Animated.View
-            style={[
-              styles.potionImgWrapper,
-              {
-                opacity: potionOpacity,
-                transform: [
-                  { scale: potionScale },
-                  { translateY: potionTranslateY },
-                ],
-              },
-            ]}
-            pointerEvents="none"
-          >
-            <Image
-              source={potionPoisonImg}
-              style={styles.potionImg}
-              resizeMode="contain"
-            />
-          </Animated.View>
         </View>
+
+        {/* BÌNH THUỐC ĐỘC LAO VÀO */}
+        <Animated.View
+          style={[
+            styles.potionImgWrapper,
+            {
+              opacity: potionOpacity,
+              transform: [
+                { translateX: potionTranslateX },
+                { translateY: potionTranslateY },
+                { rotate: potionSpin },
+                { scale: potionScale },
+              ],
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <Image
+            source={potionPoisonImg}
+            style={styles.potionImg}
+            resizeMode="contain"
+          />
+        </Animated.View>
 
         {/* HẠT ĐỘC DƯỢC BẮN TUNG TÓE */}
         <View style={styles.sparksContainer} pointerEvents="none">
@@ -709,11 +725,11 @@ const styles = StyleSheet.create({
 
   potionImgWrapper: {
     position: 'absolute',
-    width: 180,
-    height: 180,
+    width: 150,
+    height: 150,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10,
+    zIndex: 16,
   },
   potionImg: {
     width: '100%',

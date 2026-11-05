@@ -41,6 +41,12 @@ const io = new Server(server, {
 // Bộ nhớ đệm tạm thời cho người chơi ngắt kết nối tạm (F5 / tải lại trang)
 const pendingDisconnects = new Map(); // key: socketId, value: { timer, roomCode }
 
+// Phục vụ thư mục tài nguyên assets tĩnh (video, âm thanh, hình ảnh)
+const assetsPath = path.join(__dirname, '../assets');
+if (fs.existsSync(assetsPath)) {
+  app.use('/assets', express.static(assetsPath));
+}
+
 // Thư mục chứa giao diện web tĩnh đã export (dist)
 const distPath = path.join(__dirname, '../dist');
 if (fs.existsSync(distPath)) {
@@ -395,6 +401,10 @@ function finishPiedPiperPhase(room) {
     room.nightActions.piedPiperTargets.forEach((targetId) => {
       room.charmedPlayers.add(targetId);
       room.charmedHistory[targetId] = true;
+      const targetPlayer = room.players.get(targetId);
+      if (targetPlayer) {
+        targetPlayer.charmed = true;
+      }
     });
 
     // Cập nhật cho Người Thổi Sáo
@@ -525,7 +535,11 @@ function startDayAnnounce(room, nightResult = {}) {
   // Ghi rõ tên người chết, người được cứu và người bị trúng độc vào khung chat
   let announceChat = '';
   if (deadPlayer && poisonedPlayer) {
-    announceChat = `💀 [BÌNH MINH ĐẪM MÁU]: Đêm qua, ${deadPlayer.name} đã bị Ma Sói sát hại, và ${poisonedPlayer.name} đã bị trúng độc tử vong!`;
+    if (deadPlayer.id === poisonedPlayer.id) {
+      announceChat = `💀☠️ [CẢ THIỆN VÀ ÁC]: Đêm qua, ${deadPlayer.name} đã bị cả Ma Sói cào xé và Phù Thủy hạ độc tử vong! "Cả thiện và ác đều nhắm vào ngươi , kẻ phản bội"`;
+    } else {
+      announceChat = `💀 [BÌNH MINH ĐẪM MÁU]: Đêm qua, ${deadPlayer.name} đã bị Ma Sói sát hại, và ${poisonedPlayer.name} đã bị trúng độc tử vong!`;
+    }
   } else if (deadPlayer) {
     announceChat = `💀 [BÌNH MINH]: Đêm qua, ${deadPlayer.name} đã bị Ma Sói sát hại dã man!`;
   } else if (poisonedPlayer) {
@@ -578,6 +592,8 @@ function startDayAnnounce(room, nightResult = {}) {
     // Thanh tẩy sạch sẽ bùa mê
     room.charmedPlayers = new Set();
     room.charmedHistory = {};
+    room.players.forEach((p) => { p.charmed = false; });
+    room.players.forEach((p) => { p.charmed = false; });
 
     io.to(room.code).emit('pied-piper-purified', {
       piedPiper: {
@@ -702,6 +718,8 @@ function concludeDayVote(room) {
     // Thanh tẩy sạch sẽ bùa mê tiếng sáo khi Người Thổi Sáo chết
     room.charmedPlayers = new Set();
     room.charmedHistory = {};
+    room.players.forEach((p) => { p.charmed = false; });
+    room.players.forEach((p) => { p.charmed = false; });
   }
 
   // Ghi nhận kết quả biểu quyết và số Sói còn lại vào khung chat (không tiết lộ số người bị thôi miên theo Phương án 1)
@@ -892,6 +910,7 @@ function processHunterShot(room, hunterPlayer, targetPlayer, passed, cause) {
     }
     room.charmedPlayers = new Set();
     room.charmedHistory = {};
+    room.players.forEach((p) => { p.charmed = false; });
 
     setTimeout(() => {
       io.to(room.code).emit('pied-piper-purified', {
@@ -1164,6 +1183,7 @@ io.on('connection', (socket) => {
     room.seerHistory = {};
     room.charmedPlayers = new Set();
     room.charmedHistory = {};
+    room.players.forEach((p) => { p.charmed = false; });
 
     console.log(`🎮 Phòng ${room.code} bắt đầu game! (${playerCount} người chơi)`);
 
@@ -1700,10 +1720,12 @@ io.on('connection', (socket) => {
       // 1. Nếu đang ở phòng chờ (WAITING)
       if (room.phase === PHASES.WAITING) {
         let existingPlayer = oldPlayerId ? room.players.get(oldPlayerId) : null;
+        let matchedPlayerId = oldPlayerId;
         if (!existingPlayer) {
           for (const [id, p] of room.players) {
             if (p.name.toLowerCase() === (playerName || '').toLowerCase()) {
               existingPlayer = p;
+              matchedPlayerId = id;
               room.players.delete(id);
               break;
             }
@@ -1712,7 +1734,11 @@ io.on('connection', (socket) => {
           room.players.delete(oldPlayerId);
         }
 
-        const isHost = oldPlayerId === room.hostId || (existingPlayer && room.hostId === existingPlayer.id) || room.players.size === 0;
+        const isHost = (oldPlayerId && oldPlayerId === room.hostId) ||
+                       (matchedPlayerId && matchedPlayerId === room.hostId) ||
+                       (existingPlayer && room.hostId === existingPlayer.id) ||
+                       (room.hostPlayerName && playerName && room.hostPlayerName.toLowerCase() === playerName.toLowerCase()) ||
+                       room.players.size === 0;
 
         const playerObj = {
           id: socket.id,
@@ -1727,6 +1753,7 @@ io.on('connection', (socket) => {
         room.players.set(socket.id, playerObj);
         if (isHost) {
           room.hostId = socket.id;
+          room.hostPlayerName = playerObj.name;
         }
 
         socket.emit('room-joined', {
@@ -1738,16 +1765,19 @@ io.on('connection', (socket) => {
 
         io.to(room.code).emit('players-update', {
           players: getPlayersData(room),
+          hostId: room.hostId,
         });
         return;
       }
 
       // 2. Nếu đang trong trận đấu
       let existingPlayer = oldPlayerId ? room.players.get(oldPlayerId) : null;
+      let matchedPlayerId = oldPlayerId;
       if (!existingPlayer) {
         for (const [id, p] of room.players) {
           if (p.name.toLowerCase() === (playerName || '').toLowerCase()) {
             existingPlayer = p;
+            matchedPlayerId = id;
             room.players.delete(id);
             break;
           }
@@ -1757,13 +1787,53 @@ io.on('connection', (socket) => {
       }
 
       if (existingPlayer) {
+        // Kiểm tra quyền Chủ Phòng: theo socket id cũ, matched id cũ, hoặc tên chủ phòng
+        const isHost = (oldPlayerId && room.hostId === oldPlayerId) ||
+                       (matchedPlayerId && room.hostId === matchedPlayerId) ||
+                       (room.hostId === existingPlayer.id) ||
+                       (room.hostPlayerName && playerName && room.hostPlayerName.toLowerCase() === playerName.toLowerCase());
+
         existingPlayer.id = socket.id;
         existingPlayer.connected = true;
         room.players.set(socket.id, existingPlayer);
 
-        if (room.hostId === oldPlayerId) {
+        if (isHost) {
           room.hostId = socket.id;
+          room.hostPlayerName = existingPlayer.name;
         }
+
+        // Khôi phục trạng thái bị Thôi Miên
+        const wasCharmed = Boolean(
+          existingPlayer.charmed ||
+          (room.charmedPlayers && (
+            (oldPlayerId && room.charmedPlayers.has(oldPlayerId)) ||
+            (matchedPlayerId && room.charmedPlayers.has(matchedPlayerId)) ||
+            (existingPlayer.id && room.charmedPlayers.has(existingPlayer.id))
+          ))
+        );
+
+        if (wasCharmed) {
+          if (!room.charmedPlayers) room.charmedPlayers = new Set();
+          if (oldPlayerId) room.charmedPlayers.delete(oldPlayerId);
+          if (matchedPlayerId) room.charmedPlayers.delete(matchedPlayerId);
+          room.charmedPlayers.add(socket.id);
+          existingPlayer.charmed = true;
+        }
+
+        // Cập nhật charmedHistory nếu nạn nhân có trong history của Người Thổi Sáo
+        if (room.charmedHistory) {
+          if (oldPlayerId && room.charmedHistory[oldPlayerId]) {
+            room.charmedHistory[socket.id] = room.charmedHistory[oldPlayerId];
+            delete room.charmedHistory[oldPlayerId];
+          }
+          if (matchedPlayerId && room.charmedHistory[matchedPlayerId]) {
+            room.charmedHistory[socket.id] = room.charmedHistory[matchedPlayerId];
+            delete room.charmedHistory[matchedPlayerId];
+          }
+        }
+
+        // Nếu người reconnect chính là Người Thổi Sáo -> khôi phục charmedHistory cho họ
+        const piperHistory = existingPlayer.role === ROLES.PIED_PIPER ? (room.charmedHistory || {}) : {};
 
         // Khôi phục màn hình game cho người chơi
         socket.emit('reconnected-in-game', {
@@ -1780,12 +1850,13 @@ io.on('connection', (socket) => {
           wasProtected: Boolean(room.nightActions && room.nightActions.wasProtected),
           lastProtectedTarget: room.nightActions ? room.nightActions.lastProtectedTarget : null,
           seerHistory: existingPlayer.role === ROLES.SEER ? (room.seerHistory || {}) : {},
-          charmedHistory: existingPlayer.role === ROLES.PIED_PIPER ? (room.charmedHistory || {}) : {},
+          charmedHistory: piperHistory,
           charmCountRequired: existingPlayer.role === ROLES.PIED_PIPER ? (room.settings.piedPiperCharmCount || 2) : 2,
         });
 
         io.to(room.code).emit('players-update', {
           players: getPlayersData(room),
+          hostId: room.hostId,
         });
       } else {
         socket.emit('reconnect-failed', { message: 'Không thể khôi phục phiên trận đấu!' });
@@ -1896,6 +1967,7 @@ io.on('connection', (socket) => {
     room.seerHistory = {};
     room.charmedPlayers = new Set();
     room.charmedHistory = {};
+    room.players.forEach((p) => { p.charmed = false; });
     room.messages = [];
     room.nightActions = {
       wolfVotes: new Map(),

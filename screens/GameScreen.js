@@ -26,6 +26,7 @@ import WitchHealSaveModal from '../components/WitchHealSaveModal';
 import WitchPoisonModal from '../components/WitchPoisonModal';
 import HunterShotModal from '../components/HunterShotModal';
 import ThreeWayClashModal from '../components/ThreeWayClashModal';
+import DualKillClashModal from '../components/DualKillClashModal';
 import PiedPiperModal, { playFluteSynth } from '../components/PiedPiperModal';
 import PiedPiperPurifiedModal, { playPurificationSynth } from '../components/PiedPiperPurifiedModal';
 
@@ -203,6 +204,9 @@ export default function GameScreen({
   // Hiệu ứng Tương tác ba bên liên tục (Bảo Vệ + Ma Sói + Phù Thủy)
   const [threeWayClashModalVisible, setThreeWayClashModalVisible] = useState(false);
 
+  // Hiệu ứng Cả Ma Sói và Phù Thủy cùng giết 1 người trong đêm
+  const [dualKillModalVisible, setDualKillModalVisible] = useState(false);
+
   // Trạng thái & Hiệu ứng Phù Thủy
   const [witchState, setWitchState] = useState(initialWitchState || { hasHeal: true, hasPoison: true });
   const [witchVictim, setWitchVictim] = useState(wolfVictim || null);
@@ -287,27 +291,40 @@ export default function GameScreen({
   // Quản lý hiển thị hoạt ảnh điện ảnh buổi sáng (DAY_ANNOUNCE)
   useEffect(() => {
     if (phase === PHASES.DAY_ANNOUNCE) {
+      const isDualKill = deadPlayer && poisonedPlayer && deadPlayer.id === poisonedPlayer.id && !shieldClashPlayer;
       if (shieldClashPlayer) {
         // YÊU CẦU: Hoạt ảnh mới đè hiệu ứng liên tục tương tác tay ba (Sói cào -> Khiên đỡ thành công -> Phù Thủy ném độc vỡ khiên -> Tử trận)
         setThreeWayClashModalVisible(true);
+        setDualKillModalVisible(false);
+        setBodyguardSaveModalVisible(false);
+        setWitchHealModalVisible(false);
+        setWolfClawModalVisible(false);
+        setWitchPoisonModalVisible(false);
+      } else if (isDualKill) {
+        // CẢ SÓI VÀ PHÙ THỦY CÙNG GIẾT 1 NGƯỜI ("Cả thiện và ác đều nhắm vào ngươi , kẻ phản bội")
+        setDualKillModalVisible(true);
+        setThreeWayClashModalVisible(false);
         setBodyguardSaveModalVisible(false);
         setWitchHealModalVisible(false);
         setWolfClawModalVisible(false);
         setWitchPoisonModalVisible(false);
       } else if (witchSavedPlayer) {
         setWitchHealModalVisible(true);
+        setDualKillModalVisible(false);
         setBodyguardSaveModalVisible(false);
         setWolfClawModalVisible(false);
         setWitchPoisonModalVisible(false);
         setThreeWayClashModalVisible(false);
       } else if (savedPlayer) {
         setBodyguardSaveModalVisible(true);
+        setDualKillModalVisible(false);
         setWitchHealModalVisible(false);
         setWolfClawModalVisible(false);
         setWitchPoisonModalVisible(false);
         setThreeWayClashModalVisible(false);
       } else if (deadPlayer) {
         setWolfClawModalVisible(true);
+        setDualKillModalVisible(false);
         setWitchHealModalVisible(false);
         setBodyguardSaveModalVisible(false);
         setWitchPoisonModalVisible(false);
@@ -315,6 +332,7 @@ export default function GameScreen({
       } else if (poisonedPlayer) {
         // Chỉ trúng độc thông thường của Phù Thủy
         setWitchPoisonModalVisible(true);
+        setDualKillModalVisible(false);
         setWolfClawModalVisible(false);
         setBodyguardSaveModalVisible(false);
         setWitchHealModalVisible(false);
@@ -322,6 +340,7 @@ export default function GameScreen({
       }
     } else {
       setThreeWayClashModalVisible(false);
+      setDualKillModalVisible(false);
       setWolfClawModalVisible(false);
       setBodyguardSaveModalVisible(false);
       setWitchHealModalVisible(false);
@@ -404,13 +423,23 @@ export default function GameScreen({
     setWolfClawModalVisible(false);
     setBodyguardSaveModalVisible(false);
     setWitchHealModalVisible(false);
-    if (poisonedPlayer && !shieldClashPlayer) {
+    if (poisonedPlayer && !shieldClashPlayer && (!deadPlayer || deadPlayer.id !== poisonedPlayer.id)) {
       setTimeout(() => {
         setWitchPoisonModalVisible(true);
       }, 350);
     } else {
       triggerNightPurificationIfPending();
     }
+  };
+
+  // Khi modal đòn trừng phạt kép (Sói & Phù Thủy cùng giết 1 người) đóng
+  const handleDualKillModalClose = () => {
+    if (autoAdvanceModalTimerRef.current) {
+      clearTimeout(autoAdvanceModalTimerRef.current);
+      autoAdvanceModalTimerRef.current = null;
+    }
+    setDualKillModalVisible(false);
+    triggerNightPurificationIfPending();
   };
 
   // Khi modal trúng độc đóng -> kiểm tra kích hoạt hoạt ảnh Thanh Tẩy Hoàng Kim nếu Người Thổi Sáo chết
@@ -471,6 +500,15 @@ export default function GameScreen({
         if (autoAdvanceModalTimerRef.current) clearTimeout(autoAdvanceModalTimerRef.current);
       };
     }
+
+    if (dualKillModalVisible && pendingNightPurificationRef.current) {
+      autoAdvanceModalTimerRef.current = setTimeout(() => {
+        handleDualKillModalClose();
+      }, 4350);
+      return () => {
+        if (autoAdvanceModalTimerRef.current) clearTimeout(autoAdvanceModalTimerRef.current);
+      };
+    }
   }, [
     phase,
     wolfClawModalVisible,
@@ -478,6 +516,7 @@ export default function GameScreen({
     witchHealModalVisible,
     witchPoisonModalVisible,
     threeWayClashModalVisible,
+    dualKillModalVisible,
     poisonedPlayer,
     shieldClashPlayer,
   ]);
@@ -1992,6 +2031,14 @@ export default function GameScreen({
             victimPlayer={shieldClashPlayer}
             timeLeft={timeLeft || 9}
             onClose={handleThreeWayClashModalClose}
+          />
+
+          {/* ================= MODAL HIỆU ỨNG CẢ SÓI VÀ PHÙ THỦY CÙNG GIẾT 1 NGƯỜI ================= */}
+          <DualKillClashModal
+            visible={dualKillModalVisible && !!deadPlayer && !!poisonedPlayer && deadPlayer.id === poisonedPlayer.id && !shieldClashPlayer}
+            victimPlayer={deadPlayer}
+            duration={5}
+            onClose={handleDualKillModalClose}
           />
 
           {/* ================= MODAL HIỆU ỨNG THỢ SĂN NỔ SÚNG BẮN HẠ ================= */}

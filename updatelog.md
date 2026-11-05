@@ -2,6 +2,57 @@
 
 Chào mừng các dân làng và bầy sói! Dưới đây là thông tin chi tiết về các bản cập nhật mới nhất của **Ma Sói Online**, tập trung vào tính năng mới, cân bằng vai trò và tối ưu hóa trải nghiệm người chơi.
 
+## ⚔️ Phiên Bản 2.5.5 - ĐỒNG BỘ NÉM THUỐC ĐỘC BIẾN MẤT, BỎ VÒNG TRÒN VÀ CHÈN VIDEO THỔI SÁO TỬ NẠN
+*(Cập nhật ngày: 05/11/2026)*
+
+### 🧪 Đồng Bộ Hoạt Ảnh Thuốc Độc Sang Dạng Ném Xoay Tít & Vỡ Tan Biến Mất:
+- **Áp Dụng Cho Tất Cả Các Modal Thuốc Độc:**
+  - `WitchPoisonModal.js` (Phù Thủy Hạ Độc Trong Đêm / Xung Đột Khiên & Độc).
+  - `ThreeWayClashModal.js` (Đại Chiến 3 Phe: Bảo Vệ + Ma Sói + Phù Thủy).
+  - `DualKillClashModal.js` (Cả Sói & Phù Thủy Cùng Giết).
+- **Diễn Hoạt Ném Chân Thực:**
+  - Bình thuốc độc từ góc trên phải xoay tít 360 độ bay vụt thẳng vào ngực nạn nhân (`translateX: 200 -> 0`, `translateY: -120 -> 0`, `scale: 0.4 -> 1.15`).
+  - Khi đập trúng nạn nhân: Bình vỡ toang, nảy to và **biến mất hoàn toàn** (`opacity: 1 -> 0`, `scale: 1.15 -> 1.8`), bung tỏa hạt độc dược tím rực rỡ, không còn bị lưu lại cứng đờ trên màn hình.
+
+### 🚫 Xóa Bỏ Hoàn Toàn Vòng Tròn Đằng Sau Của Hoạt Ảnh Sói & Phù Thủy:
+- Đã gỡ bỏ 100% vòng tròn hào quang (`auraRing`) đằng sau avatar trong `DualKillClashModal.js`, giúp avatar nạn nhân nổi bật thanh thoát, sắc nét và không bị rối mắt.
+
+### 🎬 Chèn Video Điện Ảnh "The_Piper_Death.mp4" Trước Hoạt Ảnh Thổi Sáo Tử Nạn:
+- **Trình Chiếu Video Trước Khi Kích Hoạt Hoạt Ảnh:**
+  - Khi Người Thổi Sáo bị tiêu diệt (`PiedPiperPurifiedModal`), game sẽ ưu tiên phát video điện ảnh độc quyền `assets/videos/The_Piper_Death.mp4` toàn màn hình.
+  - Video chạy hết hoàn toàn (`onEnded`) thì hoạt ảnh Cây Sáo Thần gãy đôi và câu chú giải trừ lời nguyền mới chính thức xuất hiện.
+  - Tích hợp nút **"Bỏ qua video ⏭️"** ở góc màn hình để người chơi có thể lướt nhanh nếu muốn.
+  - Máy chủ backend đã hỗ trợ phục vụ tĩnh trực tiếp thư mục `assets` qua endpoint `/assets/...`.
+
+---
+
+## ⚔️ Phiên Bản 2.5.4 - HOẠT ẢNH TRỪNG PHẠT KÉP (SÓI & PHÙ THỦY), GIỮ QUYỀN CHỦ PHÒNG & KHÔI PHỤC THÔI MIÊN KHI F5
+*(Cập nhật ngày: 05/11/2026)*
+
+### 🐺🧪 Hoạt Ảnh Độc Quyền Khi Cả Sói & Phù Thủy Cùng Giết 1 Người:
+- **Đòn Trừng Phạt Kép Điện Ảnh:** Khi Ma Sói cào xé và Phù Thủy ném thuốc độc vào cùng một nạn nhân trong đêm (không có Bảo Vệ đỡ), game kích hoạt modal điện ảnh đặc biệt `DualKillClashModal`.
+- **Câu Thoại Niệm Chú:** Dòng chữ chạy typewriter nổi bồng bềnh bên trên nạn nhân:
+  > *"Cả thiện và ác đều nhắm vào ngươi , kẻ phản bội"*
+- **Diễn Hoạt Tuần Tự Chuẩn Xác (Sói Cào Trước - Thuốc Độc Ném Sau):**
+  1. **Sói Cào Trước & Lưu Lại Vết Cào:** Nanh vuốt sói chém vụt qua avatar kèm chớp sáng đỏ, máu bắn tung tóe. **Vết cào sói được lưu lại vĩnh viễn in hằn trên ngực nạn nhân**.
+  2. **Thuốc Độc Ném Vào Rồi Biến Mất:** Phù Thủy ném bình thuốc độc xoay tít bay vào ngực nạn nhân, đập vỡ toang chấn động rồi **biến mất hoàn toàn**, giải phóng 24 giọt độc dược tím bung tỏa đè lên vết cào sói.
+  3. **Tử Nạn:** Avatar chuyển tông đen xám tử nạn, dập huy hiệu `💀 BỊ CẢ SÓI & PHÙ THỦY TIÊU DIỆT`.
+- **SFX Web Audio API Độc Quyền:** Phân tách âm thanh 4 lớp riêng biệt: Tiếng cào xé vuốt sói (`clawSlash`) ➔ Tiếng ném bình trong gió (`potionThrow`) ➔ Tiếng vỡ choang và độc dược nổ bung (`poisonBurst`) ➔ Tiếng chuông tử thần u ám (`death`).
+- **Giao Diện Cài Đặt Phòng:** Đẩy nút thử hoạt ảnh *"🐺🧪 Thử Hoạt Ảnh Sói & Phù Thủy Cùng Giết"* lên nằm ngay dưới nhóm tương tác giữa Bảo Vệ và Phù Thủy để người chơi dễ dàng tìm kiếm và thử nghiệm.
+
+### 🎶 Tăng Thời Gian Hoạt Ảnh Thắng Của Người Thổi Sáo:
+- Tăng thời gian hiển thị hoạt ảnh chiến thắng điện ảnh `PiedPiperVictoryModal` thêm 2.0 giây (từ 2.2s lên 4.2s), giúp người chơi và phòng chiêm ngưỡng trọn vẹn màn vinh danh mặt trăng kỳ ảo của Phe Thứ 3 trước khi vào bảng tổng kết.
+
+### 👑 Giữ Vững Quyền Chủ Phòng Khi Tải Lại Trang (F5):
+- Khắc phục triệt để lỗi chủ phòng tải lại trang bị mất quyền chủ phòng.
+- Máy chủ ghi nhận `hostPlayerName` và tự động khôi phục `hostId` cho chủ phòng khi kết nối lại (cả ở phòng chờ lẫn trong trận đấu), đồng bộ thời gian thực đến tất cả người chơi trong phòng.
+
+### 🌀 Khôi Phục Trạng Thái Bị Thôi Miên Khi F5:
+- Khắc phục lỗi người chơi bị Người Thổi Sáo thôi miên khi reload trang (F5) bị mất dấu ấn thôi miên.
+- Máy chủ tự động hoán đổi socket ID cũ sang socket ID mới trong `charmedPlayers` và `charmedHistory`, đồng thời lưu `charmed = true` trên đối tượng người chơi để đảm bảo không bao giờ bị mất trạng thái.
+
+---
+
 ## 🎶 Phiên Bản 2.5.3 - HOẠT ẢNH TỬ NẠN ĐỘC QUYỀN: CÂY SÁO THẦN GÃY ĐÔI & HÓA GIẢI LỜI NGUYỀN
 *(Cập nhật ngày: 05/11/2026)*
 

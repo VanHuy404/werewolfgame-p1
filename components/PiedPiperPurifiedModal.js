@@ -21,10 +21,26 @@ import {
   Image,
   Platform,
   Easing,
+  TouchableOpacity,
 } from 'react-native';
 
 const fluteImg = require('../assets/flute.png');
 const fluteBrokenImg = require('../assets/flute_broken.png');
+const piperDeathVideoAsset = require('../assets/videos/The_Piper_Death.mp4');
+
+function resolveVideoUri() {
+  if (typeof piperDeathVideoAsset === 'string') return piperDeathVideoAsset;
+  if (piperDeathVideoAsset?.default) {
+    if (typeof piperDeathVideoAsset.default === 'string') return piperDeathVideoAsset.default;
+    if (piperDeathVideoAsset.default.uri) return piperDeathVideoAsset.default.uri;
+  }
+  if (piperDeathVideoAsset?.uri) return piperDeathVideoAsset.uri;
+  try {
+    const res = Image.resolveAssetSource(piperDeathVideoAsset);
+    if (res?.uri) return res.uri;
+  } catch (e) {}
+  return '/assets/videos/The_Piper_Death.mp4';
+}
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -261,6 +277,9 @@ export default function PiedPiperPurifiedModal({
   timeLeft: propTimeLeft,
   onClose,
 }) {
+  const [isVideoPlaying, setIsVideoPlaying] = useState(Platform.OS === 'web');
+  const videoRef = useRef(null);
+
   // 'emerging' (sáo nguyên vẹn + chạy chữ tím) -> 'shattered' (sáo vỡ) -> 'lifting' (hiện lời nguyền hóa giải) -> 'fallen' (hoàn tất)
   const [stage, setStage] = useState('emerging');
   const [typedText, setTypedText] = useState('');
@@ -322,10 +341,48 @@ export default function PiedPiperPurifiedModal({
     setTypedText('');
   };
 
+  const handleVideoFinished = () => {
+    setIsVideoPlaying(false);
+  };
+
+  // Quản lý phát video The_Piper_Death.mp4 trước khi vào hoạt ảnh
   useEffect(() => {
     if (!visible) {
+      setIsVideoPlaying(Platform.OS === 'web');
       setStage('emerging');
       resetAnimations();
+      return;
+    }
+
+    if (isVideoPlaying && Platform.OS === 'web') {
+      if (videoRef.current) {
+        try {
+          videoRef.current.currentTime = 0;
+          const playPromise = videoRef.current.play();
+          if (playPromise !== undefined) {
+            playPromise.catch((err) => {
+              console.log('Unmuted autoplay blocked, retrying muted:', err);
+              if (videoRef.current) {
+                videoRef.current.muted = true;
+                videoRef.current.play().catch(() => {});
+              }
+            });
+          }
+        } catch (e) {}
+      }
+
+      // Timeout dự phòng 10.5s nếu video bị dừng hoặc trình duyệt không gửi onEnded
+      const fallbackTimer = setTimeout(() => {
+        handleVideoFinished();
+      }, 10500);
+
+      return () => clearTimeout(fallbackTimer);
+    }
+  }, [visible, isVideoPlaying]);
+
+  // Quản lý hoạt ảnh cây sáo gãy sau khi video kết thúc
+  useEffect(() => {
+    if (!visible || isVideoPlaying) {
       return;
     }
 
@@ -458,8 +515,6 @@ export default function PiedPiperPurifiedModal({
     }, 2050);
 
     // 4. GIAI ĐOẠN 4 (T=3450ms): HOÀN TẤT VÀ GIỮ THÊM ĐÚNG 1.0s RỒI TỰ ĐÓNG
-    // Thời điểm dòng hóa giải hiện hoàn tất: ~2.05s + 0.4s = ~2.45s
-    // Giữ thêm đúng 1.0s => Tổng thời gian = ~3.45s (3450ms)
     const timerAutoClose = setTimeout(() => {
       setStage('fallen');
       if (onClose) onClose();
@@ -477,9 +532,37 @@ export default function PiedPiperPurifiedModal({
       clearTimeout(timerLine2);
       clearTimeout(timerAutoClose);
     };
-  }, [visible]);
+  }, [visible, isVideoPlaying]);
 
   if (!visible) return null;
+
+  if (isVideoPlaying && Platform.OS === 'web') {
+    return (
+      <View style={styles.videoOverlay}>
+        <video
+          ref={videoRef}
+          src={resolveVideoUri()}
+          autoPlay
+          playsInline
+          controls={false}
+          style={styles.webVideoElement}
+          onEnded={handleVideoFinished}
+          onError={() => {
+            console.warn('The_Piper_Death.mp4 playback error, proceeding to animation directly');
+            handleVideoFinished();
+          }}
+        />
+        {/* Nút Bỏ qua video */}
+        <TouchableOpacity
+          style={styles.skipVideoBtn}
+          onPress={handleVideoFinished}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.skipVideoBtnText}>Bỏ qua video ⏭️</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   // Dao động nhẹ xung quanh 34deg chuẩn xác khi sáo gãy
   const brokenFluteRotateInterpolation = brokenFluteRotate.interpolate({
@@ -861,5 +944,38 @@ const styles = StyleSheet.create({
   bottomBar: {
     height: 20,
     width: '100%',
+  },
+  videoOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999999,
+  },
+  webVideoElement: {
+    width: '100%',
+    height: '100%',
+    maxWidth: '100vw',
+    maxHeight: '100vh',
+    objectFit: 'contain',
+    backgroundColor: '#000000',
+  },
+  skipVideoBtn: {
+    position: 'absolute',
+    top: 24,
+    right: 24,
+    backgroundColor: 'rgba(24, 18, 38, 0.85)',
+    borderWidth: 1.5,
+    borderColor: '#C084FC',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    zIndex: 1000000,
+  },
+  skipVideoBtnText: {
+    color: '#F5D0FE',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 });

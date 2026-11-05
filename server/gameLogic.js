@@ -74,6 +74,7 @@ function createRoom(hostId, hostName, settings = {}, customAvatar = null) {
   const room = {
     code,
     hostId,
+    hostPlayerName: hostName || '',
     settings: roomSettings,
     players: new Map(),
     phase: PHASES.WAITING,
@@ -164,7 +165,12 @@ function leaveRoom(code, playerId) {
 
   // Nếu chủ phòng rời -> chuyển quyền cho người tiếp theo
   if (playerId === room.hostId && room.players.size > 0) {
-    room.hostId = room.players.keys().next().value;
+    const nextHostId = room.players.keys().next().value;
+    room.hostId = nextHostId;
+    const nextHostPlayer = room.players.get(nextHostId);
+    if (nextHostPlayer) {
+      room.hostPlayerName = nextHostPlayer.name;
+    }
   }
 
   // Nếu phòng trống -> xóa phòng
@@ -452,7 +458,7 @@ function getPlayersData(room, forPlayerId = null) {
   const requestingPlayer = forPlayerId ? room.players.get(forPlayerId) : null;
   const isWolfViewer = requestingPlayer && requestingPlayer.role === ROLES.WOLF;
   const isPiedPiperViewer = requestingPlayer && requestingPlayer.role === ROLES.PIED_PIPER;
-  const isCharmedViewer = Boolean(forPlayerId && room.charmedPlayers && room.charmedPlayers.has(forPlayerId));
+  const isCharmedViewer = Boolean(forPlayerId && ((room.charmedPlayers && room.charmedPlayers.has(forPlayerId)) || requestingPlayer?.charmed));
   const isCharmedRevealPhase = room.phase === PHASES.NIGHT_CHARMED_REVEAL;
 
   // PHƯƠNG ÁN 1:
@@ -463,7 +469,7 @@ function getPlayersData(room, forPlayerId = null) {
   const canSeeCharmedInReveal = isCharmedRevealPhase && (isPiedPiperViewer || isCharmedViewer);
 
   return [...room.players.values()].map((p) => {
-    const isCharmed = Boolean(room.charmedPlayers && room.charmedPlayers.has(p.id));
+    const isCharmed = Boolean((room.charmedPlayers && room.charmedPlayers.has(p.id)) || p.charmed);
     const showCharmed = (isPiedPiperViewer || canSeeCharmedInReveal || room.phase === PHASES.GAME_OVER) ? isCharmed : false;
 
     return {

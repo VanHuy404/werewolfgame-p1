@@ -175,6 +175,13 @@ export default function App() {
       setCharmedHistory(data.charmedHistory || {});
       setCurrentScreen('game');
       setError(null);
+      // Cập nhật lại session storage với socket.id mới nhất
+      setSessionItem(STORAGE_KEYS.ACTIVE_ROOM, {
+        roomCode: data.roomCode,
+        playerName: getSessionItem(STORAGE_KEYS.PLAYER_NAME),
+        customAvatar: getSessionItem(STORAGE_KEYS.PLAYER_AVATAR),
+        playerId: s.id,
+      });
     });
 
     // Khôi phục thất bại (phòng đã hủy)
@@ -207,9 +214,10 @@ export default function App() {
       );
     });
 
-    // Cập nhật danh sách người chơi (VD: có người out game giữa trận)
-    s.on('players-update', ({ players }) => {
+    // Cập nhật danh sách người chơi (VD: có người out game giữa trận hoặc đổi chủ phòng)
+    s.on('players-update', ({ players, hostId }) => {
       if (players) setPlayers(players);
+      if (hostId) setHostId(hostId);
     });
 
     // Cài đặt phòng được cập nhật

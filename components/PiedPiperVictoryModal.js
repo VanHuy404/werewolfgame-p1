@@ -79,10 +79,10 @@ export default function PiedPiperVictoryModal({
       ),
     ]).start();
 
-    // Tự động chuyển tiếp sau khi hoạt ảnh diễn ra (1.2s) + 1.0s = 2.2s (2200ms)
+    // Tự động chuyển tiếp sau khi hoạt ảnh kết thúc (tăng thêm 2s theo yêu cầu) = 4.2s (4200ms)
     const timerAutoClose = setTimeout(() => {
       onComplete();
-    }, 2200);
+    }, 4200);
 
     return () => {
       clearTimeout(timerAutoClose);

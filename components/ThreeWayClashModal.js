@@ -200,10 +200,11 @@ export default function ThreeWayClashModal({
   const shieldPulse = useRef(new Animated.Value(1)).current;
   const shieldSparksAnim = useRef(new Animated.Value(0)).current;
 
-  // Bình độc phù thủy
-  const potionScale = useRef(new Animated.Value(0.1)).current;
+  // Bình độc phù thủy ném vào (xoay tít từ góc rồi vỡ toang biến mất)
+  const potionTranslateX = useRef(new Animated.Value(200)).current;
+  const potionTranslateY = useRef(new Animated.Value(-120)).current;
+  const potionScale = useRef(new Animated.Value(0.4)).current;
   const potionOpacity = useRef(new Animated.Value(0)).current;
-  const potionTranslateY = useRef(new Animated.Value(-140)).current;
   const potionRotate = useRef(new Animated.Value(0)).current;
   const poisonDropsAnim = useRef(new Animated.Value(0)).current;
 
@@ -224,10 +225,11 @@ export default function ThreeWayClashModal({
     shieldTranslateY.setValue(140);
     shieldPulse.setValue(1);
     shieldSparksAnim.setValue(0);
-    potionScale.setValue(0.1);
-    potionOpacity.setValue(0);
-    potionTranslateY.setValue(-140);
+    potionTranslateX.setValue(200);
+    potionTranslateY.setValue(-120);
     potionRotate.setValue(0);
+    potionScale.setValue(0.4);
+    potionOpacity.setValue(0);
     poisonDropsAnim.setValue(0);
     grayscaleAnim.setValue(0);
     badgeScale.setValue(0.3);
@@ -331,16 +333,17 @@ export default function ThreeWayClashModal({
       }, 25);
     }, 2500);
 
-    // 5. (3.6s): BÌNH THUỐC ĐỘC LAO VÚT VÀO KHIÊN!
+    // 5. (3.6s): BÌNH THUỐC ĐỘC PHÙ THỦY NÉM VÀO XOAY TÍT LAO VÚT TỚI!
     const timerPotionThrow = setTimeout(() => {
       setStage('poisonFlying');
       playSynthSound('potionThrow');
 
       Animated.parallel([
-        Animated.timing(potionOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
-        Animated.spring(potionScale, { toValue: 1.0, friction: 5, tension: 60, useNativeDriver: true }),
-        Animated.timing(potionTranslateY, { toValue: 0, duration: 320, useNativeDriver: true }),
-        Animated.timing(potionRotate, { toValue: 1, duration: 320, useNativeDriver: true }),
+        Animated.timing(potionOpacity, { toValue: 1, duration: 80, useNativeDriver: true }),
+        Animated.timing(potionTranslateX, { toValue: 0, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(potionTranslateY, { toValue: 0, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(potionRotate, { toValue: 1, duration: 240, useNativeDriver: true }),
+        Animated.spring(potionScale, { toValue: 1.15, friction: 4, tension: 60, useNativeDriver: true }),
       ]).start();
     }, 3600);
 
@@ -364,8 +367,11 @@ export default function ThreeWayClashModal({
         useNativeDriver: true,
       }).start();
 
-      // Bình độc vỡ tan biến
-      Animated.timing(potionOpacity, { toValue: 0, duration: 150, useNativeDriver: true }).start();
+      // Bình độc vỡ toang rồi biến mất hoàn toàn
+      Animated.parallel([
+        Animated.timing(potionOpacity, { toValue: 0, duration: 160, useNativeDriver: true }),
+        Animated.timing(potionScale, { toValue: 1.8, duration: 200, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+      ]).start();
 
       // Khiên hộ mệnh nứt rạn và tan biến
       Animated.parallel([
@@ -538,28 +544,6 @@ export default function ThreeWayClashModal({
             />
           </Animated.View>
 
-          {/* BÌNH THUỐC ĐỘC CỦA PHÙ THỦY LAO VÀO */}
-          <Animated.View
-            style={[
-              styles.potionOverlay,
-              {
-                opacity: potionOpacity,
-                transform: [
-                  { scale: potionScale },
-                  { translateY: potionTranslateY },
-                  { rotate: potionSpin },
-                ],
-              },
-            ]}
-            pointerEvents="none"
-          >
-            <Image
-              source={potionPoisonImg}
-              style={styles.potionImg}
-              resizeMode="contain"
-            />
-          </Animated.View>
-
           {/* Lớp phủ Grayscale đen tối khi bị hạ độc chết */}
           {isFallen && (
             <View style={styles.deadGrayscaleOverlay}>
@@ -567,6 +551,29 @@ export default function ThreeWayClashModal({
             </View>
           )}
         </View>
+
+        {/* BÌNH THUỐC ĐỘC CỦA PHÙ THỦY NÉM VÀO */}
+        <Animated.View
+          style={[
+            styles.potionOverlay,
+            {
+              opacity: potionOpacity,
+              transform: [
+                { translateX: potionTranslateX },
+                { translateY: potionTranslateY },
+                { rotate: potionSpin },
+                { scale: potionScale },
+              ],
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <Image
+            source={potionPoisonImg}
+            style={styles.potionImg}
+            resizeMode="contain"
+          />
+        </Animated.View>
 
         {/* TIA LỬA KIM LOẠI KHI KHIÊN ĐỠ ĐÒN SÓI */}
         <View style={styles.particlesContainer} pointerEvents="none">
@@ -822,7 +829,9 @@ const styles = StyleSheet.create({
   },
 
   potionOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    width: 150,
+    height: 150,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 20,
