@@ -113,6 +113,7 @@ function startNightPhase(room) {
   room.nightActions.bodyguardTarget = null;
   room.nightActions.witchSavedThisNight = false;
   room.nightActions.witchPoisonTarget = null;
+  room.nightActions.piedPiperTargets = [];
   room.nightActions.wasProtected = false;
 
   // Kiểm tra còn Bảo Vệ còn sống hay không
@@ -231,17 +232,8 @@ function finishWolfTurn(room) {
   if (aliveWitches.length > 0) {
     startNightWitchPhase(room, effectiveWitchVictimId);
   } else {
-    // Không có Phù Thủy -> Kiểm tra Tiên Tri
-    const aliveSeers = [...room.players.values()].filter(
-      (p) => p.role === ROLES.SEER && p.alive
-    );
-
-    if (aliveSeers.length > 0) {
-      startNightSeerPhase(room);
-    } else {
-      const nightResult = processNightActions(room);
-      startDayAnnounce(room, nightResult);
-    }
+    // Không có Phù Thủy -> Chuyển sang kiểm tra lượt tiếp theo (Tiên Tri / Người Thổi Sáo)
+    finishWitchTurn(room);
   }
 }
 
@@ -310,7 +302,7 @@ function startNightWitchPhase(room, wolfVictimId) {
   });
 }
 
-/** Kết thúc lượt Phù Thủy -> chuyển sang lượt Tiên Tri hoặc Trời Sáng */
+/** Kết thúc lượt Phù Thủy -> chuyển sang lượt Tiên Tri hoặc Người Thổi Sáo */
 function finishWitchTurn(room) {
   if (room.timer) {
     clearInterval(room.timer);
@@ -324,8 +316,8 @@ function finishWitchTurn(room) {
   if (aliveSeers.length > 0) {
     startNightSeerPhase(room);
   } else {
-    const nightResult = processNightActions(room);
-    startDayAnnounce(room, nightResult);
+    // Không có Tiên Tri -> Chuyển sang kiểm tra Người Thổi Sáo hoặc Trời Sáng
+    finishNightSeerPhase(room);
   }
 }
 
@@ -345,10 +337,134 @@ function startNightSeerPhase(room) {
   });
 
   startPhaseTimer(room, TIMERS.NIGHT_SEER, () => {
-    // Hết giờ Tiên Tri -> Thông báo trời sáng
-    const nightResult = processNightActions(room);
-    startDayAnnounce(room, nightResult);
+    finishNightSeerPhase(room);
   });
+}
+
+/** Kết thúc pha Tiên Tri -> Chuyển sang Người Thổi Sáo hoặc Trời Sáng */
+function finishNightSeerPhase(room) {
+  if (room.timer) {
+    clearInterval(room.timer);
+    room.timer = null;
+  }
+
+  const hasAlivePiedPiper = [...room.players.values()].some(
+    (p) => p.role === ROLES.PIED_PIPER && p.alive
+  );
+
+  if (hasAlivePiedPiper) {
+    startNightPiedPiperPhase(room);
+  } else {
+    finishNightAndGoDay(room);
+  }
+}
+
+/** Lượt Người Thổi Sáo thức dậy mê hoặc (25 giây, tự động rút 5s khi chọn xong) */
+function startNightPiedPiperPhase(room) {
+  room.phase = PHASES.NIGHT_PIED_PIPER;
+
+  const reqCharmCount = room.settings.piedPiperCharmCount || 2;
+
+  room.players.forEach((player, playerId) => {
+    const isPiedPiper = player.role === ROLES.PIED_PIPER;
+    io.to(playerId).emit('phase-change', {
+      phase: PHASES.NIGHT_PIED_PIPER,
+      nightSubPhase: isPiedPiper ? 'pied_piper' : 'sleep',
+      round: room.round,
+      role: player.role,
+      alive: player.alive,
+      players: getPlayersData(room, playerId),
+      charmedHistory: isPiedPiper ? (room.charmedHistory || {}) : {},
+      charmCountRequired: reqCharmCount,
+      charmedCount: room.charmedPlayers ? room.charmedPlayers.size : 0,
+    });
+  });
+
+  startPhaseTimer(room, TIMERS.NIGHT_PIED_PIPER || 25, () => {
+    finishPiedPiperPhase(room);
+  });
+}
+
+/** Kết thúc pha Người Thổi Sáo */
+function finishPiedPiperPhase(room) {
+  // Ghi nhận các mục tiêu đã chọn vào danh sách bị thôi miên
+  if (room.nightActions && room.nightActions.piedPiperTargets && room.nightActions.piedPiperTargets.length > 0) {
+    if (!room.charmedPlayers) room.charmedPlayers = new Set();
+    if (!room.charmedHistory) room.charmedHistory = {};
+
+    room.nightActions.piedPiperTargets.forEach((targetId) => {
+      room.charmedPlayers.add(targetId);
+      room.charmedHistory[targetId] = true;
+    });
+
+    // Cập nhật cho Người Thổi Sáo
+    const piedPiper = [...room.players.values()].find((p) => p.role === ROLES.PIED_PIPER && p.alive);
+    if (piedPiper) {
+      io.to(piedPiper.id).emit('pied-piper-result', {
+        charmedHistory: room.charmedHistory,
+        charmedCount: room.charmedPlayers.size,
+      });
+    }
+  }
+
+  // 🎶 YÊU CẦU: Nhận biết ai bị thổi trong 5s trước khi trời sáng (nếu setting bật)
+  if (room.settings.piedPiperRevealDawn !== false && room.charmedPlayers && room.charmedPlayers.size > 0) {
+    startNightCharmedRevealPhase(room);
+  } else {
+    finishNightAndGoDay(room);
+  }
+}
+
+/** Pha 5s người bị thôi miên nhận biết nhau trước khi bình minh (Phương án 1) */
+function startNightCharmedRevealPhase(room) {
+  room.phase = PHASES.NIGHT_CHARMED_REVEAL;
+
+  room.players.forEach((player, playerId) => {
+    const isPiedPiper = player.role === ROLES.PIED_PIPER;
+    const isCharmed = Boolean(room.charmedPlayers && room.charmedPlayers.has(playerId));
+
+    // Người bị thôi miên & Người Thổi Sáo mở mắt nhìn nhau; người chưa bị thôi miên vẫn ngủ yên trong đêm
+    io.to(playerId).emit('phase-change', {
+      phase: PHASES.NIGHT_CHARMED_REVEAL,
+      nightSubPhase: (isPiedPiper || isCharmed) ? 'charmed_reveal' : 'sleep',
+      round: room.round,
+      role: player.role,
+      alive: player.alive,
+      players: getPlayersData(room, playerId),
+    });
+
+    if (isCharmed) {
+      io.to(playerId).emit('new-message', {
+        playerId: 'system',
+        playerName: '📢 Hệ Thống',
+        avatar: '🎶',
+        message: '🎶 [HỘI THÔI MIÊN HÉ MẮT]: Bạn và những người chịu chung bùa mê hé mắt nhìn nhau trong 5 giây trước bình minh...',
+        timestamp: Date.now(),
+        isWolfChat: false,
+        isSystem: true,
+      });
+    } else if (isPiedPiper) {
+      io.to(playerId).emit('new-message', {
+        playerId: 'system',
+        playerName: '📢 Hệ Thống',
+        avatar: '🎶',
+        message: '🎶 [TIẾNG SÁO BÌNH MINH]: Những nạn nhân trúng bùa mê đang mở mắt nhìn nhau trong 5 giây trước bình minh!',
+        timestamp: Date.now(),
+        isWolfChat: false,
+        isSystem: true,
+      });
+    }
+  });
+
+  startPhaseTimer(room, TIMERS.NIGHT_CHARMED_REVEAL || 5, () => {
+    finishNightAndGoDay(room);
+  });
+}
+
+/** Xử lý kết thúc đêm và chuyển sang Trời Sáng (DAY_ANNOUNCE) */
+function finishNightAndGoDay(room) {
+  const nightResult = processNightActions(room);
+  startDayAnnounce(room, nightResult);
 }
 
 /** Pha thông báo kết quả ban đêm */
@@ -443,9 +559,54 @@ function startDayAnnounce(room, nightResult = {}) {
     isSystem: true,
   });
 
-  // Nếu có nhiều hoạt ảnh tuần tự (vừa chết sói/cứu vừa chết độc/xung đột khiên) -> cho đủ thời gian hiển thị (12s), ngược lại 6s
+  // Kiểm tra Người Thổi Sáo chết trong đêm (do Sói cắn hoặc Phù Thủy ném độc)
+  const isPiedPiperDeadNight = (deadPlayer && deadPlayer.role === ROLES.PIED_PIPER) || (poisonedPlayer && poisonedPlayer.role === ROLES.PIED_PIPER);
+  let purifiedPlayersNight = [];
+  if (isPiedPiperDeadNight) {
+    const piedPiperVictim = (deadPlayer && deadPlayer.role === ROLES.PIED_PIPER) ? deadPlayer : poisonedPlayer;
+    if (room.charmedPlayers && room.charmedPlayers.size > 0) {
+      purifiedPlayersNight = [...room.charmedPlayers]
+        .map((id) => room.players.get(id))
+        .filter(Boolean)
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          avatar: p.avatar,
+          avatarColor: p.avatarColor,
+        }));
+    }
+    // Thanh tẩy sạch sẽ bùa mê
+    room.charmedPlayers = new Set();
+    room.charmedHistory = {};
+
+    io.to(room.code).emit('pied-piper-purified', {
+      piedPiper: {
+        id: piedPiperVictim.id,
+        name: piedPiperVictim.name,
+        avatar: piedPiperVictim.avatar,
+        avatarColor: piedPiperVictim.avatarColor,
+      },
+      purifiedPlayers: purifiedPlayersNight,
+      cause: 'night',
+    });
+
+    // Bảng treo cổ chiếu 3.8s -> Hoạt ảnh Thổi Sáo chết chiếu 3.35s -> Đến khi đóng hết (7.5s) mới gửi tin nhắn chat thanh tẩy!
+    setTimeout(() => {
+      io.to(room.code).emit('new-message', {
+        playerId: 'system',
+        playerName: '📢 Hệ Thống',
+        avatar: '✨',
+        message: '✨ [THANH TẨY HOÀNG KIM]: Người Thổi Sáo đã bị tiêu diệt! Tiếng sáo ma thuật tan biến — Ánh sáng hoàng kim thanh tẩy rực rỡ, xóa bỏ toàn bộ bùa mê!',
+        timestamp: Date.now(),
+        isWolfChat: false,
+        isSystem: true,
+      });
+    }, 7500);
+  }
+
+  // Nếu có nhiều hoạt ảnh tuần tự (vừa chết sói/cứu vừa chết độc/xung đột khiên) và thanh tẩy -> cho đủ thời gian thoải mái hiển thị (19s), hoặc 14s khi Thổi Sáo chết, ngược lại 8-13s
   const hasMultipleModals = (poisonedPlayer || shieldClashPlayer) && (deadPlayer || witchSavedPlayer || savedPlayer);
-  const announceTime = hasMultipleModals ? 12 : TIMERS.DAY_ANNOUNCE;
+  const announceTime = hasMultipleModals && isPiedPiperDeadNight ? 19 : (isPiedPiperDeadNight ? 14 : (hasMultipleModals ? 13 : (TIMERS.DAY_ANNOUNCE || 8)));
 
   startPhaseTimer(room, announceTime, () => {
     // Nếu Thợ Săn bị Sói cắn chết -> Kích hoạt phát súng trăn trối báo thù trước khi vào thảo luận ngày!
@@ -523,7 +684,27 @@ function concludeDayVote(room) {
     (p) => p.role === ROLES.WOLF && p.alive
   ).length;
 
-  // Ghi nhận kết quả biểu quyết và số Sói còn lại vào khung chat
+  // Kiểm tra nếu người bị treo cổ là Người Thổi Sáo -> Kích hoạt Thanh Tẩy Hoàng Kim
+  const isPiedPiperEliminated = eliminated && eliminated.role === ROLES.PIED_PIPER;
+  let purifiedPlayers = [];
+  if (isPiedPiperEliminated) {
+    if (room.charmedPlayers && room.charmedPlayers.size > 0) {
+      purifiedPlayers = [...room.charmedPlayers]
+        .map((id) => room.players.get(id))
+        .filter(Boolean)
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          avatar: p.avatar,
+          avatarColor: p.avatarColor,
+        }));
+    }
+    // Thanh tẩy sạch sẽ bùa mê tiếng sáo khi Người Thổi Sáo chết
+    room.charmedPlayers = new Set();
+    room.charmedHistory = {};
+  }
+
+  // Ghi nhận kết quả biểu quyết và số Sói còn lại vào khung chat (không tiết lộ số người bị thôi miên theo Phương án 1)
   let voteChatMsg = '';
   if (eliminated) {
     voteChatMsg = `⚖️ [KẾT QUẢ BIỂU QUYẾT]: Dân làng đã quyết định treo cổ ${eliminated.name}! (🐺 Sói còn lại: ${remainingWolves})`;
@@ -541,33 +722,65 @@ function concludeDayVote(room) {
     isSystem: true,
   });
 
-  // Gửi kết quả biểu quyết kèm remainingWolves để hiển thị giữa màn hình trong 3s
+  // Gửi kết quả biểu quyết kèm remainingWolves (không gửi charmedCount lên bảng chung để bảo vệ bí mật Phương án 1)
   io.to(room.code).emit('vote-result', {
     eliminated: eliminated
       ? { id: eliminated.id, name: eliminated.name, avatar: eliminated.avatar }
       : null,
     votes: voteDetails,
     remainingWolves,
+    isPiedPiperDead: isPiedPiperEliminated,
+    purifiedPlayers,
     players: getPlayersData(room),
   });
 
-  // Nếu người bị treo cổ là Thợ Săn -> Kích hoạt phát súng trăn trối sau khi chiếu xong hoạt ảnh treo cổ (4.5s)
+  if (isPiedPiperEliminated) {
+    io.to(room.code).emit('pied-piper-purified', {
+      piedPiper: {
+        id: eliminated.id,
+        name: eliminated.name,
+        avatar: eliminated.avatar,
+        avatarColor: eliminated.avatarColor,
+      },
+      purifiedPlayers,
+      cause: 'vote',
+    });
+
+    // Bảng treo cổ chiếu 3.8s -> Hoạt ảnh Thổi Sáo chết chiếu 3.35s -> Đến khi đóng hết (7.5s) mới gửi tin nhắn chat thanh tẩy!
+    setTimeout(() => {
+      io.to(room.code).emit('new-message', {
+        playerId: 'system',
+        playerName: '📢 Hệ Thống',
+        avatar: '✨',
+        message: '✨ [THANH TẨY HOÀNG KIM]: Người Thổi Sáo đã bị tiêu diệt! Tiếng sáo ma thuật tan biến — Ánh sáng hoàng kim thanh tẩy rực rỡ, xóa bỏ toàn bộ bùa mê!',
+        timestamp: Date.now(),
+        isWolfChat: false,
+        isSystem: true,
+      });
+    }, 7500);
+  }
+
+  // Nếu người bị treo cổ là Thợ Săn -> Kích hoạt phát súng trăn trối sau khi chiếu xong hoạt ảnh treo cổ (4.0s)
   if (eliminated && eliminated.role === ROLES.HUNTER) {
     setTimeout(() => {
       startHunterShotPhase(room, eliminated, 'vote');
-    }, 4500);
+    }, 4000);
     return;
   }
 
-  // Kiểm tra win condition sau vote - chờ 4.5s để người chơi thấy rõ hoạt ảnh bị treo cổ & banner số Sói còn lại
+  // Thời gian chờ chuyển pha: Nếu người bị treo cổ là Người Thổi Sáo thì chờ 12.5s
+  // (3.8s bảng số sói + 3.35s hoạt ảnh Thổi Sáo chết + 3.5s thanh tẩy hoàng kim trên màn hình chính + 1.85s đệm vào đêm), ngược lại 5.0s
+  const voteTransitionDelay = isPiedPiperEliminated ? 12500 : 5000;
+
+  // Kiểm tra win condition sau vote
   const winCheck = checkWinCondition(room);
   if (winCheck.gameOver) {
-    setTimeout(() => endGame(room, winCheck), 4500);
+    setTimeout(() => endGame(room, winCheck), voteTransitionDelay);
     return;
   }
 
-  // Tiếp tục -> Ban Đêm (chờ 4.5s để người chơi thấy rõ thông báo số lượng Sói còn lại trước khi các roles tiến hành ban đêm)
-  setTimeout(() => startNightPhase(room), 4500);
+  // Tiếp tục -> Ban Đêm
+  setTimeout(() => startNightPhase(room), voteTransitionDelay);
 }
 
 /**
@@ -662,6 +875,51 @@ function processHunterShot(room, hunterPlayer, targetPlayer, passed, cause) {
   // Thợ Săn bắn trúng mục tiêu
   targetPlayer.alive = false;
 
+  // Kiểm tra nếu mục tiêu bị bắn hạ là Người Thổi Sáo -> Kích hoạt Thanh Tẩy Hoàng Kim
+  const isPiedPiperShot = targetPlayer && targetPlayer.role === ROLES.PIED_PIPER;
+  let purifiedPlayersHunter = [];
+  if (isPiedPiperShot) {
+    if (room.charmedPlayers && room.charmedPlayers.size > 0) {
+      purifiedPlayersHunter = [...room.charmedPlayers]
+        .map((id) => room.players.get(id))
+        .filter(Boolean)
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          avatar: p.avatar,
+          avatarColor: p.avatarColor,
+        }));
+    }
+    room.charmedPlayers = new Set();
+    room.charmedHistory = {};
+
+    setTimeout(() => {
+      io.to(room.code).emit('pied-piper-purified', {
+        piedPiper: {
+          id: targetPlayer.id,
+          name: targetPlayer.name,
+          avatar: targetPlayer.avatar,
+          avatarColor: targetPlayer.avatarColor,
+        },
+        purifiedPlayers: purifiedPlayersHunter,
+        cause: 'hunter_shot',
+      });
+    }, 4500);
+
+    // Chờ cả modal Thợ Săn nổ súng (4.5s) và modal Thổi Sáo chết (3.35s) đóng hết -> t = 8.0s mới gửi tin nhắn chat thanh tẩy!
+    setTimeout(() => {
+      io.to(room.code).emit('new-message', {
+        playerId: 'system',
+        playerName: '📢 Hệ Thống',
+        avatar: '✨',
+        message: '✨ [THANH TẨY HOÀNG KIM]: Người Thổi Sáo đã bị tiêu diệt! Tiếng sáo ma thuật tan biến — Ánh sáng hoàng kim thanh tẩy rực rỡ, xóa bỏ toàn bộ bùa mê!',
+        timestamp: Date.now(),
+        isWolfChat: false,
+        isSystem: true,
+      });
+    }, 8000);
+  }
+
   io.to(room.code).emit('hunter-shot-result', {
     hunter: { id: hunterPlayer.id, name: hunterPlayer.name, avatar: hunterPlayer.avatar, avatarColor: hunterPlayer.avatarColor },
     target: {
@@ -686,7 +944,8 @@ function processHunterShot(room, hunterPlayer, targetPlayer, passed, cause) {
     isSystem: true,
   });
 
-  // Chờ 8.5s để cả phòng xem xong toàn bộ hoạt ảnh điện ảnh nổ súng (kính vỡ, lột xác Ma Sói, gục ngã tử trận)
+  // Chờ hiển thị hoạt ảnh tuần tự (Nếu bắn trúng Người Thổi Sáo thì chờ thêm thời gian Thổi Sáo chết + thanh tẩy: 13s, ngược lại 6.5s)
+  const hunterDelay = isPiedPiperShot ? 13000 : 6500;
   setTimeout(() => {
     const winCheck = checkWinCondition(room);
     if (winCheck.gameOver) {
@@ -698,7 +957,7 @@ function processHunterShot(room, hunterPlayer, targetPlayer, passed, cause) {
     } else {
       startNightPhase(room);
     }
-  }, 8500);
+  }, hunterDelay);
 }
 
 /** Kết thúc game - Lật bài, hiển thị kết quả */
@@ -844,6 +1103,10 @@ io.on('connection', (socket) => {
       numSeers: settings.numSeers !== undefined ? settings.numSeers : room.settings.numSeers,
       numBodyguards: settings.numBodyguards !== undefined ? settings.numBodyguards : (room.settings.numBodyguards || 1),
       numWitches: settings.numWitches !== undefined ? settings.numWitches : (room.settings.numWitches !== undefined ? room.settings.numWitches : 1),
+      numHunters: settings.numHunters !== undefined ? settings.numHunters : (room.settings.numHunters !== undefined ? room.settings.numHunters : 1),
+      numPiedPipers: settings.numPiedPipers !== undefined ? settings.numPiedPipers : (room.settings.numPiedPipers !== undefined ? room.settings.numPiedPipers : 0),
+      piedPiperCharmCount: settings.piedPiperCharmCount !== undefined ? settings.piedPiperCharmCount : (room.settings.piedPiperCharmCount || 2),
+      piedPiperRevealDawn: settings.piedPiperRevealDawn !== undefined ? settings.piedPiperRevealDawn : (room.settings.piedPiperRevealDawn !== false),
       dayDiscussionTime: settings.dayDiscussionTime !== undefined ? settings.dayDiscussionTime : (room.settings.dayDiscussionTime || 60),
       dayVoteTime: settings.dayVoteTime !== undefined ? settings.dayVoteTime : (room.settings.dayVoteTime || 25),
     };
@@ -876,15 +1139,19 @@ io.on('connection', (socket) => {
       room.settings.numWolves = maxAllowedWolves;
     }
 
-    const remainingGood = playerCount - room.settings.numWolves;
-    const totalSpecial = (room.settings.numSeers || 0) + (room.settings.numBodyguards || 0) + (room.settings.numWitches || 0);
-    if (totalSpecial > remainingGood) {
+    const remainingNonWolves = playerCount - room.settings.numWolves;
+    const totalSpecial = (room.settings.numSeers || 0) + (room.settings.numBodyguards || 0) + (room.settings.numWitches || 0) + (room.settings.numHunters || 0) + (room.settings.numPiedPipers || 0);
+    if (totalSpecial > remainingNonWolves) {
+      if (room.settings.numPiedPipers > 1) room.settings.numPiedPipers = 1;
+      if (room.settings.numHunters > 1) room.settings.numHunters = 1;
       if (room.settings.numWitches > 1) room.settings.numWitches = 1;
       if (room.settings.numBodyguards > 1) room.settings.numBodyguards = 1;
       if (room.settings.numSeers > 1) room.settings.numSeers = 1;
-      while ((room.settings.numSeers || 0) + (room.settings.numBodyguards || 0) + (room.settings.numWitches || 0) > remainingGood) {
-        if (room.settings.numWitches > 0) room.settings.numWitches--;
+      while ((room.settings.numSeers || 0) + (room.settings.numBodyguards || 0) + (room.settings.numWitches || 0) + (room.settings.numHunters || 0) + (room.settings.numPiedPipers || 0) > remainingNonWolves) {
+        if (room.settings.numHunters > 0) room.settings.numHunters--;
         else if (room.settings.numBodyguards > 0) room.settings.numBodyguards--;
+        else if (room.settings.numWitches > 0) room.settings.numWitches--;
+        else if (room.settings.numPiedPipers > 0) room.settings.numPiedPipers--;
         else if (room.settings.numSeers > 0) room.settings.numSeers--;
       }
     }
@@ -895,6 +1162,8 @@ io.on('connection', (socket) => {
     // Phân vai ngẫu nhiên
     assignRoles(room);
     room.seerHistory = {};
+    room.charmedPlayers = new Set();
+    room.charmedHistory = {};
 
     console.log(`🎮 Phòng ${room.code} bắt đầu game! (${playerCount} người chơi)`);
 
@@ -903,6 +1172,8 @@ io.on('connection', (socket) => {
       io.to(playerId).emit('game-started', {
         role: player.role,
         players: getPlayersData(room, playerId),
+        charmedHistory: player.role === ROLES.PIED_PIPER ? {} : undefined,
+        charmCountRequired: player.role === ROLES.PIED_PIPER ? (room.settings.piedPiperCharmCount || 2) : undefined,
       });
     });
 
@@ -1121,8 +1392,7 @@ io.on('connection', (socket) => {
 
     // YÊU CẦU: Thời gian của Tiên Tri sẽ hết sau 5s sau khi soi được!
     startPhaseTimer(room, 5, () => {
-      const nightResult = processNightActions(room);
-      startDayAnnounce(room, nightResult);
+      finishNightSeerPhase(room);
     });
     io.to(room.code).emit('timer-update', { timeLeft: 5 });
   });
@@ -1199,6 +1469,15 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ---------- CHỦ PHÒNG TUA NHANH THẢO LUẬN ĐỂ ĐẾN BỎ PHIẾU ----------
+  socket.on('host-skip-discussion', () => {
+    const room = getRoom(socket.roomCode);
+    if (!room || room.hostId !== socket.id || room.phase !== PHASES.DAY_DISCUSSION) return;
+
+    console.log(`⏩ [Host] ${socket.playerName || 'Chủ phòng'} đã tua nhanh Thảo Luận chuyển sang Vote (Phòng ${room.code})`);
+    startDayVote(room);
+  });
+
   // ---------- CHỦ PHÒNG BỎ QUA GIAI ĐOẠN VOTE ----------
   socket.on('host-skip-vote', () => {
     const room = getRoom(socket.roomCode);
@@ -1206,6 +1485,85 @@ io.on('connection', (socket) => {
 
     console.log(`⏩ [Host] ${socket.playerName || 'Chủ phòng'} đã bỏ qua giai đoạn Vote (Phòng ${room.code})`);
     concludeDayVote(room);
+  });
+
+  // ---------- NGƯỜI THỔI SÁO THÔI MIÊN ----------
+  socket.on('pied-piper-charm', (data = {}) => {
+    try {
+      const room = getRoom(socket.roomCode);
+      if (!room || room.phase !== PHASES.NIGHT_PIED_PIPER) return;
+
+      const player = room.players.get(socket.id);
+      if (!player || player.role !== ROLES.PIED_PIPER || !player.alive) return;
+
+      const rawTargets = data.targets || data.targetIds || [];
+      if (!Array.isArray(rawTargets) || rawTargets.length === 0) return;
+
+      const maxTargets = room.settings.piedPiperCharmCount || 2;
+      const validTargets = rawTargets.filter((tId) => {
+        const target = room.players.get(tId);
+        return target && target.alive && target.id !== socket.id && (!room.charmedPlayers || !room.charmedPlayers.has(tId));
+      }).slice(0, maxTargets);
+
+      if (validTargets.length === 0) return;
+
+      if (!room.nightActions) room.nightActions = {};
+      room.nightActions.piedPiperTargets = validTargets;
+
+      socket.emit('pied-piper-selected', {
+        targets: validTargets,
+        targetIds: validTargets,
+        countRequired: maxTargets,
+      });
+
+      // Rút ngắn thời gian còn 5s để chuyển pha
+      startPhaseTimer(room, 5, () => {
+        finishPiedPiperPhase(room);
+      });
+      io.to(room.code).emit('timer-update', { timeLeft: 5 });
+    } catch (err) {
+      console.error('Error in pied-piper-charm:', err);
+    }
+  });
+
+  socket.on('pied-piper-target', (data = {}) => {
+    try {
+      const room = getRoom(socket.roomCode);
+      if (!room || room.phase !== PHASES.NIGHT_PIED_PIPER) return;
+
+      const player = room.players.get(socket.id);
+      if (!player || player.role !== ROLES.PIED_PIPER || !player.alive) return;
+
+      const rawTargets = data.targets || data.targetIds || [];
+      const maxTargets = room.settings.piedPiperCharmCount || 2;
+      socket.emit('pied-piper-selected', {
+        targets: Array.isArray(rawTargets) ? rawTargets.slice(0, maxTargets) : [],
+        targetIds: Array.isArray(rawTargets) ? rawTargets.slice(0, maxTargets) : [],
+        countRequired: maxTargets,
+      });
+    } catch (err) {
+      console.error('Error in pied-piper-target:', err);
+    }
+  });
+
+  socket.on('pied-piper-skip', () => {
+    try {
+      const room = getRoom(socket.roomCode);
+      if (!room || room.phase !== PHASES.NIGHT_PIED_PIPER) return;
+
+      const player = room.players.get(socket.id);
+      if (!player || player.role !== ROLES.PIED_PIPER || !player.alive) return;
+
+      if (!room.nightActions) room.nightActions = {};
+      room.nightActions.piedPiperTargets = [];
+
+      startPhaseTimer(room, 3, () => {
+        finishPiedPiperPhase(room);
+      });
+      io.to(room.code).emit('timer-update', { timeLeft: 3 });
+    } catch (err) {
+      console.error('Error in pied-piper-skip:', err);
+    }
   });
 
   // ---------- CHAT ----------
@@ -1249,7 +1607,7 @@ io.on('connection', (socket) => {
     }
 
     // Ban đêm: dân làng đang ngủ, không được chat công khai
-    const isNightTime = room.phase === PHASES.NIGHT_BODYGUARD || room.phase === PHASES.NIGHT_WOLF || room.phase === PHASES.NIGHT_WITCH || room.phase === PHASES.NIGHT_SEER || room.phase === PHASES.NIGHT;
+    const isNightTime = room.phase === PHASES.NIGHT_BODYGUARD || room.phase === PHASES.NIGHT_WOLF || room.phase === PHASES.NIGHT_WITCH || room.phase === PHASES.NIGHT_SEER || room.phase === PHASES.NIGHT_PIED_PIPER || room.phase === PHASES.NIGHT_CHARMED_REVEAL || room.phase === PHASES.NIGHT;
     if (isNightTime) {
       return;
     }
@@ -1422,6 +1780,8 @@ io.on('connection', (socket) => {
           wasProtected: Boolean(room.nightActions && room.nightActions.wasProtected),
           lastProtectedTarget: room.nightActions ? room.nightActions.lastProtectedTarget : null,
           seerHistory: existingPlayer.role === ROLES.SEER ? (room.seerHistory || {}) : {},
+          charmedHistory: existingPlayer.role === ROLES.PIED_PIPER ? (room.charmedHistory || {}) : {},
+          charmCountRequired: existingPlayer.role === ROLES.PIED_PIPER ? (room.settings.piedPiperCharmCount || 2) : 2,
         });
 
         io.to(room.code).emit('players-update', {
@@ -1534,6 +1894,8 @@ io.on('connection', (socket) => {
     room.attackedThisNight = null;
     room.savedThisNight = null;
     room.seerHistory = {};
+    room.charmedPlayers = new Set();
+    room.charmedHistory = {};
     room.messages = [];
     room.nightActions = {
       wolfVotes: new Map(),
@@ -1541,6 +1903,7 @@ io.on('connection', (socket) => {
       seerCheck: null,
       bodyguardTarget: null,
       lastProtectedTarget: null,
+      piedPiperTargets: [],
       wasProtected: false,
     };
     room.dayVotes.clear();

@@ -26,6 +26,8 @@ import WitchHealSaveModal from '../components/WitchHealSaveModal';
 import WitchPoisonModal from '../components/WitchPoisonModal';
 import HunterShotModal from '../components/HunterShotModal';
 import ThreeWayClashModal from '../components/ThreeWayClashModal';
+import PiedPiperModal, { playFluteSynth } from '../components/PiedPiperModal';
+import PiedPiperPurifiedModal, { playPurificationSynth } from '../components/PiedPiperPurifiedModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -36,6 +38,8 @@ const PHASES = {
   NIGHT_WOLF: 'night_wolf',
   NIGHT_WITCH: 'night_witch',
   NIGHT_SEER: 'night_seer',
+  NIGHT_PIED_PIPER: 'night_pied_piper',
+  NIGHT_CHARMED_REVEAL: 'night_charmed_reveal',
   NIGHT: 'night',
   DAY_ANNOUNCE: 'day_announce',
   HUNTER_SHOT: 'hunter_shot',
@@ -72,6 +76,7 @@ export default function GameScreen({
   myId,
   hostId,
   initialSeerHistory = {},
+  initialCharmedHistory = {},
 }) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isMobile = windowWidth <= 860;
@@ -133,6 +138,22 @@ export default function GameScreen({
   const [seerResult, setSeerResult] = useState(null); // { targetName, alignment, isWolf }
   const [seerHistory, setSeerHistory] = useState(initialSeerHistory || {});
   const [seerPopupVisible, setSeerPopupVisible] = useState(false);
+  const [charmedHistory, setCharmedHistory] = useState(initialCharmedHistory || {});
+  const [selectedPiedPiperTargets, setSelectedPiedPiperTargets] = useState([]);
+  const [charmCountRequired, setCharmCountRequired] = useState(2);
+  const [piedPiperSkipped, setPiedPiperSkipped] = useState(false);
+  const [piedPiperConfirmed, setPiedPiperConfirmed] = useState(false);
+  const [piedPiperModalVisible, setPiedPiperModalVisible] = useState(false);
+  const [purifiedModalVisible, setPurifiedModalVisible] = useState(false);
+  const [purifiedModalData, setPurifiedModalData] = useState({ piedPiper: null, purifiedPlayers: [] });
+  const [purifyingVictimIds, setPurifyingVictimIds] = useState([]);
+  const [livePurificationBanner, setLivePurificationBanner] = useState(false);
+  const pendingPurifiedVictimsRef = useRef([]);
+  const pendingNightPurificationRef = useRef(null);
+  const pendingHunterPurificationRef = useRef(null);
+  const votePiedPiperNextRef = useRef(null);
+  const votePiedPiperTimerActiveRef = useRef(false);
+  const autoAdvanceModalTimerRef = useRef(null);
 
   const me = (players && players.find((p) => p.id === myId)) || { alive: true };
   const amAlive = me ? me.alive !== false : true;
@@ -143,7 +164,9 @@ export default function GameScreen({
   const isNightWolf = phase === PHASES.NIGHT_WOLF || (phase === PHASES.NIGHT && !seerResult && !isNightBodyguard);
   const isNightWitch = phase === PHASES.NIGHT_WITCH;
   const isNightSeer = phase === PHASES.NIGHT_SEER;
-  const isNight = isNightBodyguard || isNightWolf || isNightWitch || isNightSeer || phase === PHASES.NIGHT;
+  const isNightPiedPiper = phase === PHASES.NIGHT_PIED_PIPER;
+  const isNightCharmedReveal = phase === PHASES.NIGHT_CHARMED_REVEAL;
+  const isNight = isNightBodyguard || isNightWolf || isNightWitch || isNightSeer || isNightPiedPiper || isNightCharmedReveal || phase === PHASES.NIGHT;
   const isHunterShot = phase === PHASES.HUNTER_SHOT;
   const isGameOver = phase === PHASES.GAME_OVER;
 
@@ -225,40 +248,41 @@ export default function GameScreen({
     }
   }, [initialWitchState]);
 
-  // Điều phối các bước hành động của Phù Thủy khi đến pha đêm
+  // Điều phối các bước hành động của Phù Thủy khi đến pha đêm (Bảo đảm luôn thấy và cứu được nạn nhân, kể cả Phe Thứ 3)
   useEffect(() => {
     if (phase === PHASES.NIGHT_WITCH) {
-      if (!witchNightInitializedRef.current) {
-        witchNightInitializedRef.current = true;
-        setWitchPendingSave(null);
-        setWitchPendingPoison(null);
-        if (myRole === 'witch' && amAlive) {
-          const hasHeal = !!witchState?.hasHeal;
-          const hasPoison = !!witchState?.hasPoison;
+      if (myRole === 'witch' && amAlive) {
+        const hasHeal = !!witchState?.hasHeal;
+        const hasPoison = !!witchState?.hasPoison;
+        const currentVictim = (wolfVictim !== undefined && wolfVictim !== null) ? wolfVictim : witchVictim;
 
-          if (witchVictim && hasHeal) {
+        // Chỉ thiết lập bước ban đầu khi Phù Thủy chưa quyết định cứu/bỏ mặc
+        if (witchPendingSave === null) {
+          if (currentVictim && hasHeal) {
             // Còn bình cứu và có nạn nhân bị cắn -> Hiện modal chọn cứu/bỏ mặc
             setWitchStep('heal');
-          } else if (witchVictim && !hasHeal && hasPoison) {
-            // YÊU CẦU: Phù thủy hết thuốc cứu sẽ xuất hiện ở đêm sau chứ k cùng đêm với lúc dùng thuốc, thông báo 5s cố định rồi chuyển hỏi độc
+          } else if (currentVictim && !hasHeal && hasPoison) {
+            // Phù thủy hết thuốc cứu, thông báo 5s xem ai bị cắn rồi chuyển hỏi độc
             setWitchStep('view_victim_has_poison');
-          } else if (witchVictim && !hasHeal && !hasPoison) {
-            // YÊU CẦU: Khi phù thủy hết thuốc thì chỉ cần xem đc ai bị cắn đêm này rồi chờ 10s là qua đc role tiếp
+          } else if (currentVictim && !hasHeal && !hasPoison) {
+            // Khi phù thủy hết cả 2 thuốc thì chỉ cần xem ai bị cắn rồi chờ chuyển tiếp
             setWitchStep('out_of_potions');
-          } else if (!witchVictim && hasPoison) {
+          } else if (!currentVictim && hasPoison) {
             // Không ai bị cắn đêm nay, còn độc -> Hỏi có muốn dùng thuốc độc không
             setWitchStep('ask_poison');
           } else {
-            // Hết cả 2 bình thuốc và không ai bị cắn -> Chờ 10s chuyển tiếp
+            // Hết cả 2 bình thuốc và không ai bị cắn -> Chờ chuyển tiếp
             setWitchStep('out_of_potions');
           }
         }
       }
     } else {
       witchNightInitializedRef.current = false;
+      setWitchPendingSave(null);
+      setWitchPendingPoison(null);
       setWitchStep('done');
     }
-  }, [phase, myRole, amAlive, witchVictim?.id, witchState?.hasHeal, witchState?.hasPoison]);
+  }, [phase, myRole, amAlive, wolfVictim?.id, witchVictim?.id, witchState?.hasHeal, witchState?.hasPoison, witchPendingSave]);
 
   // Quản lý hiển thị hoạt ảnh điện ảnh buổi sáng (DAY_ANNOUNCE)
   useEffect(() => {
@@ -305,8 +329,78 @@ export default function GameScreen({
     }
   }, [phase, deadPlayer?.id, savedPlayer?.id, witchSavedPlayer?.id, poisonedPlayer?.id, shieldClashPlayer?.id]);
 
-  // Khi modal hoạt ảnh đầu tiên đóng (sói cắn / khiên cứu / phù thủy cứu), nếu có người bị độc thì phát tiếp hoạt ảnh trúng độc
+  // Kích hoạt thanh tẩy trực tiếp trên giao diện chính của game
+  const triggerLivePurification = (victimIds = []) => {
+    playPurificationSynth();
+    setLivePurificationBanner(true);
+    if (victimIds && victimIds.length > 0) {
+      setPurifyingVictimIds(victimIds);
+    }
+    setTimeout(() => {
+      setPurifyingVictimIds([]);
+      setLivePurificationBanner(false);
+      setCharmedHistory({});
+    }, 3500);
+  };
+
+  // Đóng modal Người Thổi Sáo chết
+  const handlePiedPiperDeathModalClose = () => {
+    // Nếu có callback chuyển tiếp tuần tự (như sau khi treo cổ: đóng modal Thổi Sáo chết -> mở tiếp Bảng Treo Cổ & Sói còn lại)
+    if (votePiedPiperNextRef.current && votePiedPiperTimerActiveRef.current) {
+      votePiedPiperNextRef.current();
+      return;
+    }
+
+    setPurifiedModalVisible(false);
+    // HẾT TẤT CẢ CÁC HOẠT ẢNH -> LÚC NÀY MỚI KÍCH HOẠT THANH TẨY HOÀNG KIM TRỰC TIẾP TRÊN MÀN HÌNH CHÍNH!
+    const victims = pendingPurifiedVictimsRef.current || [];
+    triggerLivePurification(victims);
+    pendingPurifiedVictimsRef.current = [];
+  };
+
+  // Khi modal Thợ Săn nổ súng đóng -> nếu bắn trúng Thổi Sáo thì tiếp tục mở modal Thổi Sáo chết
+  const handleHunterShotModalClose = () => {
+    setHunterShotModalVisible(false);
+    if (pendingHunterPurificationRef.current) {
+      const data = pendingHunterPurificationRef.current;
+      pendingHunterPurificationRef.current = null;
+      if (data?.purifiedPlayers && data.purifiedPlayers.length > 0) {
+        pendingPurifiedVictimsRef.current = data.purifiedPlayers.map((p) => p.id);
+      }
+      setTimeout(() => {
+        setPurifiedModalData({
+          piedPiper: data?.piedPiper,
+        });
+        setPurifiedModalVisible(true);
+      }, 350);
+    }
+  };
+
+  // Kích hoạt hoạt ảnh Người Thổi Sáo chết nếu có dữ liệu đang chờ trong đêm
+  const triggerNightPurificationIfPending = () => {
+    if (pendingNightPurificationRef.current) {
+      const data = pendingNightPurificationRef.current;
+      pendingNightPurificationRef.current = null;
+      if (data?.purifiedPlayers && data.purifiedPlayers.length > 0) {
+        pendingPurifiedVictimsRef.current = data.purifiedPlayers.map((p) => p.id);
+      }
+      setTimeout(() => {
+        setPurifiedModalData({
+          piedPiper: data?.piedPiper,
+        });
+        setPurifiedModalVisible(true);
+      }, 350);
+      return true;
+    }
+    return false;
+  };
+
+  // Khi modal hoạt ảnh đầu tiên đóng (sói cắn / khiên cứu / phù thủy cứu), nếu có người bị độc thì phát tiếp hoạt ảnh trúng độc, sau đó đến Thanh Tẩy Hoàng Kim
   const handleFirstModalClose = () => {
+    if (autoAdvanceModalTimerRef.current) {
+      clearTimeout(autoAdvanceModalTimerRef.current);
+      autoAdvanceModalTimerRef.current = null;
+    }
     setWolfClawModalVisible(false);
     setBodyguardSaveModalVisible(false);
     setWitchHealModalVisible(false);
@@ -314,8 +408,89 @@ export default function GameScreen({
       setTimeout(() => {
         setWitchPoisonModalVisible(true);
       }, 350);
+    } else {
+      triggerNightPurificationIfPending();
     }
   };
+
+  // Khi modal trúng độc đóng -> kiểm tra kích hoạt hoạt ảnh Thanh Tẩy Hoàng Kim nếu Người Thổi Sáo chết
+  const handleWitchPoisonModalClose = () => {
+    if (autoAdvanceModalTimerRef.current) {
+      clearTimeout(autoAdvanceModalTimerRef.current);
+      autoAdvanceModalTimerRef.current = null;
+    }
+    setWitchPoisonModalVisible(false);
+    triggerNightPurificationIfPending();
+  };
+
+  // Khi modal xung đột tay ba đóng -> kiểm tra kích hoạt hoạt ảnh Thanh Tẩy Hoàng Kim nếu Người Thổi Sáo chết
+  const handleThreeWayClashModalClose = () => {
+    if (autoAdvanceModalTimerRef.current) {
+      clearTimeout(autoAdvanceModalTimerRef.current);
+      autoAdvanceModalTimerRef.current = null;
+    }
+    setThreeWayClashModalVisible(false);
+    triggerNightPurificationIfPending();
+  };
+
+  // Tự động chuyển tiếp tuần tự giữa các modal buổi sáng nếu người chơi không bấm "Đã hiểu" (để kịp xem toàn bộ hoạt ảnh trước khi thảo luận)
+  useEffect(() => {
+    if (phase !== PHASES.DAY_ANNOUNCE) {
+      if (autoAdvanceModalTimerRef.current) {
+        clearTimeout(autoAdvanceModalTimerRef.current);
+        autoAdvanceModalTimerRef.current = null;
+      }
+      return;
+    }
+
+    const hasNextModalAfterFirst = (poisonedPlayer && !shieldClashPlayer) || pendingNightPurificationRef.current;
+    if ((wolfClawModalVisible || bodyguardSaveModalVisible || witchHealModalVisible) && hasNextModalAfterFirst) {
+      const advanceDuration = witchHealModalVisible ? 6100 : 3550;
+      autoAdvanceModalTimerRef.current = setTimeout(() => {
+        handleFirstModalClose();
+      }, advanceDuration);
+      return () => {
+        if (autoAdvanceModalTimerRef.current) clearTimeout(autoAdvanceModalTimerRef.current);
+      };
+    }
+
+    if (witchPoisonModalVisible && pendingNightPurificationRef.current) {
+      autoAdvanceModalTimerRef.current = setTimeout(() => {
+        handleWitchPoisonModalClose();
+      }, 5350);
+      return () => {
+        if (autoAdvanceModalTimerRef.current) clearTimeout(autoAdvanceModalTimerRef.current);
+      };
+    }
+
+    if (threeWayClashModalVisible && pendingNightPurificationRef.current) {
+      autoAdvanceModalTimerRef.current = setTimeout(() => {
+        handleThreeWayClashModalClose();
+      }, 6000);
+      return () => {
+        if (autoAdvanceModalTimerRef.current) clearTimeout(autoAdvanceModalTimerRef.current);
+      };
+    }
+  }, [
+    phase,
+    wolfClawModalVisible,
+    bodyguardSaveModalVisible,
+    witchHealModalVisible,
+    witchPoisonModalVisible,
+    threeWayClashModalVisible,
+    poisonedPlayer,
+    shieldClashPlayer,
+  ]);
+
+  // Tự động chuyển tiếp từ modal Thợ Săn nổ súng sang modal Thổi Sáo chết nếu bắn trúng Thổi Sáo
+  useEffect(() => {
+    if (hunterShotModalVisible && pendingHunterPurificationRef.current) {
+      const timer = setTimeout(() => {
+        handleHunterShotModalClose();
+      }, 4650);
+      return () => clearTimeout(timer);
+    }
+  }, [hunterShotModalVisible]);
 
   // Animations
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -374,7 +549,7 @@ export default function GameScreen({
       setSkipVoteCount(data.skipCount || 0);
     };
 
-    // Nhận kết quả vote bị loại (Không lộ role)
+    // Nhận kết quả vote bị loại
     const handleVoteResult = (data) => {
       setLastVoteEliminated(data.eliminated);
       if (!data.eliminated) {
@@ -385,42 +560,90 @@ export default function GameScreen({
         setLastVoteEliminated(null);
       }, 4500);
 
-      // Hiển thị thông báo số lượng Sói còn lại ngay trên giữa màn hình sau khi hết giờ vote
-      if (data.remainingWolves !== undefined && data.remainingWolves !== null) {
-        setRemainingWolvesOverlay({
-          count: data.remainingWolves,
-          eliminated: data.eliminated || null,
-        });
-        wolfOverlayScale.setValue(0.7);
-        wolfOverlayOpacity.setValue(0);
-
-        Animated.parallel([
-          Animated.spring(wolfOverlayScale, {
-            toValue: 1,
-            friction: 6,
-            tension: 50,
-            useNativeDriver: true,
-          }),
-          Animated.timing(wolfOverlayOpacity, {
-            toValue: 1,
-            duration: 250,
-            useNativeDriver: true,
-          }),
-        ]).start();
-
-        if (wolfOverlayTimerRef.current) {
-          clearTimeout(wolfOverlayTimerRef.current);
-        }
-
-        wolfOverlayTimerRef.current = setTimeout(() => {
-          Animated.timing(wolfOverlayOpacity, {
-            toValue: 0,
-            duration: 350,
-            useNativeDriver: true,
-          }).start(() => {
-            setRemainingWolvesOverlay(null);
+      const showWolfOverlay = (onFinished) => {
+        if (data.remainingWolves !== undefined && data.remainingWolves !== null) {
+          setRemainingWolvesOverlay({
+            count: data.remainingWolves,
+            eliminated: data.eliminated || null,
           });
-        }, 4000);
+          wolfOverlayScale.setValue(0.7);
+          wolfOverlayOpacity.setValue(0);
+
+          Animated.parallel([
+            Animated.spring(wolfOverlayScale, {
+              toValue: 1,
+              friction: 6,
+              tension: 50,
+              useNativeDriver: true,
+            }),
+            Animated.timing(wolfOverlayOpacity, {
+              toValue: 1,
+              duration: 250,
+              useNativeDriver: true,
+            }),
+          ]).start();
+
+          if (wolfOverlayTimerRef.current) {
+            clearTimeout(wolfOverlayTimerRef.current);
+          }
+
+          wolfOverlayTimerRef.current = setTimeout(() => {
+            Animated.timing(wolfOverlayOpacity, {
+              toValue: 0,
+              duration: 350,
+              useNativeDriver: true,
+            }).start(() => {
+              setRemainingWolvesOverlay(null);
+              if (onFinished) onFinished();
+            });
+          }, 3800);
+        } else {
+          if (onFinished) onFinished();
+        }
+      };
+
+      // YÊU CẦU: Dàn tuần tự các hoạt ảnh, KHÔNG ĐỂ ĐÈ LÊN NHAU.
+      // 1. Hiện Bảng Treo Cổ & Sói còn lại trước (không hiển thị người bị thôi miên theo Phương Án 1).
+      // 2. Sau khi Bảng đóng -> Nếu Thổi Sáo chết thì chiếu Hoạt ảnh Người Thổi Sáo chết (4.5s).
+      // 3. Sau khi modal Thổi Sáo chết đóng (cuối ngày trước khi vào đêm) -> Mới kích hoạt Thanh Tẩy Hoàng Kim trên màn hình chính!
+      if (data.isPiedPiperDead) {
+        const victimIds = data.purifiedPlayers ? data.purifiedPlayers.map((p) => p.id) : [];
+        pendingPurifiedVictimsRef.current = victimIds;
+        setPurifiedModalData({
+          piedPiper: data.eliminated,
+        });
+
+        // 1. Hiển thị Bảng Treo Cổ & Số Lượng Sói Còn Lại trước (3.8s)
+        showWolfOverlay(() => {
+          // 2. Sau khi Bảng Treo Cổ đóng -> Mở Hoạt ảnh Người Thổi Sáo chết (4.5s)
+          setTimeout(() => {
+            setPurifiedModalVisible(true);
+
+            const triggerFinalPurification = () => {
+              if (!votePiedPiperTimerActiveRef.current) return;
+              votePiedPiperTimerActiveRef.current = false;
+              setPurifiedModalVisible(false);
+
+              // 3. Cuối ngày trước khi vào đêm -> MỚI KÍCH HOẠT THANH TẨY HOÀNG KIM TRỰC TIẾP TRÊN MÀN HÌNH CHÍNH (3.5s)!
+              setTimeout(() => {
+                triggerLivePurification(victimIds);
+                pendingPurifiedVictimsRef.current = [];
+              }, 250);
+            };
+
+            votePiedPiperTimerActiveRef.current = true;
+            votePiedPiperNextRef.current = triggerFinalPurification;
+
+            if (autoAdvanceModalTimerRef.current) clearTimeout(autoAdvanceModalTimerRef.current);
+            autoAdvanceModalTimerRef.current = setTimeout(() => {
+              if (votePiedPiperTimerActiveRef.current) {
+                triggerFinalPurification();
+              }
+            }, 3500);
+          }, 250);
+        });
+      } else {
+        showWolfOverlay();
       }
     };
 
@@ -439,6 +662,67 @@ export default function GameScreen({
       }
     };
 
+    // Người Thổi Sáo nhận cập nhật mục tiêu & kết quả thôi miên
+    const handlePiedPiperSelected = (data) => {
+      if (data?.targets) {
+        setSelectedPiedPiperTargets(data.targets);
+      }
+      if (data?.countRequired) {
+        setCharmCountRequired(data.countRequired);
+      }
+    };
+
+    const handlePiedPiperResult = (data) => {
+      if (data?.charmedHistory) {
+        setCharmedHistory(data.charmedHistory);
+      }
+      setPiedPiperConfirmed(true);
+    };
+
+    // Hoạt ảnh Người Thổi Sáo chết và chuẩn bị thanh tẩy trực tiếp trên màn hình chính
+    const handlePiedPiperPurified = (data) => {
+      // Nếu là do vote ban ngày thì handleVoteResult đã điều phối tuần tự cùng bảng chia đôi
+      if (data?.cause === 'vote') return;
+
+      if (data?.purifiedPlayers && data.purifiedPlayers.length > 0) {
+        pendingPurifiedVictimsRef.current = data.purifiedPlayers.map((p) => p.id);
+      } else {
+        pendingPurifiedVictimsRef.current = [];
+      }
+
+      // 1. Nếu đang có modal Thợ Săn nổ súng đang mở hoặc nguyên nhân là thợ săn bắn -> Chờ Thợ Săn bắn xong hoàn toàn mới mở modal Thổi Sáo chết
+      if (hunterShotModalVisible || data?.cause === 'hunter_shot') {
+        pendingHunterPurificationRef.current = data;
+        return;
+      }
+
+      // 2. Nếu đang ở buổi sáng và có các modal sáng khác đang mở hoặc đang chờ mở
+      if (data?.cause === 'night' || phase === PHASES.DAY_ANNOUNCE) {
+        // Nếu đang ở buổi sáng và có các modal sáng khác đang mở hoặc đang chờ mở
+        const isMorningModalActive =
+          wolfClawModalVisible ||
+          bodyguardSaveModalVisible ||
+          witchHealModalVisible ||
+          witchPoisonModalVisible ||
+          threeWayClashModalVisible ||
+          !!shieldClashPlayer ||
+          !!deadPlayer ||
+          !!savedPlayer ||
+          !!witchSavedPlayer ||
+          (!!poisonedPlayer && !shieldClashPlayer);
+
+        if (isMorningModalActive) {
+          pendingNightPurificationRef.current = data;
+          return;
+        }
+      }
+
+      setPurifiedModalData({
+        piedPiper: data?.piedPiper,
+      });
+      setPurifiedModalVisible(true);
+    };
+
     socket.on('wolf-vote-update', handleWolfVoteUpdate);
     socket.on('seer-result', handleSeerResult);
     socket.on('bodyguard-update', handleBodyguardUpdate);
@@ -446,6 +730,9 @@ export default function GameScreen({
     socket.on('vote-result', handleVoteResult);
     socket.on('witch-state-update', handleWitchStateUpdate);
     socket.on('hunter-shot-result', handleHunterShotResult);
+    socket.on('pied-piper-selected', handlePiedPiperSelected);
+    socket.on('pied-piper-result', handlePiedPiperResult);
+    socket.on('pied-piper-purified', handlePiedPiperPurified);
 
     return () => {
       socket.off('wolf-vote-update', handleWolfVoteUpdate);
@@ -455,6 +742,9 @@ export default function GameScreen({
       socket.off('vote-result', handleVoteResult);
       socket.off('witch-state-update', handleWitchStateUpdate);
       socket.off('hunter-shot-result', handleHunterShotResult);
+      socket.off('pied-piper-selected', handlePiedPiperSelected);
+      socket.off('pied-piper-result', handlePiedPiperResult);
+      socket.off('pied-piper-purified', handlePiedPiperPurified);
     };
   }, [socket]);
 
@@ -476,11 +766,31 @@ export default function GameScreen({
     if (phase !== PHASES.HUNTER_SHOT) {
       setHunterShotTargetId(null);
     }
+    if (phase !== PHASES.NIGHT_PIED_PIPER) {
+      setSelectedPiedPiperTargets([]);
+      setPiedPiperSkipped(false);
+      setPiedPiperConfirmed(false);
+      setPiedPiperModalVisible(false);
+    }
     if (phase === PHASES.DAY_ANNOUNCE || phase === PHASES.DAY_DISCUSSION) {
       setSeerResult(null);
       setDayVoteCount({});
       setDayVoterMap({});
       setSkipVoteCount(0);
+    }
+  }, [phase]);
+
+  // Đồng bộ lịch sử thôi miên khi có dữ liệu từ server
+  useEffect(() => {
+    if (initialCharmedHistory && Object.keys(initialCharmedHistory).length > 0) {
+      setCharmedHistory(initialCharmedHistory);
+    }
+  }, [initialCharmedHistory]);
+
+  // Âm thanh tiếng sáo thần thoại vang lên khi đến pha lộ diện thôi miên 5s rạng sáng
+  useEffect(() => {
+    if (phase === PHASES.NIGHT_CHARMED_REVEAL) {
+      playFluteSynth();
     }
   }, [phase]);
 
@@ -601,12 +911,54 @@ export default function GameScreen({
     socket.emit('seer-check', { targetId });
   };
 
+  // Người Thổi Sáo chọn người để thôi miên đêm nay
+  const handlePiedPiperTarget = (targetId) => {
+    if (!amAlive || myRole !== 'pied_piper' || !isNightPiedPiper || piedPiperConfirmed) return;
+    let updated;
+    if (selectedPiedPiperTargets.includes(targetId)) {
+      updated = selectedPiedPiperTargets.filter((id) => id !== targetId);
+    } else {
+      if (selectedPiedPiperTargets.length < charmCountRequired) {
+        updated = [...selectedPiedPiperTargets, targetId];
+      } else {
+        // Đổi mục tiêu gần nhất
+        updated = [...selectedPiedPiperTargets.slice(1), targetId];
+      }
+    }
+    setSelectedPiedPiperTargets(updated);
+    setPiedPiperSkipped(false);
+    socket.emit('pied-piper-target', { targets: updated, targetIds: updated });
+  };
+
+  // Người Thổi Sáo chốt thôi miên mục tiêu
+  const handlePiedPiperConfirmCharm = () => {
+    if (!amAlive || myRole !== 'pied_piper' || !isNightPiedPiper || piedPiperConfirmed) return;
+    if (selectedPiedPiperTargets.length === 0) return;
+    socket.emit('pied-piper-charm', { targets: selectedPiedPiperTargets, targetIds: selectedPiedPiperTargets });
+    setPiedPiperConfirmed(true);
+    setPiedPiperModalVisible(true);
+  };
+
+  // Người Thổi Sáo bỏ qua lượt
+  const handlePiedPiperSkip = () => {
+    if (!amAlive || myRole !== 'pied_piper' || !isNightPiedPiper || piedPiperConfirmed) return;
+    setSelectedPiedPiperTargets([]);
+    setPiedPiperSkipped(true);
+    socket.emit('pied-piper-skip');
+  };
+
   // Vote treo cổ ban ngày (hỗ trợ chọn mục tiêu hoặc 'skip' để bỏ phiếu trắng)
   const handleDayVote = (targetId) => {
     if (!amAlive || phase !== PHASES.DAY_VOTE) return;
     const newTarget = dayVoteTarget === targetId ? null : targetId;
     setDayVoteTarget(newTarget);
     socket.emit('day-vote', { targetId: newTarget });
+  };
+
+  // Chủ phòng tua nhanh Thảo Luận chuyển sang Vote
+  const handleHostSkipDiscussion = () => {
+    if (!isHost || phase !== PHASES.DAY_DISCUSSION) return;
+    socket.emit('host-skip-discussion');
   };
 
   // Chủ phòng bỏ qua nhanh giai đoạn Vote
@@ -625,6 +977,10 @@ export default function GameScreen({
         return `🧙‍♀️ Phù Thủy Hành Động - Hiệp ${round}`;
       case PHASES.NIGHT_SEER:
         return `🔮 Tiên Tri Soi - Hiệp ${round}`;
+      case PHASES.NIGHT_PIED_PIPER:
+        return `🎶 Người Thổi Sáo Thức Giấc - Hiệp ${round}`;
+      case PHASES.NIGHT_CHARMED_REVEAL:
+        return (me?.isSelfCharmed || myRole === 'pied_piper') ? `🎶 Hội Thôi Miên Thức Giấc (5s)` : `🌙 Ban Đêm - Hiệp ${round}`;
       case PHASES.NIGHT:
         return `🌙 Ban Đêm - Hiệp ${round}`;
       case PHASES.DAY_ANNOUNCE:
@@ -725,6 +1081,30 @@ export default function GameScreen({
 
             {/* Nút thao tác góc phải */}
             <View style={styles.headerRightActions}>
+              {/* Chủ phòng tua nhanh Thảo Luận để sang Bỏ Phiếu */}
+              {isHost && phase === PHASES.DAY_DISCUSSION && (
+                <TouchableOpacity
+                  style={[styles.hostSkipBtn, isMobile && styles.hostSkipBtnMobile]}
+                  onPress={handleHostSkipDiscussion}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.hostSkipIcon}>⏩</Text>
+                  <Text style={[styles.hostSkipText, isMobile && { fontSize: 11 }]}>Bỏ qua thảo luận</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Chủ phòng chốt nhanh giai đoạn Vote */}
+              {isHost && phase === PHASES.DAY_VOTE && (
+                <TouchableOpacity
+                  style={[styles.hostSkipBtn, isMobile && styles.hostSkipBtnMobile]}
+                  onPress={handleHostSkipVote}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.hostSkipIcon}>⏩</Text>
+                  <Text style={[styles.hostSkipText, isMobile && { fontSize: 11 }]}>Chốt Vote</Text>
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity style={[styles.leaveButton, isMobile && styles.leaveButtonMobile]} onPress={onLeaveGame} activeOpacity={0.7}>
                 <Text style={[styles.leaveText, isMobile && { fontSize: 11 }]}>Rời</Text>
               </TouchableOpacity>
@@ -751,6 +1131,42 @@ export default function GameScreen({
                   </Text>
                 </View>
 
+                {/* Banner 5s Hội Thôi Miên tỉnh giấc nhận biết nhau trước rạng đông (Phương Án 1) */}
+                {isNightCharmedReveal && (me?.isSelfCharmed || myRole === 'pied_piper') && (
+                  <View style={styles.charmedRevealBanner}>
+                    <Text style={styles.charmedRevealEmoji}>🎶✨</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.charmedRevealTitle}>HỘI THÔI MIÊN TỈNH GIẤC (5S)</Text>
+                      <Text style={styles.charmedRevealSub}>
+                        {myRole === 'pied_piper'
+                          ? 'Những kẻ trúng bùa mê đang mở mắt nhìn thấy nhau trong 5 giây trước bình minh!'
+                          : 'Bạn và những người chịu chung bùa mê đang hé mắt nhìn thấy nhau trong 5 giây!'}
+                      </Text>
+                    </View>
+                    <View style={styles.charmedRevealTimerBadge}>
+                      <Text style={styles.charmedRevealTimerText}>⏳ {timeLeft}s</Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Banner Thông Báo Thanh Tẩy Hoàng Kim trực tiếp trên màn hình chính khi Người Thổi Sáo chết */}
+                {livePurificationBanner && (
+                  <View style={styles.livePurificationBannerContainer}>
+                    <Text style={styles.livePurificationBannerEmoji}>✨☀️✨</Text>
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.livePurificationHeaderRow}>
+                        <View style={styles.livePurificationTagBadge}>
+                          <Text style={styles.livePurificationTagText}>THANH TẨY HOÀNG KIM</Text>
+                        </View>
+                        <Text style={styles.livePurificationHeaderTitle}>Bùa Mê Đã Bị Xóa Bỏ!</Text>
+                      </View>
+                      <Text style={styles.livePurificationBannerMessage}>
+                        ✨ [THANH TẨY HOÀNG KIM]: Người Thổi Sáo đã bị tiêu diệt! Tiếng sáo ma thuật tan biến — Ánh sáng hoàng kim thanh tẩy rực rỡ, xóa bỏ toàn bộ bùa mê!
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
                 <View style={styles.discordGrid}>
                   {players.map((player) => {
                     const isMe = player.id === myId;
@@ -759,7 +1175,8 @@ export default function GameScreen({
                     const isMyBodyguardTarget = isNightBodyguard && myRole === 'bodyguard' && (bodyguardTarget === player.id || selectedTarget === player.id);
                     const isMyPoisonTarget = isNightWitch && myRole === 'witch' && witchPendingPoison === player.id;
                     const isMyHunterTarget = isHunterShot && isMeActiveHunter && hunterShotTargetId === player.id;
-                    const isTarget = isMyWolfTarget || dayVoteTarget === player.id || (isNightSeer && selectedTarget === player.id) || isMyBodyguardTarget || isMyPoisonTarget || isMyHunterTarget;
+                    const isMyPiedPiperTarget = isNightPiedPiper && myRole === 'pied_piper' && selectedPiedPiperTargets.includes(player.id);
+                    const isTarget = isMyWolfTarget || dayVoteTarget === player.id || (isNightSeer && selectedTarget === player.id) || isMyBodyguardTarget || isMyPoisonTarget || isMyHunterTarget || isMyPiedPiperTarget;
                     const votes = dayVoteCount[player.id] || 0;
                     const voters = dayVoterMap[player.id] || [];
 
@@ -779,7 +1196,11 @@ export default function GameScreen({
                     const canSeerTarget = isNightSeer && myRole === 'seer' && amAlive && isAlive && !isMe && !seerResult;
                     const canWitchPoisonTarget = isNightWitch && myRole === 'witch' && amAlive && isAlive && !isMe && witchStep === 'poison' && witchState?.hasPoison;
                     const canHunterTarget = isHunterShot && isMeActiveHunter && isAlive && !isMe;
-                    const isClickable = canVoteDay || canWolfTarget || canSeerTarget || canBodyguardTarget || canWitchPoisonTarget || canHunterTarget;
+                    const canPiedPiperTarget = isNightPiedPiper && myRole === 'pied_piper' && amAlive && isAlive && !isMe && !charmedHistory[player.id];
+                    const isClickable = canVoteDay || canWolfTarget || canSeerTarget || canBodyguardTarget || canWitchPoisonTarget || canHunterTarget || canPiedPiperTarget;
+
+                    const isCharmedHighlight = player.charmed || (myRole === 'pied_piper' && charmedHistory[player.id]);
+                    const isPurifyingLive = purifyingVictimIds.includes(player.id);
 
                     return (
                       <TouchableOpacity
@@ -793,6 +1214,9 @@ export default function GameScreen({
                           isClickable && styles.discordBoxClickable,
                           isTarget && styles.discordBoxSelected,
                           isMyHunterTarget && styles.discordBoxHunterTarget,
+                          isMyPiedPiperTarget && styles.discordBoxPiedPiperTarget,
+                          isCharmedHighlight && !isPurifyingLive && styles.discordBoxCharmed,
+                          isPurifyingLive && styles.discordBoxPurifyingGolden,
                           !isAlive && styles.discordBoxDead,
                           isLastProtected && styles.discordBoxDisabled,
                         ]}
@@ -804,6 +1228,7 @@ export default function GameScreen({
                           else if (canBodyguardTarget) handleBodyguardTarget(player.id);
                           else if (canWitchPoisonTarget) handleWitchPoisonTarget(player.id);
                           else if (canHunterTarget) setHunterShotTargetId(player.id);
+                          else if (canPiedPiperTarget) handlePiedPiperTarget(player.id);
                         }}
                         activeOpacity={0.8}
                       >
@@ -839,6 +1264,11 @@ export default function GameScreen({
                           {isMyPoisonTarget && (
                             <View style={[styles.discordPoisonTag, isCompact && styles.discordPoisonTagCompact]}>
                               <Text style={[styles.discordPoisonTagText, isCompact && { fontSize: 8 }]}>☠️ Ném Độc</Text>
+                            </View>
+                          )}
+                          {isMyPiedPiperTarget && (
+                            <View style={[styles.discordCharmedTag, isCompact && styles.discordCharmedTagCompact]}>
+                              <Text style={[styles.discordCharmedTagText, isCompact && { fontSize: 8 }]}>🎶 Thôi miên</Text>
                             </View>
                           )}
                           {/* Checkbox indicator trực quan */}
@@ -970,6 +1400,84 @@ export default function GameScreen({
                           </View>
                         )}
 
+                        {/* ================= HIỂN THỊ THANH TẨY TRỰC TIẾP TRÊN MÀN HÌNH CHÍNH ================= */}
+                        {isPurifyingLive ? (
+                          <View
+                            style={[
+                              styles.purifiedLiveBadgeUnderName,
+                              isCompact && styles.purifiedLiveBadgeUnderNameCompact,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.purifiedLiveBadgeUnderNameText,
+                                isCompact && { fontSize: 8.5, letterSpacing: 0.2 },
+                              ]}
+                            >
+                              ✨ ĐÃ THANH TẨY
+                            </Text>
+                          </View>
+                        ) : (
+                          <>
+                            {/* ================= HIỂN THỊ ĐÃ THÔI MIÊN DƯỚI TÊN CHO NGƯỜI THỔI SÁO ================= */}
+                            {myRole === 'pied_piper' && (charmedHistory[player.id] || player.charmed) && (
+                              <View
+                                style={[
+                                  styles.charmedBadgeUnderName,
+                                  isCompact && styles.charmedBadgeUnderNameCompact,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.charmedBadgeUnderNameText,
+                                    isCompact && { fontSize: 8.5, letterSpacing: 0.2 },
+                                  ]}
+                                >
+                                  🎶 ĐÃ THÔI MIÊN
+                                </Text>
+                              </View>
+                            )}
+
+                            {/* ================= HIỂN THỊ TRONG PHA 5S RẠNG SÁNG CHO NHỮNG NGƯỜI CÙNG BỊ THÔI MIÊN (PHƯƠNG ÁN 1) ================= */}
+                            {isNightCharmedReveal && player.charmed && myRole !== 'pied_piper' && me?.isSelfCharmed && (
+                              <View
+                                style={[
+                                  styles.charmedRevealBadgeUnderName,
+                                  isCompact && styles.charmedRevealBadgeUnderNameCompact,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.charmedRevealBadgeUnderNameText,
+                                    isCompact && { fontSize: 8.5, letterSpacing: 0.2 },
+                                  ]}
+                                >
+                                  🎶 CÙNG BỊ THÔI MIÊN
+                                </Text>
+                              </View>
+                            )}
+
+                            {/* ================= THÔNG BÁO CHO BẢN THÂN NẾU BỊ THÔI MIÊN ================= */}
+                            {isMe && player.isSelfCharmed && myRole !== 'pied_piper' && !isNightCharmedReveal && (
+                              <View
+                                style={[
+                                  styles.charmedSelfBadgeUnderName,
+                                  isCompact && styles.charmedSelfBadgeUnderNameCompact,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.charmedSelfBadgeUnderNameText,
+                                    isCompact && { fontSize: 8.5, letterSpacing: 0.2 },
+                                  ]}
+                                >
+                                  🎶 BẠN ĐÃ BỊ THÔI MIÊN
+                                </Text>
+                              </View>
+                            )}
+                          </>
+                        )}
+
                         {/* Trạng thái sống/chết (KHÔNG TIẾT LỘ VAI TRÒ) */}
                         <Text style={[styles.discordStatusLabel, !isAlive && styles.discordStatusLabelDead, isCompact && styles.discordStatusLabelCompact]}>
                           {isAlive ? '🟢 Sống' : '💀 Hồn ma'}
@@ -983,7 +1491,7 @@ export default function GameScreen({
             </ScrollView>
 
               {/* ================= THANH HÀNH ĐỘNG CỐ ĐỊNH DƯỚI ĐÁY MÀN HÌNH ================= */}
-              {(isNightBodyguard && myRole === 'bodyguard' && amAlive) || (isNightWolf && myRole === 'wolf' && amAlive) || (isNightWitch && myRole === 'witch' && amAlive) || (isNightSeer && myRole === 'seer' && amAlive) || phase === PHASES.DAY_VOTE || isHunterShot ? (
+              {(isNightBodyguard && myRole === 'bodyguard' && amAlive) || (isNightWolf && myRole === 'wolf' && amAlive) || (isNightWitch && myRole === 'witch' && amAlive) || (isNightSeer && myRole === 'seer' && amAlive) || (isNightPiedPiper && myRole === 'pied_piper' && amAlive) || phase === PHASES.DAY_VOTE || isHunterShot ? (
                 <View style={[styles.bottomActionBar, isMobile && styles.bottomActionBarMobile]}>
                   {/* --- BANNER HÀNH ĐỘNG CỦA PHA BẢO VỆ (30S & 5S CHUYỂN TIẾP) --- */}
                   {isNightBodyguard && myRole === 'bodyguard' && amAlive && (() => {
@@ -1113,9 +1621,9 @@ export default function GameScreen({
                           <View style={{ flex: 1 }}>
                             <Text style={styles.witchDoneTitle}>BẠN ĐÃ HẾT BÌNH THUỐC ĐÊM NAY</Text>
                             <Text style={styles.witchDoneSub}>
-                              {witchVictim
-                                ? `Nạn nhân bị cắn đêm nay: ${witchVictim.name}. Đang quan sát... (⏳ ${timeLeft}s)`
-                                : `Đêm nay không ai bị Sói cắn. Đang chờ chuyển qua vai trò tiếp theo... (⏳ ${timeLeft}s)`}
+                              {(wolfVictim || witchVictim)
+                                ? `Nạn nhân bị cắn đêm nay: ${(wolfVictim || witchVictim).name}. Đang quan sát đêm nay...`
+                                : 'Đêm nay không ai bị Sói cắn. Ngôi làng đang yên giấc.'}
                             </Text>
                           </View>
                         </View>
@@ -1129,7 +1637,7 @@ export default function GameScreen({
                           <View style={{ flex: 1 }}>
                             <Text style={styles.witchDoneTitle}>BẠN ĐÃ HOÀN TẤT PHÉP THUẬT ĐÊM NAY!</Text>
                             <Text style={styles.witchDoneSub}>
-                              Đang chờ chuyển sang lượt tiếp theo... (⏳ {timeLeft}s)
+                              Đang chờ các vai trò khác hành động...
                             </Text>
                           </View>
                         </View>
@@ -1156,6 +1664,75 @@ export default function GameScreen({
                       </View>
                     </View>
                   )}
+
+                  {/* --- BANNER HÀNH ĐỘNG CỦA PHA NGƯỜI THỔI SÁO (PIED PIPER) --- */}
+                  {isNightPiedPiper && myRole === 'pied_piper' && amAlive && (() => {
+                    const selectedCount = selectedPiedPiperTargets.length;
+                    const targetNames = selectedPiedPiperTargets
+                      .map((tid) => players.find((p) => p.id === tid)?.name || 'Người chơi')
+                      .join(', ');
+
+                    return (
+                      <View style={styles.piedPiperActionCard}>
+                        <View style={styles.piedPiperActionHeader}>
+                          <Image
+                            source={require('../assets/flute.png')}
+                            style={styles.piedPiperBannerFluteIcon}
+                            resizeMode="contain"
+                          />
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.piedPiperActionTitle}>
+                              🎶 TIẾNG SÁO MÊ HOẶC ({selectedCount}/{charmCountRequired})
+                            </Text>
+                            <Text style={styles.piedPiperActionSub}>
+                              {piedPiperConfirmed
+                                ? `✅ Đã thôi miên: ${targetNames || 'Không ai'}. Đang chờ rạng sáng...`
+                                : piedPiperSkipped
+                                ? '🏳️ Bạn đã chọn bỏ qua lượt thôi miên đêm nay.'
+                                : selectedCount > 0
+                                ? `Đang chọn (${selectedCount}/${charmCountRequired}): ${targetNames}. Bấm "THÔI MIÊN" để chốt!`
+                                : `Bấm chọn ${charmCountRequired} người chơi còn sống (chưa bị thôi miên) trên bàn chơi:`}
+                            </Text>
+                          </View>
+                          <View style={styles.piedPiperTimerBadge}>
+                            <Text style={styles.piedPiperTimerText}>⏳ {timeLeft}s</Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.piedPiperActionButtonsRow}>
+                          <TouchableOpacity
+                            style={[
+                              styles.piedPiperCharmBtn,
+                              (selectedCount === 0 || piedPiperConfirmed) && styles.piedPiperCharmBtnDisabled,
+                            ]}
+                            disabled={selectedCount === 0 || piedPiperConfirmed}
+                            onPress={handlePiedPiperConfirmCharm}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.piedPiperCharmBtnText}>
+                              {piedPiperConfirmed
+                                ? '✨ ĐÃ CHỐT THÔI MIÊN'
+                                : `🎶 THÔI MIÊN (${selectedCount}/${charmCountRequired})`}
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[
+                              styles.piedPiperSkipBtn,
+                              piedPiperConfirmed && styles.piedPiperSkipBtnDisabled,
+                            ]}
+                            disabled={piedPiperConfirmed}
+                            onPress={handlePiedPiperSkip}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.piedPiperSkipBtnText}>
+                              {piedPiperSkipped ? '✅ ĐÃ BỎ LƯỢT' : '❌ BỎ QUA'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  })()}
 
                   {/* --- BANNER HÀNH ĐỘNG CỦA PHA THỢ SĂN (HUNTER_SHOT) --- */}
                   {isHunterShot && (() => {
@@ -1329,7 +1906,22 @@ export default function GameScreen({
                   {getRoleName(myRole)}
                 </Text>
                 <Text style={styles.roleBriefTeam}>
-                  {myRole === 'wolf' ? 'Thuộc: Phe Ma Sói 🐺' : 'Thuộc: Phe Dân Làng 🕊️'}
+                  {myRole === 'wolf' ? 'Thuộc: Phe Ma Sói 🐺' : myRole === 'pied_piper' ? 'Thuộc: Phe Thứ 3 🎶' : 'Thuộc: Phe Dân Làng 🕊️'}
+                </Text>
+                <Text style={styles.roleBriefMission}>
+                  {myRole === 'pied_piper'
+                    ? 'Nhiệm vụ: Thôi miên toàn bộ người chơi còn sống để đem về chiến thắng cho Phe Thứ 3!'
+                    : myRole === 'wolf'
+                    ? 'Nhiệm vụ: Cùng bầy Sói tiêu diệt Dân Làng trong đêm!'
+                    : myRole === 'seer'
+                    ? 'Nhiệm vụ: Soi thấu danh tính kẻ thủ ác để dẫn dắt dân làng!'
+                    : myRole === 'witch'
+                    ? 'Nhiệm vụ: Dùng 2 bình thuốc Cứu & Độc xoay chuyển thế trận!'
+                    : myRole === 'bodyguard'
+                    ? 'Nhiệm vụ: Che chở dân làng khỏi nanh vuốt Sói mỗi đêm!'
+                    : myRole === 'hunter'
+                    ? 'Nhiệm vụ: Bắn phát súng báo thù kéo theo kẻ thù xuống mồ!'
+                    : 'Nhiệm vụ: Tìm ra toàn bộ Ma Sói để bảo vệ sự bình yên của làng!'}
                 </Text>
                 <TouchableOpacity
                   style={[styles.roleBriefCloseBtn, { backgroundColor: getRoleColor(myRole) }]}
@@ -1391,7 +1983,7 @@ export default function GameScreen({
             poisonedPlayer={poisonedPlayer}
             isShieldClash={false}
             timeLeft={timeLeft || 8}
-            onClose={() => setWitchPoisonModalVisible(false)}
+            onClose={handleWitchPoisonModalClose}
           />
 
           {/* ================= MODAL TƯƠNG TÁC TAY BA ĐÈ HIỆU ỨNG LIÊN TỤC (BẢO VỆ + SÓI + PHÙ THỦY) ================= */}
@@ -1399,7 +1991,7 @@ export default function GameScreen({
             visible={threeWayClashModalVisible && !!shieldClashPlayer}
             victimPlayer={shieldClashPlayer}
             timeLeft={timeLeft || 9}
-            onClose={() => setThreeWayClashModalVisible(false)}
+            onClose={handleThreeWayClashModalClose}
           />
 
           {/* ================= MODAL HIỆU ỨNG THỢ SĂN NỔ SÚNG BẮN HẠ ================= */}
@@ -1408,12 +2000,28 @@ export default function GameScreen({
             targetPlayer={hunterShotResultData?.target}
             hunterPlayer={hunterShotResultData?.hunter}
             timeLeft={timeLeft || 8}
-            onClose={() => setHunterShotModalVisible(false)}
+            onClose={handleHunterShotModalClose}
+          />
+
+          {/* ================= MODAL HIỆU ỨNG NGƯỜI THỔI SÁO THÔI MIÊN ================= */}
+          <PiedPiperModal
+            visible={piedPiperModalVisible && myRole === 'pied_piper' && selectedPiedPiperTargets.length > 0}
+            targetPlayers={selectedPiedPiperTargets.map((tid) => players.find((p) => p.id === tid) || { id: tid, name: 'Người chơi' })}
+            timeLeft={timeLeft || 6}
+            onClose={() => setPiedPiperModalVisible(false)}
+          />
+
+          {/* ================= MODAL HOẠT ẢNH NGƯỜI THỔI SÁO CHẾT ================= */}
+          <PiedPiperPurifiedModal
+            visible={purifiedModalVisible}
+            piedPiper={purifiedModalData?.piedPiper}
+            duration={5}
+            onClose={handlePiedPiperDeathModalClose}
           />
 
           {/* ================= MODAL PHÙ THỦY CHỌN CỨU NẠN NHÂN TRONG ĐÊM ================= */}
           <Modal
-            visible={isNightWitch && myRole === 'witch' && amAlive && witchStep === 'heal' && !!witchVictim}
+            visible={isNightWitch && myRole === 'witch' && amAlive && witchStep === 'heal' && !!(wolfVictim || witchVictim)}
             transparent
             animationType="fade"
           >
@@ -1429,12 +2037,12 @@ export default function GameScreen({
 
                 <View style={styles.witchVictimContainer}>
                   <PlayerAvatar
-                    player={witchVictim}
+                    player={wolfVictim || witchVictim}
                     size="large"
                     showRole={false}
                     textColor="#FFFFFF"
                   />
-                  <Text style={styles.witchVictimName}>{witchVictim?.name}</Text>
+                  <Text style={styles.witchVictimName}>{(wolfVictim || witchVictim)?.name}</Text>
                   <Text style={styles.witchVictimHint}>
                     Bạn có muốn dùng Bình Cứu 🧪 để hồi sinh người này không?
                   </Text>
@@ -1468,7 +2076,7 @@ export default function GameScreen({
 
           {/* ================= MODAL PHÙ THỦY XEM NẠN NHÂN KHI ĐÃ HẾT BÌNH CỨU (CÒN BÌNH ĐỘC) ================= */}
           <Modal
-            visible={isNightWitch && myRole === 'witch' && amAlive && witchStep === 'view_victim_has_poison' && !!witchVictim}
+            visible={isNightWitch && myRole === 'witch' && amAlive && witchStep === 'view_victim_has_poison' && !!(wolfVictim || witchVictim)}
             transparent
             animationType="fade"
           >
@@ -1484,12 +2092,12 @@ export default function GameScreen({
 
                 <View style={styles.witchVictimContainer}>
                   <PlayerAvatar
-                    player={witchVictim}
+                    player={wolfVictim || witchVictim}
                     size="large"
                     showRole={false}
                     textColor="#FFFFFF"
                   />
-                  <Text style={styles.witchVictimName}>{witchVictim?.name}</Text>
+                  <Text style={styles.witchVictimName}>{(wolfVictim || witchVictim)?.name}</Text>
                   <Text style={[styles.witchVictimHint, { color: '#FCA5A5' }]}>
                     ⚠️ Bạn đã dùng hết bình Cứu trong trận nên không thể cứu người này!
                   </Text>
@@ -1501,7 +2109,7 @@ export default function GameScreen({
                     onPress={() => setWitchStep('ask_poison')}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.witchHealYesBtnText}>➡️ TIẾP TỤC (XEM THUỐC ĐỘC) ({witchViewVictimCountdown}s)</Text>
+                    <Text style={styles.witchHealYesBtnText}>➡️ TIẾP TỤC (XEM THUỐC ĐỘC)</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -1531,21 +2139,21 @@ export default function GameScreen({
                   <Text style={styles.witchHealBadgeText}>🧙‍♀️ PHÙ THỦY QUAN SÁT (HẾT THUỐC)</Text>
                 </View>
                 <Text style={styles.witchHealModalTitle}>
-                  {witchVictim ? 'BẦY SÓI ĐÃ TẤN CÔNG!' : 'ĐÊM NAY YÊN BÌNH'}
+                  {(wolfVictim || witchVictim) ? 'BẦY SÓI ĐÃ TẤN CÔNG!' : 'ĐÊM NAY YÊN BÌNH'}
                 </Text>
                 <Text style={styles.witchHealModalSubtitle}>
-                  {witchVictim ? 'Nạn nhân bị Sói cắn đêm nay:' : 'Không có ai bị Sói cắn đêm nay.'}
+                  {(wolfVictim || witchVictim) ? 'Nạn nhân bị Sói cắn đêm nay:' : 'Không có ai bị Sói cắn đêm nay.'}
                 </Text>
 
-                {witchVictim ? (
+                {(wolfVictim || witchVictim) ? (
                   <View style={styles.witchVictimContainer}>
                     <PlayerAvatar
-                      player={witchVictim}
+                      player={wolfVictim || witchVictim}
                       size="large"
                       showRole={false}
                       textColor="#FFFFFF"
                     />
-                    <Text style={styles.witchVictimName}>{witchVictim?.name}</Text>
+                    <Text style={styles.witchVictimName}>{(wolfVictim || witchVictim)?.name}</Text>
                     <Text style={[styles.witchVictimHint, { color: '#CBD5E1' }]}>
                       Bạn đã hết cả 2 bình thuốc Cứu & Độc. Đang quan sát đêm nay...
                     </Text>
@@ -1558,12 +2166,6 @@ export default function GameScreen({
                     </Text>
                   </View>
                 )}
-
-                <View style={styles.witchOutOfPotionsTimerPill}>
-                  <Text style={styles.witchOutOfPotionsTimerText}>
-                    ⏳ Tự động chuyển vai trò tiếp theo sau {timeLeft}s...
-                  </Text>
-                </View>
 
                 <TouchableOpacity
                   style={[styles.witchHealNoBtn, { marginTop: 12, width: '100%' }]}
@@ -1653,10 +2255,6 @@ export default function GameScreen({
                     },
                   ]}
                 >
-                  <View style={styles.wolfCountGlowBadge}>
-                    <Text style={styles.wolfCountEmoji}>🐺</Text>
-                  </View>
-
                   {/* Kết quả biểu quyết treo cổ */}
                   <View style={styles.wolfVoteElimBanner}>
                     <Text style={styles.wolfVoteElimText}>
@@ -1666,6 +2264,9 @@ export default function GameScreen({
                     </Text>
                   </View>
 
+                  <View style={styles.wolfCountGlowBadge}>
+                    <Text style={styles.wolfCountEmoji}>🐺</Text>
+                  </View>
                   <Text style={styles.wolfCountHeader}>SỐ LƯỢNG SÓI CÒN LẠI</Text>
                   <View style={styles.wolfCountNumberBox}>
                     <Text style={styles.wolfCountNumber}>{wolfCount}</Text>
@@ -1675,9 +2276,6 @@ export default function GameScreen({
                       ? '🎉 Toàn bộ Ma Sói đã bị tiêu diệt!'
                       : `⚠️ Hiện còn ${wolfCount} Ma Sói đang lẩn trốn trong bóng tối!`}
                   </Text>
-                  <View style={styles.wolfCountTimerPill}>
-                    <Text style={styles.wolfCountTimerText}>🌙 Chuẩn bị bước vào Ban Đêm...</Text>
-                  </View>
                 </Animated.View>
               </View>
             );
@@ -1776,6 +2374,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  hostSkipBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#D97706',
+    borderWidth: 1.2,
+    borderColor: '#FBBF24',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 9,
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 4,
+    ...(Platform.OS === 'web' ? { boxShadow: '0 0 12px rgba(245, 158, 11, 0.5)' } : {}),
+  },
+  hostSkipBtnMobile: {
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 7,
+    gap: 2,
+  },
+  hostSkipIcon: {
+    fontSize: 12,
+  },
+  hostSkipText: {
+    color: '#FFFFFF',
+    fontSize: 11.5,
+    fontWeight: '900',
+    letterSpacing: 0.3,
   },
   hostSkipVoteBtn: {
     flexDirection: 'row',
@@ -3307,7 +3937,14 @@ const styles = StyleSheet.create({
   roleBriefTeam: {
     fontSize: 14,
     color: '#CBD5E1',
+    marginBottom: 8,
+  },
+  roleBriefMission: {
+    fontSize: 13,
+    color: '#E2E8F0',
+    textAlign: 'center',
     marginBottom: 20,
+    lineHeight: 18,
   },
   roleBriefCloseBtn: {
     paddingHorizontal: 24,
@@ -3977,5 +4614,411 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#CBD5E1',
     marginTop: 2,
+  },
+
+  // ===== NGƯỜI THỔI SÁO (PIED PIPER) STYLES =====
+  discordBoxPiedPiperTarget: {
+    borderColor: '#C084FC',
+    borderWidth: 2,
+    ...(Platform.OS === 'web' ? { boxShadow: '0 0 16px rgba(192, 132, 252, 0.85)' } : {}),
+  },
+  discordBoxCharmed: {
+    borderColor: '#E879F9',
+    backgroundColor: 'rgba(168, 85, 247, 0.12)',
+    ...(Platform.OS === 'web' ? { boxShadow: '0 0 14px rgba(232, 121, 249, 0.5)' } : {}),
+  },
+  discordBoxPurifyingGolden: {
+    borderColor: '#FDE047',
+    borderWidth: 2,
+    backgroundColor: 'rgba(245, 158, 11, 0.22)',
+    ...(Platform.OS === 'web'
+      ? { boxShadow: '0 0 20px rgba(253, 224, 71, 0.95), inset 0 0 10px rgba(245, 158, 11, 0.35)' }
+      : {}),
+  },
+  purifiedLiveBadgeUnderName: {
+    backgroundColor: 'rgba(245, 158, 11, 0.35)',
+    borderWidth: 1.5,
+    borderColor: '#FDE047',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginTop: 2,
+    alignItems: 'center',
+    ...(Platform.OS === 'web' ? { boxShadow: '0 0 10px rgba(245, 158, 11, 0.85)' } : {}),
+  },
+  purifiedLiveBadgeUnderNameCompact: {
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  purifiedLiveBadgeUnderNameText: {
+    color: '#FEF08A',
+    fontWeight: '900',
+    fontSize: 9.5,
+    letterSpacing: 0.4,
+    textShadowColor: 'rgba(245, 158, 11, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+  livePurificationBannerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(32, 20, 6, 0.96)',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#F59E0B',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 14,
+    gap: 14,
+    width: '100%',
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.75,
+    shadowRadius: 18,
+    elevation: 12,
+    ...(Platform.OS === 'web' ? { boxShadow: '0 0 20px rgba(245, 158, 11, 0.85)' } : {}),
+  },
+  livePurificationBannerEmoji: {
+    fontSize: 28,
+  },
+  livePurificationHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  livePurificationTagBadge: {
+    backgroundColor: 'rgba(245, 158, 11, 0.35)',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  livePurificationTagText: {
+    color: '#FEF08A',
+    fontWeight: '900',
+    fontSize: 10.5,
+    letterSpacing: 0.8,
+  },
+  livePurificationHeaderTitle: {
+    color: '#FDE047',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  livePurificationBannerMessage: {
+    color: '#FEF3C7',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 17,
+  },
+  discordCharmedTag: {
+    backgroundColor: 'rgba(192, 132, 252, 0.3)',
+    borderWidth: 1,
+    borderColor: '#C084FC',
+    borderRadius: 6,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  discordCharmedTagCompact: {
+    paddingHorizontal: 3,
+    paddingVertical: 0,
+  },
+  discordCharmedTagText: {
+    color: '#F5D0FE',
+    fontWeight: '900',
+    fontSize: 9,
+  },
+  charmedBadgeUnderName: {
+    backgroundColor: 'rgba(168, 85, 247, 0.25)',
+    borderWidth: 1,
+    borderColor: '#A855F7',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginTop: 2,
+    alignItems: 'center',
+  },
+  charmedBadgeUnderNameCompact: {
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  charmedBadgeUnderNameText: {
+    color: '#E9D5FF',
+    fontWeight: '900',
+    fontSize: 9.5,
+    letterSpacing: 0.3,
+  },
+  charmedRevealBadgeUnderName: {
+    backgroundColor: 'rgba(236, 72, 153, 0.3)',
+    borderWidth: 1.5,
+    borderColor: '#F43F5E',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginTop: 2,
+    alignItems: 'center',
+    ...(Platform.OS === 'web' ? { boxShadow: '0 0 10px rgba(244, 63, 94, 0.6)' } : {}),
+  },
+  charmedRevealBadgeUnderNameCompact: {
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  charmedRevealBadgeUnderNameText: {
+    color: '#FFE4E6',
+    fontWeight: '900',
+    fontSize: 9.5,
+    letterSpacing: 0.4,
+  },
+  charmedSelfBadgeUnderName: {
+    backgroundColor: 'rgba(192, 132, 252, 0.25)',
+    borderWidth: 1,
+    borderColor: '#C084FC',
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    marginTop: 2,
+    alignItems: 'center',
+  },
+  charmedSelfBadgeUnderNameCompact: {
+    paddingHorizontal: 3,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  charmedSelfBadgeUnderNameText: {
+    color: '#F5D0FE',
+    fontWeight: '900',
+    fontSize: 9,
+    letterSpacing: 0.2,
+  },
+  charmedRevealBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(30, 10, 45, 0.92)',
+    borderWidth: 2,
+    borderColor: '#E879F9',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginHorizontal: 10,
+    marginBottom: 10,
+    ...(Platform.OS === 'web' ? { boxShadow: '0 0 20px rgba(232, 121, 249, 0.5)' } : {}),
+  },
+  charmedRevealEmoji: {
+    fontSize: 26,
+  },
+  charmedRevealTitle: {
+    fontSize: 12.5,
+    fontWeight: '900',
+    color: '#F5D0FE',
+    letterSpacing: 0.8,
+  },
+  charmedRevealSub: {
+    fontSize: 11,
+    color: '#E9D5FF',
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  charmedRevealTimerBadge: {
+    backgroundColor: 'rgba(232, 121, 249, 0.25)',
+    borderWidth: 1,
+    borderColor: '#F0ABFC',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  charmedRevealTimerText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#FDF4FF',
+  },
+  piedPiperActionCard: {
+    backgroundColor: 'rgba(20, 10, 35, 0.96)',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#C084FC',
+    marginHorizontal: 12,
+    marginVertical: 10,
+    ...(Platform.OS === 'web' ? { boxShadow: '0 4px 22px rgba(192, 132, 252, 0.4)' } : {}),
+  },
+  piedPiperActionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  piedPiperBannerFluteIcon: {
+    width: 44,
+    height: 44,
+  },
+  piedPiperActionTitle: {
+    fontSize: 13.5,
+    fontWeight: '900',
+    color: '#F5D0FE',
+    letterSpacing: 0.8,
+  },
+  piedPiperActionSub: {
+    fontSize: 11.5,
+    color: '#E9D5FF',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  piedPiperTimerBadge: {
+    backgroundColor: 'rgba(192, 132, 252, 0.25)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#C084FC',
+  },
+  piedPiperTimerText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#FDF4FF',
+  },
+  piedPiperActionButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  piedPiperCharmBtn: {
+    flex: 2,
+    backgroundColor: '#9333EA',
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#C084FC',
+    ...(Platform.OS === 'web' ? { boxShadow: '0 0 14px rgba(147, 51, 234, 0.6)' } : {}),
+  },
+  piedPiperCharmBtnDisabled: {
+    backgroundColor: 'rgba(147, 51, 234, 0.35)',
+    borderColor: 'rgba(192, 132, 252, 0.3)',
+    opacity: 0.6,
+  },
+  piedPiperCharmBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 13,
+    letterSpacing: 0.5,
+  },
+  piedPiperSkipBtn: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingVertical: 11,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  piedPiperSkipBtnDisabled: {
+    opacity: 0.4,
+  },
+  piedPiperSkipBtnText: {
+    color: '#E2E8F0',
+    fontWeight: '800',
+    fontSize: 12,
+  },
+
+  // ===== SPLIT POPUP CARD (WOLF + CHARMED 50/50) =====
+  splitCountPopupCard: {
+    maxWidth: 520,
+    width: '92%',
+    borderColor: '#A855F7',
+    backgroundColor: 'rgba(18, 10, 28, 0.97)',
+    ...(Platform.OS === 'web' ? { boxShadow: '0 0 35px rgba(168, 85, 247, 0.7)' } : {}),
+  },
+  splitRowWrapper: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    width: '100%',
+    marginVertical: 8,
+  },
+  splitWolfCol: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  splitCharmedCol: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  splitVerticalDivider: {
+    width: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    marginVertical: 4,
+    borderRadius: 1,
+  },
+  splitWolfSubtitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FCA5A5',
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  splitCharmedSubtitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#E9D5FF',
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  charmedCountGlowBadge: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: 'rgba(168, 85, 247, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#C084FC',
+    marginBottom: 12,
+  },
+  charmedCountEmoji: {
+    fontSize: 34,
+  },
+  charmedCountHeader: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#E9D5FF',
+    letterSpacing: 1.5,
+    textAlign: 'center',
+    marginBottom: 8,
+    textShadowColor: '#000000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+  },
+  charmedCountNumberBox: {
+    backgroundColor: 'rgba(168, 85, 247, 0.2)',
+    paddingHorizontal: 28,
+    paddingVertical: 6,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: 'rgba(192, 132, 252, 0.6)',
+    marginVertical: 6,
+  },
+  charmedCountNumber: {
+    fontSize: 54,
+    fontWeight: '900',
+    color: '#FDF4FF',
+    textAlign: 'center',
+    textShadowColor: '#000000',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
+    ...(Platform.OS === 'web' ? { textShadow: '-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000' } : {}),
   },
 });

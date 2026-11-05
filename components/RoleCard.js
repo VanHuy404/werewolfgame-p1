@@ -57,6 +57,7 @@ export default function RoleCard({ role, visible = false }) {
     bodyguard: 'SHIELD YOUR VILLAGE FROM CLAWS',
     witch: 'BREW POTIONS TO HEAL OR POISON',
     hunter: 'ONE BULLET, ONE REVENGE',
+    pied_piper: 'CHARM ALL LIVING SOULS TO WIN',
     villager: 'SURVIVE AND FIND THE WOLFS',
   };
 

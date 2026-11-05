@@ -9,6 +9,7 @@ const ROLES = {
   BODYGUARD: 'bodyguard',    // 🛡️ Bảo Vệ
   WITCH: 'witch',            // 🧙‍♀️ Phù Thủy
   HUNTER: 'hunter',          // 🏹 Thợ Săn
+  PIED_PIPER: 'pied_piper',  // 🎶 Người Thổi Sáo
   VILLAGER: 'villager',      // 🧑‍🌾 Dân Làng
 };
 
@@ -19,6 +20,7 @@ const ROLE_NAMES = {
   [ROLES.BODYGUARD]: 'Bảo Vệ',
   [ROLES.WITCH]: 'Phù Thủy',
   [ROLES.HUNTER]: 'Thợ Săn',
+  [ROLES.PIED_PIPER]: 'Người Thổi Sáo',
   [ROLES.VILLAGER]: 'Dân Làng',
 };
 
@@ -29,6 +31,7 @@ const ROLE_EMOJIS = {
   [ROLES.BODYGUARD]: '🛡️',
   [ROLES.WITCH]: '🧙‍♀️',
   [ROLES.HUNTER]: '🏹',
+  [ROLES.PIED_PIPER]: '🎶',
   [ROLES.VILLAGER]: '🧑‍🌾',
 };
 
@@ -39,6 +42,7 @@ const ROLE_COLORS = {
   [ROLES.BODYGUARD]: '#0EA5E9',
   [ROLES.WITCH]: '#A855F7',
   [ROLES.HUNTER]: '#F59E0B',
+  [ROLES.PIED_PIPER]: '#C084FC',
   [ROLES.VILLAGER]: '#10B981',
 };
 
@@ -49,6 +53,8 @@ const PHASES = {
   NIGHT_WOLF: 'night_wolf',            // Ban đêm - Sói cắn (90s)
   NIGHT_WITCH: 'night_witch',          // Ban đêm - Phù Thủy thức dậy (30s)
   NIGHT_SEER: 'night_seer',            // Ban đêm - Tiên tri soi (30s)
+  NIGHT_PIED_PIPER: 'night_pied_piper',// Ban đêm - Người Thổi Sáo (25s)
+  NIGHT_CHARMED_REVEAL: 'night_charmed_reveal', // 5s người dân nhận biết ai bị thôi miên
   NIGHT: 'night',                      // Fallback ban đêm
   DAY_ANNOUNCE: 'day_announce',        // Thông báo kết quả đêm / người chết
   HUNTER_SHOT: 'hunter_shot',          // 🏹 Thợ Săn nổ súng trăn trối (12s)
@@ -63,8 +69,10 @@ const TIMERS = {
   NIGHT_WOLF: 90,      // 🐺 Sói chọn người 1p30s (90 giây)
   NIGHT_WITCH: 30,     // 🧙‍♀️ Phù Thủy chọn cứu/độc (30 giây, tự động rút xuống 5s)
   NIGHT_SEER: 30,      // 🔮 Tiên Tri soi (30 giây, tự động rút xuống 5s sau khi soi)
+  NIGHT_PIED_PIPER: 25,// 🎶 Người Thổi Sáo (25 giây, tự động rút xuống 5s khi chọn xong)
+  NIGHT_CHARMED_REVEAL: 5, // 🎶 5s cả làng nhận biết ai bị thôi miên trước khi sáng
   NIGHT: 90,           // Fallback
-  DAY_ANNOUNCE: 6,
+  DAY_ANNOUNCE: 8,
   HUNTER_SHOT: 12,     // 🏹 Thợ Săn chọn mục tiêu nổ súng (12 giây)
   DAY_DISCUSSION: 60,
   DAY_VOTE: 25,
@@ -88,6 +96,9 @@ const DEFAULT_SETTINGS = {
   numBodyguards: 1,      // 🛡️ Mặc định 1 Bảo Vệ (0-1)
   numWitches: 1,         // 🧙‍♀️ Mặc định 1 Phù Thủy (0-1)
   numHunters: 1,         // 🏹 Mặc định 1 Thợ Săn (0-1)
+  numPiedPipers: 1,      // 🎶 Mặc định 1 Người Thổi Sáo (0-1) -> Kích hoạt sẵn để chơi ngay!
+  piedPiperCharmCount: 2,// 🎶 Số người bị thôi miên mỗi đêm (1 hoặc 2)
+  piedPiperRevealDawn: true, // 🎶 Bật/Tắt 5s cả làng nhận biết ai bị thôi miên trước khi sáng
   dayDiscussionTime: 60, // Thời gian bàn luận (giây)
   dayVoteTime: 25,       // Thời gian bỏ phiếu (giây)
 };

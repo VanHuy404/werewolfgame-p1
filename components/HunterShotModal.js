@@ -268,12 +268,18 @@ export default function HunterShotModal({
       ]).start();
     }, 2900);
 
+    // Tự động chuyển tiếp sau khi hoạt ảnh kết thúc (3.5s) + 1.0s = 4.5s (4500ms) chạy ngầm
+    const timerAutoClose = setTimeout(() => {
+      if (onClose) onClose();
+    }, 4500);
+
     return () => {
       clearTimeout(timerCrosshair);
       clearTimeout(timerChant);
       if (typingInterval) clearInterval(typingInterval);
       if (timerRevealWolf) clearTimeout(timerRevealWolf);
       clearTimeout(timerFire);
+      clearTimeout(timerAutoClose);
     };
   }, [visible, target?.id]);
 
@@ -312,9 +318,6 @@ export default function HunterShotModal({
         <View style={styles.titleBadge}>
           <Text style={styles.titleEmoji}>🏹💥</Text>
           <Text style={styles.titleText}>PHÁT SÚNG TRĂN TRỐI</Text>
-        </View>
-        <View style={styles.timerBadge}>
-          <Text style={styles.timerText}>⏳ {Math.max(0, timeLeft)}s</Text>
         </View>
       </View>
 
@@ -480,16 +483,8 @@ export default function HunterShotModal({
         </Animated.View>
       </Animated.View>
 
-      {/* Bottom Bar: Nút Đã Hiểu */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.closeBtn}
-          onPress={onClose}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.closeBtnText}>✨ ĐÃ HIỂU ({Math.max(0, timeLeft)}s)</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Bottom Bar: Giữ khoảng cách giao diện (Hoạt ảnh tự đóng chạy ngầm) */}
+      <View style={styles.bottomBar} />
     </Animated.View>
   );
 }

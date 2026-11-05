@@ -54,12 +54,18 @@ function createRoom(hostId, hostName, settings = {}, customAvatar = null) {
   const numSeers = settings.numSeers !== undefined ? settings.numSeers : DEFAULT_SETTINGS.numSeers;
   const numBodyguards = settings.numBodyguards !== undefined ? settings.numBodyguards : DEFAULT_SETTINGS.numBodyguards;
   const numWitches = settings.numWitches !== undefined ? settings.numWitches : DEFAULT_SETTINGS.numWitches;
+  const numHunters = settings.numHunters !== undefined ? settings.numHunters : DEFAULT_SETTINGS.numHunters;
+  const numPiedPipers = settings.numPiedPipers !== undefined ? settings.numPiedPipers : DEFAULT_SETTINGS.numPiedPipers;
 
   const roomSettings = {
     numWolves,
     numSeers,
     numBodyguards,
     numWitches,
+    numHunters,
+    numPiedPipers,
+    piedPiperCharmCount: settings.piedPiperCharmCount !== undefined ? settings.piedPiperCharmCount : DEFAULT_SETTINGS.piedPiperCharmCount,
+    piedPiperRevealDawn: settings.piedPiperRevealDawn !== undefined ? settings.piedPiperRevealDawn : DEFAULT_SETTINGS.piedPiperRevealDawn,
     dayDiscussionTime: settings.dayDiscussionTime !== undefined ? settings.dayDiscussionTime : DEFAULT_SETTINGS.dayDiscussionTime,
     dayVoteTime: settings.dayVoteTime !== undefined ? settings.dayVoteTime : DEFAULT_SETTINGS.dayVoteTime,
   };
@@ -79,6 +85,7 @@ function createRoom(hostId, hostName, settings = {}, customAvatar = null) {
       lastProtectedTarget: null,      // targetId đã bảo vệ đêm trước (ko lặp 2 đêm liên tiếp)
       witchSavedThisNight: false,     // Phù Thủy đã dùng bình cứu đêm nay
       witchPoisonTarget: null,        // Mục tiêu bị Phù Thủy ném độc đêm nay
+      piedPiperTargets: [],           // [targetId1, targetId2] mục tiêu bị Người Thổi Sáo mê hoặc đêm nay
     },
     dayVotes: new Map(),     // Map<voterId, targetId>
     deadThisNight: null,     // ID người chết do Sói cắn
@@ -87,6 +94,8 @@ function createRoom(hostId, hostName, settings = {}, customAvatar = null) {
     savedThisNight: null,    // ID người được Bảo Vệ cứu sống
     witchSavedThisNight: null, // ID người được Phù Thủy cứu sống
     seerHistory: {},         // { [targetId]: { alignment, alignmentName } } - Lịch sử soi của Tiên Tri
+    charmedPlayers: new Set(), // Set<playerId> - Danh sách người chơi bị Người Thổi Sáo mê hoặc
+    charmedHistory: {},      // { [targetId]: true } - Lịch sử mê hoặc của Người Thổi Sáo
     messages: [],
     round: 0,
     timer: null,
@@ -182,6 +191,7 @@ function assignRoles(room) {
     numBodyguards = 1,
     numWitches = 1,
     numHunters = 1,
+    numPiedPipers = 1,
   } = room.settings;
   let index = 0;
 
@@ -195,9 +205,10 @@ function assignRoles(room) {
     room.players.get(playerIds[index]).role = ROLES.SEER;
   }
 
-  // Gán Bảo Vệ (0 - 1)
-  for (let i = 0; i < Math.min(1, numBodyguards) && index < playerIds.length; i++, index++) {
-    room.players.get(playerIds[index]).role = ROLES.BODYGUARD;
+  // Gán Người Thổi Sáo (0 - 1) (Ưu tiên gán nếu phòng bật để đảm bảo có người thổi sáo trong trận)
+  for (let i = 0; i < Math.min(1, numPiedPipers) && index < playerIds.length; i++, index++) {
+    const piedPiperPlayer = room.players.get(playerIds[index]);
+    piedPiperPlayer.role = ROLES.PIED_PIPER;
   }
 
   // Gán Phù Thủy (0 - 1)
@@ -205,6 +216,11 @@ function assignRoles(room) {
     const witchPlayer = room.players.get(playerIds[index]);
     witchPlayer.role = ROLES.WITCH;
     witchPlayer.witchState = { hasHeal: true, hasPoison: true };
+  }
+
+  // Gán Bảo Vệ (0 - 1)
+  for (let i = 0; i < Math.min(1, numBodyguards) && index < playerIds.length; i++, index++) {
+    room.players.get(playerIds[index]).role = ROLES.BODYGUARD;
   }
 
   // Gán Thợ Săn (0 - 1)
@@ -318,6 +334,7 @@ function processNightActions(room) {
   room.nightActions.bodyguardTarget = null;
   room.nightActions.witchSavedThisNight = false;
   room.nightActions.witchPoisonTarget = null;
+  room.nightActions.piedPiperTargets = [];
 
   return {
     deadPlayerId,
@@ -388,6 +405,20 @@ function getAlivePlayers(room) {
  */
 function checkWinCondition(room) {
   const alive = getAlivePlayers(room);
+
+  // 🎶 Kiểm tra điều kiện thắng của Phe Thứ 3 (Người Thổi Sáo)
+  const piedPiper = alive.find((p) => p.role === ROLES.PIED_PIPER);
+  if (piedPiper && room.charmedPlayers) {
+    const othersAlive = alive.filter((p) => p.id !== piedPiper.id);
+    if (othersAlive.length > 0 && othersAlive.every((p) => room.charmedPlayers.has(p.id))) {
+      return {
+        gameOver: true,
+        winner: 'pied_piper',
+        message: '🎶 Phe Thứ 3 (Người Thổi Sáo) chiến thắng! Toàn bộ người sống sót đã chìm trong bùa mê tiếng sáo!',
+      };
+    }
+  }
+
   const wolves = alive.filter((p) => p.role === ROLES.WOLF);
   const nonWolves = alive.filter((p) => p.role !== ROLES.WOLF);
 
@@ -420,17 +451,34 @@ function checkWinCondition(room) {
 function getPlayersData(room, forPlayerId = null) {
   const requestingPlayer = forPlayerId ? room.players.get(forPlayerId) : null;
   const isWolfViewer = requestingPlayer && requestingPlayer.role === ROLES.WOLF;
+  const isPiedPiperViewer = requestingPlayer && requestingPlayer.role === ROLES.PIED_PIPER;
+  const isCharmedViewer = Boolean(forPlayerId && room.charmedPlayers && room.charmedPlayers.has(forPlayerId));
+  const isCharmedRevealPhase = room.phase === PHASES.NIGHT_CHARMED_REVEAL;
 
-  return [...room.players.values()].map((p) => ({
-    id: p.id,
-    name: p.name,
-    alive: p.alive,
-    avatar: p.avatar,
-    avatarColor: p.avatarColor,
-    connected: p.connected,
-    // Hiện role cho chính mình, hoặc đồng minh sói nếu mình là sói, hoặc khi game over
-    role: (forPlayerId === p.id || (isWolfViewer && p.role === ROLES.WOLF) || room.phase === PHASES.GAME_OVER) ? p.role : null,
-  }));
+  // PHƯƠNG ÁN 1:
+  // - Người Thổi Sáo luôn nhìn thấy ai đã bị mình thôi miên.
+  // - Trong 5s pha NIGHT_CHARMED_REVEAL: Chỉ những người CÙNG BỊ THÔI MIÊN (và Thổi Sáo) mới mở mắt nhìn thấy nhau.
+  //   Dân thường và Ma Sói (những người chưa bị thôi miên) hoàn toàn không thấy gì để bảo vệ Người Thổi Sáo khỏi bị loại trừ.
+  // - Hoặc khi game kết thúc (GAME_OVER) thì công khai toàn bộ.
+  const canSeeCharmedInReveal = isCharmedRevealPhase && (isPiedPiperViewer || isCharmedViewer);
+
+  return [...room.players.values()].map((p) => {
+    const isCharmed = Boolean(room.charmedPlayers && room.charmedPlayers.has(p.id));
+    const showCharmed = (isPiedPiperViewer || canSeeCharmedInReveal || room.phase === PHASES.GAME_OVER) ? isCharmed : false;
+
+    return {
+      id: p.id,
+      name: p.name,
+      alive: p.alive,
+      avatar: p.avatar,
+      avatarColor: p.avatarColor,
+      connected: p.connected,
+      // Hiện role cho chính mình, hoặc đồng minh sói nếu mình là sói, hoặc khi game over
+      role: (forPlayerId === p.id || (isWolfViewer && p.role === ROLES.WOLF) || room.phase === PHASES.GAME_OVER) ? p.role : null,
+      charmed: showCharmed,
+      isSelfCharmed: isCharmedViewer,
+    };
+  });
 }
 
 /** Lấy phòng theo mã code */
@@ -450,9 +498,9 @@ function getRoomByPlayerId(playerId) {
 
 /** Validate settings phòng (tính theo số người tham gia) */
 function validateSettings(settings, currentParticipants = 0) {
-  const { numWolves, numSeers, numBodyguards = 0, numWitches = 0, dayDiscussionTime, dayVoteTime } = settings;
+  const { numWolves, numSeers, numBodyguards = 0, numWitches = 0, numHunters = 0, numPiedPipers = 0, dayDiscussionTime, dayVoteTime } = settings;
   
-  if (numWolves < 0 || numSeers < 0 || numBodyguards < 0 || numWitches < 0) {
+  if (numWolves < 0 || numSeers < 0 || numBodyguards < 0 || numWitches < 0 || numHunters < 0 || numPiedPipers < 0) {
     return { valid: false, error: 'Số vai trò không được âm!' };
   }
   if (dayDiscussionTime !== undefined && (dayDiscussionTime < 10 || dayDiscussionTime > 300)) {
@@ -463,13 +511,13 @@ function validateSettings(settings, currentParticipants = 0) {
   }
   
   if (currentParticipants >= 4) {
-    const numVillagers = currentParticipants - numWolves - numSeers - numBodyguards - numWitches;
+    const numVillagers = currentParticipants - numWolves - numSeers - numBodyguards - numWitches - numHunters - numPiedPipers;
     if (numVillagers < 0) {
-      return { valid: false, error: 'Tổng Sói + Tiên Tri + Bảo Vệ + Phù Thủy vượt quá số người tham gia!' };
+      return { valid: false, error: 'Tổng số vai trò chức năng vượt quá số người tham gia!' };
     }
-    const totalGood = numSeers + numBodyguards + numWitches + numVillagers;
+    const totalGood = numSeers + numBodyguards + numWitches + numHunters + numVillagers;
     if (numWolves >= totalGood) {
-      return { valid: false, error: 'Số Sói phải nhỏ hơn tổng Phe Dân (Tiên Tri + Bảo Vệ + Phù Thủy + Dân Làng)!' };
+      return { valid: false, error: 'Số Sói phải nhỏ hơn tổng Phe Dân!' };
     }
   }
   

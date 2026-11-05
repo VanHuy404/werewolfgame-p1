@@ -1,6 +1,111 @@
+### 🎋✨ Hoạt Ảnh Tử Nạn Độc Quyền Cho Người Thổi Sáo: Sáo Thần Nằm Ngang Gãy Đôi & SFX Tre Gãy Kết Hợp Sáo Rít Lần Cuối
+- **Khác Biệt Hoàn Toàn 100% Với Tất Cả Role Khác:**
+  - Loại bỏ hoàn toàn khung Avatar tròn đằng sau. Toàn bộ trọng tâm sân khấu dành trọn cho Cây Sáo Thần giữa không gian huyền ảo.
+  - Cây sáo thần xoay góc chuẩn `34deg` nằm phẳng phiu trọn vẹn 100% trong khung viền hào quang tím đằng sau (`width: 340px, height: 95px, borderWidth: 2`).
+  - Trang trí bầy 19 nốt nhạc ma thuật đa sắc tím/vàng/xanh lơ lửng chuyển động bồng bềnh xung quanh thân sáo.
+- **Kịch Bản Diễn Hoạt Phân Đoạn & Dòng Chữ Trượt Lên:**
+  1. **Dòng chữ màu tím huyền ảo & Nốt nhạc ma thuật xung quanh:** Dòng chữ chạy bên trên cây sáo được chuyển sang tông màu tím ma thuật sáng (`#E9D5FF`) phát sáng rực rỡ, kèm các nốt nhạc ma thuật lơ lửng xung quanh (`🎶`, `🎵`, `♪`, `♫`).
+  2. **Sáo chuyển qua ảnh vỡ đôi trước:** Đòn chí mạng giáng xuống, sáo gãy đôi nảy giật chấn động và nổ tung nốt nhạc ma thuật.
+  3. **Sau khi sáo vỡ mới hiển thị dòng chữ hóa giải:** Dòng chữ `✨ Lời nguyền tiếng sáo đã bị hóa giải ✨` chỉ xuất hiện sau khi cây sáo đã vỡ xong xuôi.
+  4. **SFX Web Audio API Độc Quyền:**
+     - SFX tiếng tre già nứt gãy đanh thép (`bamboo crack/splinter`) tạo bởi filtered noise & transient snap click.
+     - SFX tiếng sáo rít lên lần cuối (`dying flute screech`) với cao độ cao rít réo rắt kèm vibrato rồi tuột dốc tần số đột ngột tắt lịm.
+     - Âm hưởng sub-bass thud rền vang chấn động.
+  4. **Tự Động Đóng:** Duy trì hiển thị trọn vẹn 1.0s sau khi hoạt ảnh kết thúc rồi tự động đóng để chuyển sang Thanh Tẩy Hoàng Kim.
+
+
+### 🪈✨ Đột Phá Hoạt Ảnh Điện Ảnh: Người Thổi Sáo Tử Nạn & Cây Sáo Thần Vỡ Đôi Nằm Ngang Rực Nốt Nhạc
+- **Tách Nền Trong Suốt & Đặt Nằm Ngang:**
+  - Hình ảnh cây sáo gãy đôi chân thực với các nốt nhạc ma thuật tím/xanh được xử lý tách sạch 100% nền studio thành file `assets/flute_broken.png`.
+  - Góc nghiêng cây sáo được tinh chỉnh xoay ngang `-38deg` đặt vắt ngang qua ngực Avatar trung tâm cực kỳ cân đối và hoành tráng (chiều rộng 250px).
+- **Diễn Hoạt "Vỡ Đôi" Kịch Tính & Độc Đáo:**
+  - **Giai đoạn Ban đầu:** Cây sáo thần nguyên vẹn `flute.png` nằm ngang bồng bềnh trước ngực Avatar, tỏa hào quang tím ma mị huyền bí.
+  - **Giai đoạn Đòn chí mạng (1.1s):**
+    - Sấm sét giáng xuống, màn hình rung chấn mạnh mẽ và chớp sáng chói lòa.
+    - Cây sáo nguyên vẹn biến mất, **thay thế tức thì bằng cây sáo gãy đôi `flute_broken.png`**!
+    - Hai nửa sáo gãy nảy spring giật chấn động (scale 1.25 -> 1.0) kèm góc gãy chao đảo, các nốt nhạc ma thuật tím và xanh bung nở rực rỡ từ điểm gãy, kết hợp 20 tia lửa ma thuật bắn tung tóe khắp màn hình.
+  - **Giai đoạn Tử nạn (1.85s):** Avatar và cây sáo gãy chuyển sang tông xám u tối, huy hiệu `💀 NGƯỜI THỔI SÁO ĐÃ CHẾT` dập xuống và thông báo Ánh Sáng Hoàng Kim Thanh Tẩy rực rỡ xuất hiện.
+
+
+### ⚡ Tối Ưu Nhịp Độ Ván Đấu: Giảm Thời Gian Giữ Sau Hoạt Ảnh Xuống 1.0 Giây & Đồng Bộ Chuẩn Xác Toàn Diện
+- **Giảm Thời Gian Giữ Xuống Đúng 1.0 Giây:**
+  - Sau khi các hiệu ứng kỹ xảo điện ảnh hoàn tất, modal chỉ lưu lại thêm đúng **1.0s** (thay vì 2.0s) để người chơi nắm bắt thông tin nhanh chóng, giúp nhịp độ ván đấu mượt mà, gãy gọn, không gây cảm giác chờ đợi lâu.
+  - Chi tiết thời gian tồn tại mới của 10 Modal:
+    1. `PiedPiperPurifiedModal` (Thổi Sáo Tử Nạn): Diễn hoạt 2.35s + 1.0s = **3.35s** (3350ms).
+    2. `PiedPiperVictoryModal` (Thổi Sáo Chiến Thắng): Diễn hoạt 1.2s + 1.0s = **2.2s** (2200ms).
+    3. `HunterShotModal` (Thợ Săn Bắn Hạ): Diễn hoạt 3.5s + 1.0s = **4.5s** (4500ms).
+    4. `WolfClawAttackModal` (Sói Cào Xé): Diễn hoạt 2.4s + 1.0s = **3.4s** (3400ms).
+    5. `WitchHealSaveModal` (Phù Thủy Hồi Sinh): Diễn hoạt 4.95s + 1.0s = **5.95s** (5950ms).
+    6. `BodyguardSaveModal` (Khiên Đỡ Đòn): Diễn hoạt 2.35s + 1.0s = **3.35s** (3350ms).
+    7. `ThreeWayClashModal` (Xung Đột 3 Bên): Diễn hoạt 4.85s + 1.0s = **5.85s** (5850ms).
+    8. `WitchPoisonModal` (Phù Thủy Hạ Độc): Diễn hoạt 4.2s + 1.0s = **5.2s** (5200ms).
+    9. `PiedPiperModal` (Thôi Miên Trong Đêm): Diễn hoạt 3.4s + 1.0s = **4.4s** (4400ms).
+    10. `SeerInspectionModal` (Tiên Tri Soi): Diễn hoạt 3.5s + 1.0s = **4.5s** (4500ms).
+- **Đồng Bộ Chuẩn Xác Giữa Server & Client:**
+  - **Sáng sớm (`DAY_ANNOUNCE`):** Tinh chỉnh thời gian hiển thị tuần tự (13s khi có 2 modal, 19s khi có 2 modal và Thổi Sáo chết, 14s khi Thổi Sáo chết đơn lẻ).
+  - **Thợ Săn Bắn Thổi Sáo:** Dời thời điểm phát tin nhắn chat `[THANH TẨY HOÀNG KIM]` về đúng lúc modal Thổi Sáo đóng (8.0s), thời gian chuyển pha tổng rút gọn về 13s (hoặc 6.5s nếu bắn mục tiêu khác).
+  - **Treo Cổ Thổi Sáo:** Tin nhắn chat phát chuẩn xác tại 7.5s (ngay khi modal Thổi Sáo đóng và Thanh Tẩy trên màn hình bắt đầu), thời gian vào đêm rút gọn về 12.5s (hoặc 5.0s nếu người khác bị treo).
+  - **GameScreen Client:** Cập nhật các bộ đếm ngầm fallback khớp tuyệt đối từng mili-giây với thời gian đóng mới của từng Modal.
+
+
+### 🎬 Tối Ưu Hóa Trải Nghiệm Điện Ảnh (Cinematic Experience): Bỏ Skip & Giữ Đúng 2s Sau Khi Hoạt Ảnh Chạy Hết
+- **Loại Bỏ Hoàn Toàn Nút Skip / Đóng Thủ Công:**
+  - Xóa bỏ tất cả các nút bấm đóng sớm ("BỎ QUA ⏩", "ĐÃ HIỂU", "⚰️ ĐÃ HIỂU", "✨ ĐÃ HIỂU", "🛡️ ĐÃ HIỂU") và các huy hiệu đếm ngược ("⏳ ...s") trên toàn bộ các modal hoạt ảnh điện ảnh.
+  - Các sự kiện và cutscene điện ảnh diễn ra trọn vẹn và liền mạch, loại bỏ tình trạng người chơi vô tình bấm đóng làm trôi mất câu chuyện hoặc gây lỗi lệch pha hoạt ảnh.
+- **Tự Động Đóng Chính Xác Sau Khi Hoạt Ảnh Kết Thúc Đúng 2.0 Giây:**
+  - Hoạt ảnh diễn hoạt đầy đủ 100% các phân đoạn kỹ xảo (sấm sét, vỡ sáo, tâm ngắm, súng nổ, móng vuốt cào, khiên đỡ kim loại, bình độc nổ tung, hào quang thôi miên, quả cầu tiên tri lộ diện).
+  - Khi kỹ xảo hoàn tất, màn hình được giữ nguyên thêm đúng **2.0s** để người chơi nắm trọn kết quả sự kiện, sau đó hệ thống tự động đóng hoặc chuyển tiếp tuần tự ngầm sang bước kế tiếp.
+- **Áp Dụng Cho Toàn Bộ 10 Hoạt Ảnh Điện Ảnh:**
+  1. `PiedPiperPurifiedModal` (Người Thổi Sáo Tử Nạn / Thanh Tẩy): Diễn hoạt 2.35s + 2.0s = **4.35s**.
+  2. `PiedPiperVictoryModal` (Người Thổi Sáo Chiến Thắng): Diễn hoạt 1.2s + 2.0s = **3.2s**.
+  3. `HunterShotModal` (Phát Súng Trăn Trối Của Thợ Săn): Diễn hoạt 3.5s + 2.0s = **5.5s**.
+  4. `WolfClawAttackModal` (Ma Sói Cào Xé Tử Nạn): Diễn hoạt 2.4s + 2.0s = **4.4s**.
+  5. `WitchHealSaveModal` (Phù Thủy Hồi Sinh Bằng Bình Cứu): Diễn hoạt 4.95s + 2.0s = **6.95s**.
+  6. `BodyguardSaveModal` (Khiên Hiệp Sĩ Bảo Vệ Thành Công): Diễn hoạt 2.35s + 2.0s = **4.35s**.
+  7. `ThreeWayClashModal` (Xung Đột Tay Ba: Sói + Khiên + Độc): Diễn hoạt 4.85s + 2.0s = **6.85s**.
+  8. `WitchPoisonModal` (Phù Thủy Hạ Độc Mục Tiêu): Diễn hoạt 4.2s + 2.0s = **6.2s**.
+  9. `PiedPiperModal` (Người Thổi Sáo Mê Hoặc Trong Đêm): Diễn hoạt 3.4s + 2.0s = **5.4s**.
+  10. `SeerInspectionModal` (Mắt Thần Tiên Tri Soi Linh Hồn): Diễn hoạt 3.5s + 2.0s = **5.5s**.
+- **Đồng Bộ Hoàn Hảo Với GameScreen:**
+  - Bộ đếm tự động chuyển tiếp ngầm giữa các modal trong `GameScreen.js` được tinh chỉnh khớp chuẩn xác với thời gian diễn hoạt mới của từng modal.
+
 # 🐺 CHANGELOG - MA SÓI REAL-TIME GAME
 
 Tất cả các thay đổi, cập nhật kiến trúc và tính năng của dự án được ghi chép đầy đủ tại đây.
+
+---
+
+## [2.5.0] - 2026-11-02
+
+### 🎶 Ra Mắt Vai Trò Mới: Người Thổi Sáo (Pied Piper)
+- **Kiến trúc Server & Luật Game Độc Lập ([server/constants.js](file:///d:/code%20game/Werewolfdemo/server/constants.js), [server/gameLogic.js](file:///d:/code%20game/Werewolfdemo/server/gameLogic.js), [server/index.js](file:///d:/code%20game/Werewolfdemo/server/index.js)):**
+  - Khai báo role `pied_piper`, màu tím `#A855F7`, emoji `🎶`, sub-phases `night_pied_piper` và `night_charmed_reveal`.
+  - Điều kiện thắng độc lập: Người Thổi Sáo thắng khi tất cả người chơi còn sống (ngoại trừ bản thân) đều đã bị thôi miên (`winner: 'pied_piper'`).
+  - Tiên Tri soi Người Thổi Sáo vẫn trả về `alignment: 'good'` (Phe Thiện) để đảm bảo tính bí mật và chiến thuật.
+  - Hỗ trợ socket events `pied-piper-target`, `pied-piper-charm`, `pied-piper-skip`, truyền tải dữ liệu bị thôi miên đã khử trùng danh tính phù hợp từng vai trò.
+  - Kích hoạt sẵn mặc định `numPiedPipers = 1` trong `DEFAULT_SETTINGS` để người chơi có thể vào trận là chơi được ngay.
+- **Sổ Tay Hướng Dẫn Chi Tiết ([components/RoleGuideModal.js](file:///d:/code%20game/Werewolfdemo/components/RoleGuideModal.js)):**
+  - Bổ sung Người Thổi Sáo vào danh sách vai trò tại phòng chờ: giải thích cặn kẽ mục tiêu solo win, quy tắc gieo bùa mê trong đêm, cách ngụy trang ban ngày và các mẹo chiến thuật then chốt (như Tiên Tri soi ra Phe Thiện).
+- **Tùy Chọn Cài Đặt Phòng ([components/RoomSettings.js](file:///d:/code%20game/Werewolfdemo/components/RoomSettings.js)):**
+  - Thêm cấu hình số lượng Người Thổi Sáo (0 - 1).
+  - Tùy chọn số người bị thôi miên mỗi đêm: 1 người hoặc 2 người (`piedPiperCharmCount`).
+  - Tùy chọn bật/tắt cơ chế lộ diện thôi miên 5s rạng sáng (`piedPiperRevealDawn`).
+  - Thêm nút xem thử nghiệm hoạt ảnh và âm thanh: `🎶 Thử Hiệu Ứng Người Thổi Sáo Thôi Miên`.
+- **Giao Diện Chiến Đấu & Hiển Thị Đấu Trường ([screens/GameScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameScreen.js)):**
+  - Thêm nút **`⏩ Đến Vote`** ở góc trên bên phải dành riêng cho Chủ phòng trong pha Thảo Luận (`DAY_DISCUSSION`), cho phép tua nhanh vào thẳng giờ bỏ phiếu treo cổ.
+  - Người Thổi Sáo nhìn thấy ai đã bị mình thôi miên với huy hiệu `🎶 ĐÃ THÔI MIÊN` dưới tên người chơi (như Tiên Tri).
+  - Pha 5s trước rạng sáng: Cả làng nhìn thấy ai bị thôi miên với huy hiệu `🎶 BỊ THÔI MIÊN` và hiệu ứng phát sáng để phục vụ việc loại trừ kẻ thổi sáo.
+  - Bản thân người chơi khi bị thôi miên nhìn thấy huy hiệu `🎶 BẠN ĐÃ BỊ THÔI MIÊN`.
+  - Bảng đếm số lượng Sói sau khi treo cổ được chia đôi 2 nửa (50/50 Split): Cột Trái hiển thị số Sói còn lại (`🐺`), Cột Phải hiển thị số người bị thôi miên (`🎶`).
+- **Hoạt Ảnh Điện Ảnh & Âm Thanh Tiếng Sáo Thần ([components/PiedPiperModal.js](file:///d:/code%20game/Werewolfdemo/components/PiedPiperModal.js)):**
+  - Cắt sạch hoàn toàn nền trắng của cây sáo trúc và toàn bộ icon cũ ([assets/flute.png](file:///d:/code%20game/Werewolfdemo/assets/flute.png), [assets/potion_heal.png](file:///d:/code%20game/Werewolfdemo/assets/potion_heal.png), [assets/potion_poison.png](file:///d:/code%20game/Werewolfdemo/assets/potion_poison.png)).
+  - Hỗ trợ bố cục hoạt ảnh linh hoạt cho cả **1 người lẫn 2 người cùng bị thôi miên**, hiển thị 2 avatar song song, bảng tên và dải nốt nhạc bao bọc.
+  - Loại bỏ hoàn toàn vòng tròn viền đằng sau avatar theo đúng yêu cầu đồng bộ.
+  - Hòa âm sáo Web Audio API synth phát chuỗi nốt ngân vang cùng vibrato huyền ảo.
+- **Hoạt Ảnh Chiến Thắng Riêng Biệt 5 Giây ([components/PiedPiperVictoryModal.js](file:///d:/code%20game/Werewolfdemo/components/PiedPiperVictoryModal.js), [screens/GameOverScreen.js](file:///d:/code%20game/Werewolfdemo/screens/GameOverScreen.js)):**
+  - Tích hợp artwork điện ảnh Người Thổi Sáo tựa ánh trăng khổng lồ ([assets/pied_piper_victory.jpg](file:///d:/code%20game/Werewolfdemo/assets/pied_piper_victory.jpg)).
+  - Vinh danh tên và avatar người chơi Người Thổi Sáo kèm hiệu ứng hào quang tím và đếm ngược 5 giây trước khi chuyển về bảng tổng kết.
+  - Bổ sung nút xem lại hoạt ảnh chiến thắng 5s ngay tại màn hình kết thúc và trong Cài Đặt phòng.
 
 ---
 

@@ -3,13 +3,14 @@
 // Trang kết thúc game riêng biệt, không thao tác vào game
 // ============================================
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   SafeAreaView, ImageBackground, Animated, Dimensions, Platform,
   useWindowDimensions, Image,
 } from 'react-native';
 import { COLORS, getRoleColor, getRoleName, getRoleEmoji } from '../utils/colors';
+import PiedPiperVictoryModal from '../components/PiedPiperVictoryModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -39,9 +40,17 @@ export default function GameOverScreen({
   onLeaveGame,
 }) {
   const { width: windowWidth } = useWindowDimensions();
-  const isVillagerWin = winner !== 'wolves';
+  const isPiedPiperWin = winner === 'pied_piper';
+  const isVillagerWin = winner === 'village';
   const scaleAnim = useRef(new Animated.Value(0.7)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  const piedPiperPlayer = players.find((p) => p.role === 'pied_piper') || {
+    name: 'Người Thổi Sáo',
+    avatar: '🎶',
+    avatarColor: '#A855F7',
+  };
+  const [showVictoryCinematic, setShowVictoryCinematic] = useState(isPiedPiperWin);
 
   useEffect(() => {
     Animated.parallel([
@@ -64,6 +73,16 @@ export default function GameOverScreen({
       style={styles.bgImage}
       resizeMode="cover"
     >
+      {/* Hoạt ảnh chiến thắng điện ảnh 5s riêng cho Người Thổi Sáo */}
+      {isPiedPiperWin && (
+        <PiedPiperVictoryModal
+          visible={showVictoryCinematic}
+          winnerPlayer={piedPiperPlayer}
+          duration={5}
+          onComplete={() => setShowVictoryCinematic(false)}
+        />
+      )}
+
       <View style={styles.darkOverlay}>
         <SafeAreaView style={styles.safeArea}>
           <ScrollView
@@ -85,18 +104,29 @@ export default function GameOverScreen({
             <Animated.View
               style={[
                 styles.victoryBanner,
-                isVillagerWin ? styles.bannerVillagers : styles.bannerWolves,
+                isPiedPiperWin ? styles.bannerPiedPiper : (isVillagerWin ? styles.bannerVillagers : styles.bannerWolves),
                 { transform: [{ scale: scaleAnim }], opacity: opacityAnim },
               ]}
             >
-              <Text style={styles.victoryTrophy}>{isVillagerWin ? '🏆' : '🐺'}</Text>
-              <Text style={[styles.victoryTitle, { color: isVillagerWin ? '#34D399' : '#F87171' }]}>
-                {isVillagerWin ? 'PHE DÂN LÀNG CHIẾN THẮNG!' : 'PHE MA SÓI CHIẾN THẮNG!'}
+              <Text style={styles.victoryTrophy}>{isPiedPiperWin ? '🎶✨' : (isVillagerWin ? '🏆' : '🐺')}</Text>
+              <Text style={[styles.victoryTitle, { color: isPiedPiperWin ? '#C084FC' : (isVillagerWin ? '#34D399' : '#F87171') }]}>
+                {isPiedPiperWin ? 'PHE THỨ 3 (NGƯỜI THỔI SÁO) CHIẾN THẮNG!' : (isVillagerWin ? 'PHE DÂN LÀNG CHIẾN THẮNG!' : 'PHE MA SÓI CHIẾN THẮNG!')}
               </Text>
               <Text style={styles.victoryReason}>
-                {winMessage || (isVillagerWin ? 'Toàn bộ Ma Sói trong làng đã bị tiêu diệt!' : 'Ma Sói đã áp đảo số lượng dân làng!')}
+                {winMessage || (isPiedPiperWin ? 'Phe Thứ 3 toàn thắng! Toàn bộ người chơi còn sống đã bị mê hoặc bởi tiếng sáo!' : (isVillagerWin ? 'Toàn bộ Ma Sói trong làng đã bị tiêu diệt!' : 'Ma Sói đã áp đảo số lượng dân làng!'))}
               </Text>
             </Animated.View>
+
+            {/* Nút xem lại hoạt ảnh chiến thắng Người Thổi Sáo */}
+            {isPiedPiperWin && (
+              <TouchableOpacity
+                style={styles.replayCinematicBtn}
+                onPress={() => setShowVictoryCinematic(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.replayCinematicBtnText}>🎶 Xem Lại Hoạt Ảnh Chiến Thắng (5s)</Text>
+              </TouchableOpacity>
+            )}
 
             {/* Card Danh tính thật của người chơi */}
             <View style={styles.revealCard}>
@@ -274,6 +304,11 @@ const styles = StyleSheet.create({
     borderColor: '#EF4444',
     shadowColor: '#EF4444',
   },
+  bannerPiedPiper: {
+    backgroundColor: 'rgba(88, 28, 135, 0.9)',
+    borderColor: '#C084FC',
+    shadowColor: '#C084FC',
+  },
   victoryTrophy: {
     fontSize: 64,
     marginBottom: 12,
@@ -292,6 +327,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 550,
     lineHeight: 22,
+  },
+  replayCinematicBtn: {
+    backgroundColor: 'rgba(147, 51, 234, 0.35)',
+    borderWidth: 1.5,
+    borderColor: '#C084FC',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    marginBottom: 20,
+    alignSelf: 'center',
+    ...(Platform.OS === 'web' ? { boxShadow: '0 0 20px rgba(168, 85, 247, 0.5)' } : {}),
+  },
+  replayCinematicBtnText: {
+    color: '#F5D0FE',
+    fontSize: 13.5,
+    fontWeight: '900',
+    letterSpacing: 0.8,
   },
   revealCard: {
     backgroundColor: 'rgba(21, 18, 43, 0.92)',

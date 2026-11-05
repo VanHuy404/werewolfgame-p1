@@ -15,6 +15,9 @@ import WitchHealSaveModal from './WitchHealSaveModal';
 import WitchPoisonModal from './WitchPoisonModal';
 import HunterShotModal from './HunterShotModal';
 import ThreeWayClashModal from './ThreeWayClashModal';
+import PiedPiperModal from './PiedPiperModal';
+import PiedPiperVictoryModal from './PiedPiperVictoryModal';
+import PiedPiperPurifiedModal from './PiedPiperPurifiedModal';
 
 /**
  * @param {Object} props
@@ -44,6 +47,9 @@ export default function RoomSettings({
   const [numBodyguards, setNumBodyguards] = useState(1);
   const [numWitches, setNumWitches] = useState(1);
   const [numHunters, setNumHunters] = useState(1);
+  const [numPiedPipers, setNumPiedPipers] = useState(1);
+  const [piedPiperCharmCount, setPiedPiperCharmCount] = useState(2);
+  const [piedPiperRevealDawn, setPiedPiperRevealDawn] = useState(true);
   const [dayDiscussionTime, setDayDiscussionTime] = useState(60);
   const [dayVoteTime, setDayVoteTime] = useState(25);
 
@@ -76,6 +82,14 @@ export default function RoomSettings({
   // Thử nghiệm hiệu ứng Tương Tác Ba Bên Liên Tục: Bảo Vệ + Ma Sói + Phù Thủy (Dành riêng cho Chủ Phòng)
   const [threeWayDemoVisible, setThreeWayDemoVisible] = useState(false);
   const [threeWayDemoTarget, setThreeWayDemoTarget] = useState(null);
+
+  // Thử nghiệm hiệu ứng Người Thổi Sáo Mê Hoặc (Dành riêng cho Chủ Phòng)
+  const [piedPiperDemoVisible, setPiedPiperDemoVisible] = useState(false);
+  const [piedPiperDemoTarget, setPiedPiperDemoTarget] = useState(null);
+  const [piedPiperDualDemoVisible, setPiedPiperDualDemoVisible] = useState(false);
+  const [piedPiperDualDemoTargets, setPiedPiperDualDemoTargets] = useState([]);
+  const [piedPiperVictoryDemoVisible, setPiedPiperVictoryDemoVisible] = useState(false);
+  const [piedPiperPurifiedDemoVisible, setPiedPiperPurifiedDemoVisible] = useState(false);
 
   // Helper lấy mục tiêu test hiệu ứng: Ưu tiên chọn chính Chủ Phòng (host)
   const getHostTarget = (fallbackName = 'Chủ Phòng', fallbackAvatar = '🧙‍♂️', fallbackColor = '#38BDF8') => {
@@ -157,6 +171,27 @@ export default function RoomSettings({
     setHunterDemoVisible(true);
   };
 
+  const handleTestPiedPiperEffect = () => {
+    const target = getHostTarget('Chủ Phòng (Bị Thôi Miên)', '🧙‍♂️', '#C084FC');
+    setPiedPiperDemoTarget(target);
+    setPiedPiperDemoVisible(true);
+  };
+
+  const handleTestPiedPiperDualEffect = () => {
+    const t1 = getHostTarget('Người Chơi 1 (Bị Thôi Miên)', '🧑‍🌾', '#38BDF8');
+    const t2 = { id: 'demo-target-2', name: 'Người Chơi 2 (Bị Thôi Miên)', avatar: '👩‍🍳', avatarColor: '#E11D48' };
+    setPiedPiperDualDemoTargets([t1, t2]);
+    setPiedPiperDualDemoVisible(true);
+  };
+
+  const handleTestPiedPiperVictoryEffect = () => {
+    setPiedPiperVictoryDemoVisible(true);
+  };
+
+  const handleTestPiedPiperPurifiedEffect = () => {
+    setPiedPiperPurifiedDemoVisible(true);
+  };
+
   // Sync settings khi mở modal
   useEffect(() => {
     if (initialSettings && visible) {
@@ -165,19 +200,22 @@ export default function RoomSettings({
       setNumBodyguards(initialSettings.numBodyguards !== undefined ? Math.min(1, initialSettings.numBodyguards) : 1);
       setNumWitches(initialSettings.numWitches !== undefined ? Math.min(1, initialSettings.numWitches) : 1);
       setNumHunters(initialSettings.numHunters !== undefined ? Math.min(1, initialSettings.numHunters) : 1);
+      setNumPiedPipers(initialSettings.numPiedPipers !== undefined ? Math.min(1, initialSettings.numPiedPipers) : 1);
+      setPiedPiperCharmCount(initialSettings.piedPiperCharmCount || 2);
+      setPiedPiperRevealDawn(initialSettings.piedPiperRevealDawn !== false);
       setDayDiscussionTime(initialSettings.dayDiscussionTime || 60);
       setDayVoteTime(initialSettings.dayVoteTime || 25);
     }
   }, [initialSettings, visible]);
 
   // Tính số Dân Làng dựa trên số lượng người tham gia thực tế
-  const numVillagers = Math.max(0, currentPlayerCount - numWolves - numSeers - numBodyguards - numWitches - numHunters);
+  const numVillagers = Math.max(0, currentPlayerCount - numWolves - numSeers - numBodyguards - numWitches - numHunters - numPiedPipers);
 
   // === VALIDATION ===
   // Sói phải nhỏ hơn tổng dân khi đã có từ 4 người chơi trở lên
   const totalGood = numSeers + numBodyguards + numWitches + numHunters + numVillagers;
   const isWolfValid = currentPlayerCount < 4 || numWolves < totalGood;
-  const isValid = numWolves >= 0 && numSeers >= 0 && numBodyguards >= 0 && numWitches >= 0 && numHunters >= 0;
+  const isValid = numWolves >= 0 && numSeers >= 0 && numBodyguards >= 0 && numWitches >= 0 && numHunters >= 0 && numPiedPipers >= 0;
 
   // Hàm thay đổi số an toàn (giới hạn min và max)
   const adjustValue = (setter, current, delta, min = 0, max = Infinity) => {
@@ -189,7 +227,18 @@ export default function RoomSettings({
 
   const handleConfirm = () => {
     if (!isValid || readOnly) return;
-    onConfirm({ numWolves, numSeers, numBodyguards, numWitches, numHunters, dayDiscussionTime, dayVoteTime });
+    onConfirm({
+      numWolves,
+      numSeers,
+      numBodyguards,
+      numWitches,
+      numHunters,
+      numPiedPipers,
+      piedPiperCharmCount,
+      piedPiperRevealDawn,
+      dayDiscussionTime,
+      dayVoteTime,
+    });
   };
 
   return (
@@ -289,6 +338,66 @@ export default function RoomSettings({
               readOnly={readOnly}
             />
 
+            {/* Số Người Thổi Sáo */}
+            <SettingRow
+              emoji="🎶"
+              label="Số Thổi Sáo"
+              value={numPiedPipers}
+              onDecrease={() => adjustValue(setNumPiedPipers, numPiedPipers, -1, 0, 1)}
+              onIncrease={() => adjustValue(setNumPiedPipers, numPiedPipers, 1, 0, 1)}
+              min={0}
+              max={1}
+              color="#C084FC"
+              readOnly={readOnly}
+            />
+
+            {/* Các tùy chỉnh phụ khi có Người Thổi Sáo */}
+            {numPiedPipers > 0 && (
+              <View style={[styles.subOptionsContainer, { borderColor: '#C084FC', backgroundColor: 'rgba(192, 132, 252, 0.08)' }]}>
+                {/* 1. Thôi miên 1 hay 2 người */}
+                <View style={styles.subOptionRow}>
+                  <Text style={styles.subOptionLabel}>🎵 Số người thôi miên/đêm:</Text>
+                  <View style={styles.subOptionToggleGroup}>
+                    <TouchableOpacity
+                      style={[styles.subOptionBtn, piedPiperCharmCount === 1 && styles.subOptionBtnActive]}
+                      onPress={() => !readOnly && setPiedPiperCharmCount(1)}
+                      disabled={readOnly}
+                    >
+                      <Text style={[styles.subOptionBtnText, piedPiperCharmCount === 1 && styles.subOptionBtnTextActive]}>1 người</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.subOptionBtn, piedPiperCharmCount === 2 && styles.subOptionBtnActive]}
+                      onPress={() => !readOnly && setPiedPiperCharmCount(2)}
+                      disabled={readOnly}
+                    >
+                      <Text style={[styles.subOptionBtnText, piedPiperCharmCount === 2 && styles.subOptionBtnTextActive]}>2 người</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* 2. Dân làng nhận biết ai bị thôi miên trong 5s trước khi sáng */}
+                <View style={[styles.subOptionRow, { marginTop: 8 }]}>
+                  <Text style={styles.subOptionLabel}>👁️ Nhận biết 5s trước sáng:</Text>
+                  <View style={styles.subOptionToggleGroup}>
+                    <TouchableOpacity
+                      style={[styles.subOptionBtn, piedPiperRevealDawn && styles.subOptionBtnActive]}
+                      onPress={() => !readOnly && setPiedPiperRevealDawn(true)}
+                      disabled={readOnly}
+                    >
+                      <Text style={[styles.subOptionBtnText, piedPiperRevealDawn && styles.subOptionBtnTextActive]}>BẬT 🟢</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.subOptionBtn, !piedPiperRevealDawn && styles.subOptionBtnActive]}
+                      onPress={() => !readOnly && setPiedPiperRevealDawn(false)}
+                      disabled={readOnly}
+                    >
+                      <Text style={[styles.subOptionBtnText, !piedPiperRevealDawn && styles.subOptionBtnTextActive]}>TẮT 🔴</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
+
             {/* Thời gian thảo luận */}
             <SettingRow
               emoji="🗣️"
@@ -348,6 +457,7 @@ export default function RoomSettings({
                 <SummaryItem emoji="🛡️" label="B.Vệ" count={numBodyguards} color={COLORS.bodyguard} />
                 <SummaryItem emoji="🧙‍♀️" label="P.Thủy" count={numWitches} color={COLORS.witch} />
                 <SummaryItem emoji="🏹" label="T.Săn" count={numHunters} color={COLORS.hunter} />
+                {numPiedPipers > 0 && <SummaryItem emoji="🎶" label="T.Sáo" count={numPiedPipers} color="#C084FC" />}
                 <SummaryItem emoji="🧑‍🌾" label="Dân" count={numVillagers} color={COLORS.villager} />
                 <SummaryItem emoji="👥" label="Tổng" count={currentPlayerCount} color={COLORS.primary} />
               </View>
@@ -462,6 +572,42 @@ export default function RoomSettings({
                 >
                   <Text style={[styles.hunterDemoBtnText, { color: '#FECACA' }]}>🏹🐺 Thợ Săn Bắn Vào Sói</Text>
                 </TouchableOpacity>
+
+                {/* Nút thử nghiệm Người Thổi Sáo Thôi Miên 1 Người */}
+                <TouchableOpacity
+                  style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(192, 132, 252, 0.25)', borderColor: '#C084FC' }]}
+                  onPress={handleTestPiedPiperEffect}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.hunterDemoBtnText, { color: '#F0ABFC' }]}>🎶 Thử Thổi Sáo 1 Người</Text>
+                </TouchableOpacity>
+
+                {/* Nút thử nghiệm Người Thổi Sáo Thôi Miên 2 Người */}
+                <TouchableOpacity
+                  style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(168, 85, 247, 0.3)', borderColor: '#A855F7' }]}
+                  onPress={handleTestPiedPiperDualEffect}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.hunterDemoBtnText, { color: '#E9D5FF' }]}>🎶🎶 Thử Thổi Sáo 2 Người</Text>
+                </TouchableOpacity>
+
+                {/* Nút thử nghiệm Hoạt Ảnh Chiến Thắng Người Thổi Sáo */}
+                <TouchableOpacity
+                  style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(147, 51, 234, 0.35)', borderColor: '#E879F9' }]}
+                  onPress={handleTestPiedPiperVictoryEffect}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.hunterDemoBtnText, { color: '#FDF4FF' }]}>👑 Thử Hoạt Ảnh Chiến Thắng Người Thổi Sáo (5s)</Text>
+                </TouchableOpacity>
+
+                {/* Nút thử nghiệm Hoạt Ảnh Người Thổi Sáo Chết */}
+                <TouchableOpacity
+                  style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(245, 158, 11, 0.35)', borderColor: '#F59E0B' }]}
+                  onPress={handleTestPiedPiperPurifiedEffect}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.hunterDemoBtnText, { color: '#FEF08A' }]}>⚰️ Thử Hoạt Ảnh Người Thổi Sáo Chết (Thanh Tẩy Hoàng Kim)</Text>
+                </TouchableOpacity>
               </View>
             )}
           </ScrollView>
@@ -546,6 +692,43 @@ export default function RoomSettings({
           victimPlayer={threeWayDemoTarget}
           timeLeft={9}
           onClose={() => setThreeWayDemoVisible(false)}
+        />
+
+        {/* Modal chạy thử hiệu ứng Người Thổi Sáo (1 người) */}
+        <PiedPiperModal
+          visible={piedPiperDemoVisible}
+          targetPlayer={piedPiperDemoTarget}
+          timeLeft={8}
+          onClose={() => setPiedPiperDemoVisible(false)}
+        />
+
+        {/* Modal chạy thử hiệu ứng Người Thổi Sáo (2 người) */}
+        <PiedPiperModal
+          visible={piedPiperDualDemoVisible}
+          targetPlayers={piedPiperDualDemoTargets}
+          timeLeft={8}
+          onClose={() => setPiedPiperDualDemoVisible(false)}
+        />
+
+        {/* Modal chạy thử Hoạt ảnh Chiến Thắng Người Thổi Sáo (5s) */}
+        <PiedPiperVictoryModal
+          visible={piedPiperVictoryDemoVisible}
+          winnerPlayer={getHostTarget('Chủ Phòng (Người Thổi Sáo)', '🎶', '#9333EA')}
+          duration={5}
+          onComplete={() => setPiedPiperVictoryDemoVisible(false)}
+        />
+
+        {/* Modal chạy thử Hoạt ảnh Thanh Tẩy Hoàng Kim (5s) */}
+        <PiedPiperPurifiedModal
+          visible={piedPiperPurifiedDemoVisible}
+          piedPiper={getHostTarget('Người Thổi Sáo', '🎶', '#9333EA')}
+          purifiedPlayers={players && players.length > 0 ? players.slice(0, 3) : [
+            { id: '1', name: 'Dân Làng A', avatar: '🧑‍🌾', avatarColor: '#10B981' },
+            { id: '2', name: 'Tiên Tri', avatar: '🔮', avatarColor: '#3B82F6' },
+            { id: '3', name: 'Bảo Vệ', avatar: '🛡️', avatarColor: '#0EA5E9' },
+          ]}
+          duration={6}
+          onClose={() => setPiedPiperPurifiedDemoVisible(false)}
         />
       </View>
     </Modal>
@@ -1010,5 +1193,49 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     letterSpacing: 0.5,
     textAlign: 'center',
+  },
+
+  // Tùy chọn mở rộng cho Người Thổi Sáo
+  subOptionsContainer: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 12,
+    marginVertical: 6,
+  },
+  subOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  subOptionLabel: {
+    color: '#E9D5FF',
+    fontSize: 12,
+    fontWeight: '800',
+    flex: 1,
+  },
+  subOptionToggleGroup: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 10,
+    padding: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(192, 132, 252, 0.3)',
+  },
+  subOptionBtn: {
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  subOptionBtnActive: {
+    backgroundColor: '#9333EA',
+  },
+  subOptionBtnText: {
+    color: '#CBD5E1',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  subOptionBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '900',
   },
 });

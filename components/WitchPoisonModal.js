@@ -320,6 +320,11 @@ export default function WitchPoisonModal({
       ]).start();
     }, 3650);
 
+    // Tự động đóng sau khi hoạt ảnh kết thúc (4.2s) + 1.0s = 5.2s (5200ms)
+    const timerAutoClose = setTimeout(() => {
+      if (onClose) onClose();
+    }, 5200);
+
     return () => {
       if (shieldTimer) clearTimeout(shieldTimer);
       if (pulseLoop) pulseLoop.stop();
@@ -328,6 +333,7 @@ export default function WitchPoisonModal({
       clearTimeout(timerThrow);
       clearTimeout(timerExplode);
       clearTimeout(timerFallen);
+      clearTimeout(timerAutoClose);
     };
   }, [visible, victimPlayer, poisonedPlayer, isShieldClash]);
 
@@ -363,9 +369,6 @@ export default function WitchPoisonModal({
           <Text style={[styles.titleText, isShieldClash && { color: '#7DD3FC' }]}>
             {isShieldClash ? 'XUNG ĐỘT KHIÊN & ĐỘC' : 'HẠ ĐỘC TRONG ĐÊM'}
           </Text>
-        </View>
-        <View style={styles.timerBadge}>
-          <Text style={styles.timerText}>⏳ {Math.max(0, timeLeft)}s</Text>
         </View>
       </View>
 
@@ -565,16 +568,8 @@ export default function WitchPoisonModal({
         </Animated.View>
       </Animated.View>
 
-      {/* Bottom Bar: Nút Đã Hiểu */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.closeBtn}
-          onPress={onClose}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.closeBtnText}>⚰️ ĐÃ HIỂU ({Math.max(0, timeLeft)}s)</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Bottom Bar: Giữ khoảng cách giao diện (Hoạt ảnh tự đóng chạy ngầm) */}
+      <View style={styles.bottomBar} />
     </Animated.View>
   );
 }

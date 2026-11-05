@@ -387,6 +387,11 @@ export default function ThreeWayClashModal({
       ]).start();
     }, 4200);
 
+    // Tự động đóng sau khi hoạt ảnh kết thúc (4.85s) + 1.0s = 5.85s (5850ms)
+    const timerAutoClose = setTimeout(() => {
+      if (onClose) onClose();
+    }, 5850);
+
     return () => {
       clearTimeout(timerSlash);
       clearTimeout(timerShield);
@@ -394,6 +399,7 @@ export default function ThreeWayClashModal({
       if (typingInterval) clearInterval(typingInterval);
       clearTimeout(timerPotionThrow);
       clearTimeout(timerBreakAndFall);
+      clearTimeout(timerAutoClose);
     };
   }, [visible, target?.id]);
 
@@ -426,14 +432,11 @@ export default function ThreeWayClashModal({
         pointerEvents="none"
       />
 
-      {/* Top Bar: Tiêu đề & đếm giờ */}
+      {/* Top Bar: Tiêu đề */}
       <View style={styles.topBar}>
         <View style={styles.titleBadge}>
           <Text style={styles.titleEmoji}>🛡️🐺☠️</Text>
           <Text style={styles.titleText}>TƯƠNG TÁC TAY BA: BẢO VỆ + SÓI + PHÙ THỦY</Text>
-        </View>
-        <View style={styles.timerBadge}>
-          <Text style={styles.timerText}>⏳ {Math.max(0, timeLeft)}s</Text>
         </View>
       </View>
 
@@ -663,16 +666,8 @@ export default function ThreeWayClashModal({
         </Animated.View>
       </Animated.View>
 
-      {/* Bottom Bar: Nút Đã Hiểu */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.closeBtn}
-          onPress={onClose}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.closeBtnText}>✨ ĐÃ HIỂU ({Math.max(0, timeLeft)}s)</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Bottom Bar: Giữ khoảng cách giao diện (Hoạt ảnh tự đóng chạy ngầm) */}
+      <View style={styles.bottomBar} />
     </Animated.View>
   );
 }

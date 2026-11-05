@@ -206,7 +206,7 @@ export default function WolfClawAttackModal({
       ]).start();
     }, 1100);
 
-    // 3. Sau 1.8s: AVATAR CHUYỂN SANG TÔNG MÀU ĐEN XÁM (TỬ NẠN)
+    // 3. Sau 1.85s: AVATAR CHUYỂN SANG TÔNG MÀU ĐEN XÁM (TỬ NẠN)
     const timerDeath = setTimeout(() => {
       setStage('fallen');
       playSynthSound('death');
@@ -225,9 +225,15 @@ export default function WolfClawAttackModal({
       ]).start();
     }, 1850);
 
+    // Tự động đóng sau khi hoạt ảnh kết thúc (2.4s) + 1.0s = 3.4s (3400ms)
+    const timerAutoClose = setTimeout(() => {
+      if (onClose) onClose();
+    }, 3400);
+
     return () => {
       clearTimeout(timerSlash);
       clearTimeout(timerDeath);
+      clearTimeout(timerAutoClose);
     };
   }, [visible, victimPlayer]);
 
@@ -261,9 +267,6 @@ export default function WolfClawAttackModal({
         <View style={styles.titleBadge}>
           <Text style={styles.titleEmoji}>🩸</Text>
           <Text style={styles.titleText}>BÌNH MINH ĐẪM MÁU</Text>
-        </View>
-        <View style={styles.timerBadge}>
-          <Text style={styles.timerText}>⏳ {Math.max(0, timeLeft)}s</Text>
         </View>
       </View>
 
@@ -414,16 +417,8 @@ export default function WolfClawAttackModal({
         </Animated.View>
       </Animated.View>
 
-      {/* Bottom Bar: Nút Đã Hiểu */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.closeBtn}
-          onPress={onClose}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.closeBtnText}>⚰️ ĐÃ HIỂU ({Math.max(0, timeLeft)}s)</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Bottom Bar: Giữ khoảng cách giao diện (Hoạt ảnh tự đóng chạy ngầm) */}
+      <View style={styles.bottomBar} />
     </Animated.View>
   );
 }

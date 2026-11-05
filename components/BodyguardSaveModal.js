@@ -292,10 +292,16 @@ export default function BodyguardSaveModal({
       ).start();
     }, 2050);
 
+    // Tự động đóng sau khi hoạt ảnh kết thúc (2.35s) + 1.0s = 3.35s (3350ms)
+    const timerAutoClose = setTimeout(() => {
+      if (onClose) onClose();
+    }, 3350);
+
     return () => {
       clearTimeout(timerSlash);
       clearTimeout(timerDeflect);
       clearTimeout(timerProtected);
+      clearTimeout(timerAutoClose);
     };
   }, [visible, savedPlayer]);
 
@@ -331,9 +337,6 @@ export default function BodyguardSaveModal({
           <Text style={styles.titleText}>
             {isProtected ? 'KHIÊN HỘ MỆNH THẦN KỲ' : 'MA SÓI ĐỘT KÍCH'}
           </Text>
-        </View>
-        <View style={styles.timerBadge}>
-          <Text style={styles.timerText}>⏳ {Math.max(0, timeLeft)}s</Text>
         </View>
       </View>
 
@@ -507,16 +510,8 @@ export default function BodyguardSaveModal({
         </Animated.View>
       </Animated.View>
 
-      {/* Bottom Bar: Nút Đã Hiểu */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.closeBtn}
-          onPress={onClose}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.closeBtnText}>🛡️ ĐÃ HIỂU ({Math.max(0, timeLeft)}s)</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Bottom Bar: Giữ khoảng cách giao diện (Hoạt ảnh tự đóng chạy ngầm) */}
+      <View style={styles.bottomBar} />
     </Animated.View>
   );
 }

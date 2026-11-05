@@ -286,10 +286,10 @@ export default function WitchHealSaveModal({
       ]).start();
     }, 4200);
 
-    // 6. Sau 4.8s: Tự động đóng modal chuyển tiếp mượt mà (đặc biệt khi Phù Thủy dùng cả 2 bình Cứu & Độc trong 1 đêm)
+    // 6. Sau 5.95s: Tự động đóng modal chuyển tiếp mượt mà (hoạt ảnh 4.95s + 1.0s = 5.95s / 5950ms)
     const timerAutoClose = setTimeout(() => {
       if (onClose) onClose();
-    }, 4800);
+    }, 5950);
 
     return () => {
       clearTimeout(timerSlash);
@@ -333,9 +333,6 @@ export default function WitchHealSaveModal({
           <Text style={styles.titleText}>
             {isHealed ? 'PHÉP MÀU HỒI SINH' : 'BÌNH MINH ĐẪM MÁU'}
           </Text>
-        </View>
-        <View style={styles.timerBadge}>
-          <Text style={styles.timerText}>⏳ {Math.max(0, timeLeft)}s</Text>
         </View>
       </View>
 
@@ -515,16 +512,8 @@ export default function WitchHealSaveModal({
         </Animated.View>
       </Animated.View>
 
-      {/* Bottom Bar: Nút Đã Hiểu */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.closeBtn}
-          onPress={onClose}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.closeBtnText}>✨ ĐÃ HIỂU ({Math.max(0, timeLeft)}s)</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Bottom Bar: Giữ khoảng cách giao diện (Hoạt ảnh tự đóng chạy ngầm) */}
+      <View style={styles.bottomBar} />
     </Animated.View>
   );
 }

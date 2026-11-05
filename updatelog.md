@@ -2,6 +2,90 @@
 
 Chào mừng các dân làng và bầy sói! Dưới đây là thông tin chi tiết về các bản cập nhật mới nhất của **Ma Sói Online**, tập trung vào tính năng mới, cân bằng vai trò và tối ưu hóa trải nghiệm người chơi.
 
+## 🎶 Phiên Bản 2.5.3 - HOẠT ẢNH TỬ NẠN ĐỘC QUYỀN: CÂY SÁO THẦN GÃY ĐÔI & HÓA GIẢI LỜI NGUYỀN
+*(Cập nhật ngày: 05/11/2026)*
+
+### 🎋 Thiết Kế Hoạt Ảnh Chết Khác Biệt Hoàn Toàn 100% Với Tất Cả Role Khác:
+- **Loại Bỏ Khung Avatar Tròn:** Không sử dụng avatar nhân vật đằng sau, toàn bộ sân khấu tập trung tuyệt đối vào Cây Sáo Thần giữa không gian ma thuật u tịch.
+- **Cây Sáo Nằm Trọn Vẹn Trong Viền Tím Đằng Sau:** Định vị góc xoay `34deg` chuẩn xác theo trục thân sáo, giúp cây sáo nằm ngang phẳng phiu 100% nằm gọn gàng bên trong khung viền hào quang tím (`fluteAuraGlow`).
+- **19 Nốt Nhạc Ma Thuật Xung Quanh:** Bổ sung đàn nốt nhạc 19 chiếc (`🎶`, `🎵`, `♪`, `♫`, `♬`, `♩`, `𝄞`, `𝄢`) với các sắc tím, vàng, xanh bay lơ lửng nhấp nhô so le nhịp nhàng xung quanh cây sáo.
+- **Kịch Bản Phân Đoạn & Dòng Chữ Trượt Lên:**
+  1. **Giai Đoạn 1 (Dòng chữ tím ma thuật & Nốt nhạc xung quanh):** Bỏ toàn bộ textbox ở dưới. Dòng chữ màu tím sáng (`#E9D5FF`) với hiệu ứng hào quang tím lung linh chạy gõ từng ký tự bên trên cây sáo, kèm các nốt nhạc ma thuật (`🎶`, `🎵`, `♪`, `♫`) nhấp nhô lơ lửng xung quanh:
+     - `🎶 Người thổi sáo "[Tên người chơi]" đã chết 🎵`
+  2. **Giai Đoạn 2 (Sáo vỡ đôi & Tiếng tre gãy/sáo rít):** Cây sáo chuyển sang trạng thái gãy đôi nảy giật chấn động, bung tỏa 24 nốt nhạc ma thuật tím/xanh/vàng và phát SFX độc quyền.
+  3. **Giai Đoạn 3 (Sau khi sáo vỡ mới hiện Lời Nguyền Hóa Giải):** Chỉ sau khi cây sáo đã vỡ đôi hoàn toàn, dòng chữ mới trượt lên phát sáng rực rỡ:
+     - `✨ Lời nguyền tiếng sáo đã bị hóa giải ✨` (Sáo Chuyển Qua Ảnh Vỡ & SFX Tre Gãy/Sáo Rít): (Đòn Chí Mạng & Sáo Gãy):**
+     - Màn hình chớp sáng và rung chấn dữ dội.
+     - Cây sáo chuyển sang hình ảnh sáo gãy đôi tách nền sạch sẽ, nảy giật chấn động và bung nở 24 nốt nhạc ma thuật cùng tia sáng tím/xanh/vàng rực rỡ.
+     - **SFX Web Audio API Độc Quyền:**
+       + Tiếng tre già nứt gãy đanh thép (`bamboo crack/splinter`)
+       + Tiếng sáo rít lên lần cuối trong tuyệt vọng (`dying screech`) rồi tuột dốc tần số tắt lịm
+       + Tiếng sub-bass thud rền vang chấn động.
+  3. **Giai Đoạn 3 (Hoàn Tất & Giữ 1.0s):** Hoạt ảnh kết thúc giữ lại đúng 1.0s trước khi tự động đóng để chuyển sang màn Thanh Tẩy Hoàng Kim.
+
+---
+
+### ⚡ Tối Giản Giao Diện: Chạy Ngầm Toàn Bộ Bộ Đếm Tự Động Chuyển
+- **Ẩn Các Dòng Thông Báo Chuyển Động Rườm Rà:**
+  - Loại bỏ hoàn toàn các dòng chữ đếm ngược như *"⏳ Tự động chuyển bảng tổng kết sau: 5s"* hay *"⏳ Tự động chuyển vai trò tiếp theo sau 5s..."*.
+  - Bỏ phần đếm giây hiển thị trong nút bấm (ví dụ `⚰️ ĐÃ HIỂU (4s)` ➔ đổi thành `⚰️ ĐÃ HIỂU` gọn gàng).
+  - Bỏ thông báo đệm *"🌙 Chuẩn bị bước vào Ban Đêm..."* sau bảng treo cổ.
+- **Vận Hành Tự Nhiên, Trơn Tru:** Các bộ đếm thời gian và chuyển tiếp tuần tự vẫn hoạt động ngầm chính xác 100% trong nền (nếu người chơi không bấm bỏ qua thì game vẫn tự động chuyển mượt mà), mang lại giao diện tinh gọn, điện ảnh và chuyên nghiệp.
+
+---
+
+## 🎶 Phiên Bản 2.5.1 - PHƯƠNG ÁN 1: HỘI THÔI MIÊN TỈNH GIẤC, CỨU PHE THỨ 3 & HOÀN THIỆN THANH TẨY
+*(Cập nhật ngày: 04/11/2026)*
+
+### 🔮 Triển Khai Phương Án 1: 5s Rạng Sáng Chỉ Hội Thôi Miên Mới Thấy Nhau
+- **Bảo Vệ Người Thổi Sáo Khỏi Bị Loại Trừ:**
+  - Trong 5 giây trước bình minh (`NIGHT_CHARMED_REVEAL`), **chỉ những người cùng bị thôi miên** (và Người Thổi Sáo) mới hé mắt nhìn thấy nhau và thấy huy hiệu `🎶 CÙNG BỊ THÔI MIÊN`.
+  - Dân làng và Ma Sói (những người chưa bị thôi miên) hoàn toàn không thấy huy hiệu của ai, giao diện hiển thị đêm ngủ yên bình, tránh việc cả làng dùng phương pháp loại trừ để tìm ra Người Thổi Sáo.
+  - Thông báo chat hệ thống chỉ gửi riêng cho hội người bị thôi miên và Người Thổi Sáo, giữ tuyệt mật thông tin trước bình minh.
+
+### 🧙‍♀️ Sửa Lỗi Phù Thủy Không Thể Cứu Người Thổi Sáo (Phe Thứ 3)
+- **Luôn Thấy Nạn Nhân & Cứu Được Tất Cả:**
+  - Khắc phục triệt để lỗi bất đồng bộ state khiến modal Cứu của Phù Thủy bị nhảy cóc sang hỏi dùng thuốc độc khi đến pha đêm.
+  - Phù Thủy luôn thấy rõ nạn nhân bị Sói cắn đêm nay (kể cả Người Thổi Sáo thuộc Phe Thứ 3) và có quyền bấm `🟢 CỨU SỐNG` hoặc `❌ BỎ MẶC`.
+  - Khi Phù Thủy cứu Người Thổi Sáo, Người Thổi Sáo được hồi sinh an toàn, bùa mê tiếng sáo không bị xóa và sáng hôm sau có thông báo Phù Thủy cứu sống.
+
+### 👑 Thống Nhất Tên Gọi: Đổi Toàn Bộ "Phe Độc Lập" Thành "Phe Thứ 3"
+- **Chuẩn Hóa Thuật Ngữ:** Đổi toàn bộ các văn bản, hướng dẫn và thông báo chiến thắng từ "Phe Độc Lập" thành **"Phe Thứ 3"**:
+  - Tóm tắt vai trò trong trận: `Thuộc: Phe Thứ 3 🎶`
+  - Sổ tay nhân vật: `Phe Thứ 3`, mục tiêu mang về chiến thắng cho Phe Thứ 3.
+  - Màn hình kết thúc trận: `PHE THỨ 3 (NGƯỜI THỔI SÁO) CHIẾN THẮNG!` và `👑 PHE THỨ 3 TOÀN THẮNG 👑`.
+
+### ⚖️ Hoàn Thiện Chuỗi Hiệu Ứng Cuối Ngày: Thanh Tẩy Cuối Ngày Không Lộ Số Lượng
+- **Bảng Treo Cổ Chỉ Hiển Thị Số Lượng Sói:**
+  - Bảng sau giờ bỏ phiếu chỉ hiển thị thông báo người bị treo cổ và **🐺 SỐ LƯỢNG SÓI CÒN LẠI**, bỏ hoàn toàn mục hiển thị số người bị thôi miên để đồng bộ với tính bí mật của Phương Án 1.
+  - Khung chat hệ thống sau vote cũng chỉ ghi nhận số Sói còn lại.
+- **Thanh Tẩy Hoàng Kim Chạy Vào Cuối Ngày Trước Khi Vào Màn Đêm:**
+  1. Hết giờ vote ➔ Hiển thị Bảng Treo Cổ & Số Lượng Sói Còn Lại (3.8s) ➔ Đóng bảng.
+  2. Nếu người bị treo cổ là Người Thổi Sáo ➔ Mở Hoạt Ảnh Người Thổi Sáo Chết (4.5s) ➔ Đóng hoạt ảnh.
+  3. **Cuối ngày trước khi vào màn đêm:** Mới kích hoạt **Thanh Tẩy Hoàng Kim** trên màn hình chính (3.5s): Ánh sáng vàng rực rỡ, chuông synth ngân vang, xóa sạch dấu ấn bùa mê và hiện banner thanh tẩy.
+  4. Màn đêm buông xuống (server nâng thời gian chờ chuyển pha lên **14.5s** khi Người Thổi Sáo chết để mọi người xem trọn vẹn, không bao giờ bị đè hiệu ứng).
+
+### ⚡ Tối Giản Giao Diện: Chạy Ngầm Toàn Bộ Bộ Đếm Tự Động Chuyển
+- **Ẩn Các Dòng Thông Báo Chuyển Động Rườm Rà:**
+  - Loại bỏ hoàn toàn các dòng chữ đếm ngược như *"⏳ Tự động chuyển bảng tổng kết sau: 5s"* hay *"⏳ Tự động chuyển vai trò tiếp theo sau 5s..."*.
+  - Bỏ phần đếm giây hiển thị trong nút bấm (ví dụ `⚰️ ĐÃ HIỂU (4s)` ➔ đổi thành `⚰️ ĐÃ HIỂU` gọn gàng).
+  - Bỏ thông báo đệm *"🌙 Chuẩn bị bước vào Ban Đêm..."* sau bảng treo cổ.
+- **Vận Hành Tự Nhiên, Trơn Tru:** Các bộ đếm thời gian và chuyển tiếp tuần tự vẫn hoạt động ngầm chính xác 100% trong nền (nếu người chơi không bấm bỏ qua thì game vẫn tự động chuyển mượt mà), mang lại giao diện tinh gọn, điện ảnh và chuyên nghiệp.
+
+### ⚡ Tối Giản Giao Diện: Chạy Ngầm Toàn Bộ Bộ Đếm Tự Động Chuyển
+- **Ẩn Các Dòng Thông Báo Chuyển Động Rườm Rà:**
+  - Loại bỏ hoàn toàn các dòng chữ đếm ngược như *"⏳ Tự động chuyển bảng tổng kết sau: 5s"* hay *"⏳ Tự động chuyển vai trò tiếp theo sau 5s..."*.
+  - Bỏ phần đếm giây hiển thị trong nút bấm (ví dụ `⚰️ ĐÃ HIỂU (4s)` ➔ đổi thành `⚰️ ĐÃ HIỂU` gọn gàng).
+  - Bỏ thông báo đệm *"🌙 Chuẩn bị bước vào Ban Đêm..."* sau bảng treo cổ.
+- **Vận Hành Tự Nhiên, Trơn Tru:** Các bộ đếm thời gian và chuyển tiếp tuần tự vẫn hoạt động ngầm chính xác 100% trong nền (nếu người chơi không bấm bỏ qua thì game vẫn tự động chuyển mượt mà), mang lại giao diện tinh gọn, điện ảnh và chuyên nghiệp.
+
+### ⚡ Tối Giản Giao Diện: Chạy Ngầm Toàn Bộ Bộ Đếm Tự Động Chuyển
+- **Ẩn Các Dòng Thông Báo Chuyển Động Rườm Rà:**
+  - Loại bỏ hoàn toàn các dòng chữ đếm ngược như *"⏳ Tự động chuyển bảng tổng kết sau: 5s"* hay *"⏳ Tự động chuyển vai trò tiếp theo sau 5s..."*.
+  - Bỏ phần đếm giây hiển thị trong nút bấm (ví dụ `⚰️ ĐÃ HIỂU (4s)` ➔ đổi thành `⚰️ ĐÃ HIỂU` gọn gàng).
+  - Bỏ thông báo đệm *"🌙 Chuẩn bị bước vào Ban Đêm..."* sau bảng treo cổ.
+- **Vận Hành Tự Nhiên, Trơn Tru:** Các bộ đếm thời gian và chuyển tiếp tuần tự vẫn hoạt động ngầm chính xác 100% trong nền (nếu người chơi không bấm bỏ qua thì game vẫn tự động chuyển mượt mà), mang lại giao diện tinh gọn, điện ảnh và chuyên nghiệp.
+
 ---
 
 ## 🌟 Phiên Bản 2.4.0 - PHÙ THỦY SONG THUỐC, NÂNG CẤP THỢ SĂN & TƯƠNG TÁC TAY BA
@@ -27,6 +111,13 @@ Chào mừng các dân làng và bầy sói! Dưới đây là thông tin chi ti
   5. Nạn nhân gục ngã và thông báo tử nạn do thuốc độc.
 - **Xem Thử Trong Cài Đặt:** Chủ phòng có thể xem trước hoạt ảnh này ngay trong bảng Cài Đặt phòng.
 
+### ⚡ Tối Giản Giao Diện: Chạy Ngầm Toàn Bộ Bộ Đếm Tự Động Chuyển
+- **Ẩn Các Dòng Thông Báo Chuyển Động Rườm Rà:**
+  - Loại bỏ hoàn toàn các dòng chữ đếm ngược như *"⏳ Tự động chuyển bảng tổng kết sau: 5s"* hay *"⏳ Tự động chuyển vai trò tiếp theo sau 5s..."*.
+  - Bỏ phần đếm giây hiển thị trong nút bấm (ví dụ `⚰️ ĐÃ HIỂU (4s)` ➔ đổi thành `⚰️ ĐÃ HIỂU` gọn gàng).
+  - Bỏ thông báo đệm *"🌙 Chuẩn bị bước vào Ban Đêm..."* sau bảng treo cổ.
+- **Vận Hành Tự Nhiên, Trơn Tru:** Các bộ đếm thời gian và chuyển tiếp tuần tự vẫn hoạt động ngầm chính xác 100% trong nền (nếu người chơi không bấm bỏ qua thì game vẫn tự động chuyển mượt mà), mang lại giao diện tinh gọn, điện ảnh và chuyên nghiệp.
+
 ---
 
 ## 🎯 Phiên Bản 2.3.0 - HOÀN THIỆN PHÁT SÚNG TRĂN TRỐI & KHUNG TRƯỢT KẾT THÚC
@@ -41,6 +132,13 @@ Chào mừng các dân làng và bầy sói! Dưới đây là thông tin chi ti
 
 ### 📜 Thẻ Trượt Ngang Danh Tính Tổng Kết (Game Over)
 - Toàn bộ danh tính người chơi ở màn hình kết thúc được đưa vào khung trượt ngang mượt mà, hiển thị đẹp mắt và không bị tràn viền trên cả điện thoại lẫn máy tính.
+
+### ⚡ Tối Giản Giao Diện: Chạy Ngầm Toàn Bộ Bộ Đếm Tự Động Chuyển
+- **Ẩn Các Dòng Thông Báo Chuyển Động Rườm Rà:**
+  - Loại bỏ hoàn toàn các dòng chữ đếm ngược như *"⏳ Tự động chuyển bảng tổng kết sau: 5s"* hay *"⏳ Tự động chuyển vai trò tiếp theo sau 5s..."*.
+  - Bỏ phần đếm giây hiển thị trong nút bấm (ví dụ `⚰️ ĐÃ HIỂU (4s)` ➔ đổi thành `⚰️ ĐÃ HIỂU` gọn gàng).
+  - Bỏ thông báo đệm *"🌙 Chuẩn bị bước vào Ban Đêm..."* sau bảng treo cổ.
+- **Vận Hành Tự Nhiên, Trơn Tru:** Các bộ đếm thời gian và chuyển tiếp tuần tự vẫn hoạt động ngầm chính xác 100% trong nền (nếu người chơi không bấm bỏ qua thì game vẫn tự động chuyển mượt mà), mang lại giao diện tinh gọn, điện ảnh và chuyên nghiệp.
 
 ---
 
@@ -60,6 +158,13 @@ Chào mừng các dân làng và bầy sói! Dưới đây là thông tin chi ti
 - **Luôn Biết Ai Bị Cắn:** Dù còn hay đã hết bình cứu, Phù Thủy vẫn luôn thấy rõ người bị Sói tấn công trong đêm.
 - **Tự Chuyển Nhanh Khi Hết Thuốc:** Khi đã dùng hết cả 2 bình thuốc, lượt Phù Thủy chỉ kéo dài 10 giây để quan sát con mồi rồi tự động chuyển sang vai trò tiếp theo mà không cần bấm gì.
 
+### ⚡ Tối Giản Giao Diện: Chạy Ngầm Toàn Bộ Bộ Đếm Tự Động Chuyển
+- **Ẩn Các Dòng Thông Báo Chuyển Động Rườm Rà:**
+  - Loại bỏ hoàn toàn các dòng chữ đếm ngược như *"⏳ Tự động chuyển bảng tổng kết sau: 5s"* hay *"⏳ Tự động chuyển vai trò tiếp theo sau 5s..."*.
+  - Bỏ phần đếm giây hiển thị trong nút bấm (ví dụ `⚰️ ĐÃ HIỂU (4s)` ➔ đổi thành `⚰️ ĐÃ HIỂU` gọn gàng).
+  - Bỏ thông báo đệm *"🌙 Chuẩn bị bước vào Ban Đêm..."* sau bảng treo cổ.
+- **Vận Hành Tự Nhiên, Trơn Tru:** Các bộ đếm thời gian và chuyển tiếp tuần tự vẫn hoạt động ngầm chính xác 100% trong nền (nếu người chơi không bấm bỏ qua thì game vẫn tự động chuyển mượt mà), mang lại giao diện tinh gọn, điện ảnh và chuyên nghiệp.
+
 ---
 
 ## 🏹 Phiên Bản 2.1.0 - VAI TRÒ MỚI: THỢ SĂN (HUNTER 🏹)
@@ -75,10 +180,73 @@ Chào mừng các dân làng và bầy sói! Dưới đây là thông tin chi ti
 ### 🎨 Tinh Gọn Bộ Sưu Tập Avatar Biểu Tượng
 - Bỏ tính năng tải ảnh từ máy tính phức tạp, chuyển sang kho biểu tượng cảm xúc sinh động (Động vật, Hoa quả & Món ăn, Thần bí) mở bằng nút `➕`, giúp game load nhanh và không giật lag.
 
+### ⚡ Tối Giản Giao Diện: Chạy Ngầm Toàn Bộ Bộ Đếm Tự Động Chuyển
+- **Ẩn Các Dòng Thông Báo Chuyển Động Rườm Rà:**
+  - Loại bỏ hoàn toàn các dòng chữ đếm ngược như *"⏳ Tự động chuyển bảng tổng kết sau: 5s"* hay *"⏳ Tự động chuyển vai trò tiếp theo sau 5s..."*.
+  - Bỏ phần đếm giây hiển thị trong nút bấm (ví dụ `⚰️ ĐÃ HIỂU (4s)` ➔ đổi thành `⚰️ ĐÃ HIỂU` gọn gàng).
+  - Bỏ thông báo đệm *"🌙 Chuẩn bị bước vào Ban Đêm..."* sau bảng treo cổ.
+- **Vận Hành Tự Nhiên, Trơn Tru:** Các bộ đếm thời gian và chuyển tiếp tuần tự vẫn hoạt động ngầm chính xác 100% trong nền (nếu người chơi không bấm bỏ qua thì game vẫn tự động chuyển mượt mà), mang lại giao diện tinh gọn, điện ảnh và chuyên nghiệp.
+
 ---
 
 ## 🧙‍♀️ Phiên Bản 2.0.x - RA MẮT PHÙ THỦY & NÂNG CẤP ĐIỆN ẢNH BAN MAI
 *(Cập nhật ngày: 28/10/2026)*
+
+
+
+
+### 🪈✨ Đột Phá Hoạt Ảnh Điện Ảnh: Người Thổi Sáo Tử Nạn & Cây Sáo Thần Vỡ Đôi Nằm Ngang Rực Nốt Nhạc
+- **Tách Nền Trong Suốt & Đặt Nằm Ngang:**
+  - Hình ảnh cây sáo gãy đôi chân thực với các nốt nhạc ma thuật tím/xanh được xử lý tách sạch 100% nền studio thành file `assets/flute_broken.png`.
+  - Góc nghiêng cây sáo được tinh chỉnh xoay ngang `-38deg` đặt vắt ngang qua ngực Avatar trung tâm cực kỳ cân đối và hoành tráng (chiều rộng 250px).
+- **Diễn Hoạt "Vỡ Đôi" Kịch Tính & Độc Đáo:**
+  - **Giai đoạn Ban đầu:** Cây sáo thần nguyên vẹn `flute.png` nằm ngang bồng bềnh trước ngực Avatar, tỏa hào quang tím ma mị huyền bí.
+  - **Giai đoạn Đòn chí mạng (1.1s):**
+    - Sấm sét giáng xuống, màn hình rung chấn mạnh mẽ và chớp sáng chói lòa.
+    - Cây sáo nguyên vẹn biến mất, **thay thế tức thì bằng cây sáo gãy đôi `flute_broken.png`**!
+    - Hai nửa sáo gãy nảy spring giật chấn động (scale 1.25 -> 1.0) kèm góc gãy chao đảo, các nốt nhạc ma thuật tím và xanh bung nở rực rỡ từ điểm gãy, kết hợp 20 tia lửa ma thuật bắn tung tóe khắp màn hình.
+  - **Giai đoạn Tử nạn (1.85s):** Avatar và cây sáo gãy chuyển sang tông xám u tối, huy hiệu `💀 NGƯỜI THỔI SÁO ĐÃ CHẾT` dập xuống và thông báo Ánh Sáng Hoàng Kim Thanh Tẩy rực rỡ xuất hiện.
+
+### ⚡ Tối Ưu Nhịp Độ Ván Đấu: Giảm Thời Gian Giữ Sau Hoạt Ảnh Xuống 1.0 Giây & Đồng Bộ Chuẩn Xác Toàn Diện
+- **Giảm Thời Gian Giữ Xuống Đúng 1.0 Giây:**
+  - Sau khi các hiệu ứng kỹ xảo điện ảnh hoàn tất, modal chỉ lưu lại thêm đúng **1.0s** (thay vì 2.0s) để người chơi nắm bắt thông tin nhanh chóng, giúp nhịp độ ván đấu mượt mà, gãy gọn, không gây cảm giác chờ đợi lâu.
+  - Chi tiết thời gian tồn tại mới của 10 Modal:
+    1. `PiedPiperPurifiedModal` (Thổi Sáo Tử Nạn): Diễn hoạt 2.35s + 1.0s = **3.35s** (3350ms).
+    2. `PiedPiperVictoryModal` (Thổi Sáo Chiến Thắng): Diễn hoạt 1.2s + 1.0s = **2.2s** (2200ms).
+    3. `HunterShotModal` (Thợ Săn Bắn Hạ): Diễn hoạt 3.5s + 1.0s = **4.5s** (4500ms).
+    4. `WolfClawAttackModal` (Sói Cào Xé): Diễn hoạt 2.4s + 1.0s = **3.4s** (3400ms).
+    5. `WitchHealSaveModal` (Phù Thủy Hồi Sinh): Diễn hoạt 4.95s + 1.0s = **5.95s** (5950ms).
+    6. `BodyguardSaveModal` (Khiên Đỡ Đòn): Diễn hoạt 2.35s + 1.0s = **3.35s** (3350ms).
+    7. `ThreeWayClashModal` (Xung Đột 3 Bên): Diễn hoạt 4.85s + 1.0s = **5.85s** (5850ms).
+    8. `WitchPoisonModal` (Phù Thủy Hạ Độc): Diễn hoạt 4.2s + 1.0s = **5.2s** (5200ms).
+    9. `PiedPiperModal` (Thôi Miên Trong Đêm): Diễn hoạt 3.4s + 1.0s = **4.4s** (4400ms).
+    10. `SeerInspectionModal` (Tiên Tri Soi): Diễn hoạt 3.5s + 1.0s = **4.5s** (4500ms).
+- **Đồng Bộ Chuẩn Xác Giữa Server & Client:**
+  - **Sáng sớm (`DAY_ANNOUNCE`):** Tinh chỉnh thời gian hiển thị tuần tự (13s khi có 2 modal, 19s khi có 2 modal và Thổi Sáo chết, 14s khi Thổi Sáo chết đơn lẻ).
+  - **Thợ Săn Bắn Thổi Sáo:** Dời thời điểm phát tin nhắn chat `[THANH TẨY HOÀNG KIM]` về đúng lúc modal Thổi Sáo đóng (8.0s), thời gian chuyển pha tổng rút gọn về 13s (hoặc 6.5s nếu bắn mục tiêu khác).
+  - **Treo Cổ Thổi Sáo:** Tin nhắn chat phát chuẩn xác tại 7.5s (ngay khi modal Thổi Sáo đóng và Thanh Tẩy trên màn hình bắt đầu), thời gian vào đêm rút gọn về 12.5s (hoặc 5.0s nếu người khác bị treo).
+  - **GameScreen Client:** Cập nhật các bộ đếm ngầm fallback khớp tuyệt đối từng mili-giây với thời gian đóng mới của từng Modal.
+
+### 🎬 Tối Ưu Hóa Trải Nghiệm Điện Ảnh (Cinematic Experience): Bỏ Skip & Giữ Đúng 2s Sau Khi Hoạt Ảnh Chạy Hết
+- **Loại Bỏ Hoàn Toàn Nút Skip / Đóng Thủ Công:**
+  - Xóa bỏ tất cả các nút bấm đóng sớm ("BỎ QUA ⏩", "ĐÃ HIỂU", "⚰️ ĐÃ HIỂU", "✨ ĐÃ HIỂU", "🛡️ ĐÃ HIỂU") và các huy hiệu đếm ngược ("⏳ ...s") trên toàn bộ các modal hoạt ảnh điện ảnh.
+  - Các sự kiện và cutscene điện ảnh diễn ra trọn vẹn và liền mạch, loại bỏ tình trạng người chơi vô tình bấm đóng làm trôi mất câu chuyện hoặc gây lỗi lệch pha hoạt ảnh.
+- **Tự Động Đóng Chính Xác Sau Khi Hoạt Ảnh Kết Thúc Đúng 2.0 Giây:**
+  - Hoạt ảnh diễn hoạt đầy đủ 100% các phân đoạn kỹ xảo (sấm sét, vỡ sáo, tâm ngắm, súng nổ, móng vuốt cào, khiên đỡ kim loại, bình độc nổ tung, hào quang thôi miên, quả cầu tiên tri lộ diện).
+  - Khi kỹ xảo hoàn tất, màn hình được giữ nguyên thêm đúng **2.0s** để người chơi nắm trọn kết quả sự kiện, sau đó hệ thống tự động đóng hoặc chuyển tiếp tuần tự ngầm sang bước kế tiếp.
+- **Áp Dụng Cho Toàn Bộ 10 Hoạt Ảnh Điện Ảnh:**
+  1. `PiedPiperPurifiedModal` (Người Thổi Sáo Tử Nạn / Thanh Tẩy): Diễn hoạt 2.35s + 2.0s = **4.35s**.
+  2. `PiedPiperVictoryModal` (Người Thổi Sáo Chiến Thắng): Diễn hoạt 1.2s + 2.0s = **3.2s**.
+  3. `HunterShotModal` (Phát Súng Trăn Trối Của Thợ Săn): Diễn hoạt 3.5s + 2.0s = **5.5s**.
+  4. `WolfClawAttackModal` (Ma Sói Cào Xé Tử Nạn): Diễn hoạt 2.4s + 2.0s = **4.4s**.
+  5. `WitchHealSaveModal` (Phù Thủy Hồi Sinh Bằng Bình Cứu): Diễn hoạt 4.95s + 2.0s = **6.95s**.
+  6. `BodyguardSaveModal` (Khiên Hiệp Sĩ Bảo Vệ Thành Công): Diễn hoạt 2.35s + 2.0s = **4.35s**.
+  7. `ThreeWayClashModal` (Xung Đột Tay Ba: Sói + Khiên + Độc): Diễn hoạt 4.85s + 2.0s = **6.85s**.
+  8. `WitchPoisonModal` (Phù Thủy Hạ Độc Mục Tiêu): Diễn hoạt 4.2s + 2.0s = **6.2s**.
+  9. `PiedPiperModal` (Người Thổi Sáo Mê Hoặc Trong Đêm): Diễn hoạt 3.4s + 2.0s = **5.4s**.
+  10. `SeerInspectionModal` (Mắt Thần Tiên Tri Soi Linh Hồn): Diễn hoạt 3.5s + 2.0s = **5.5s**.
+- **Đồng Bộ Hoàn Hảo Với GameScreen:**
+  - Bộ đếm tự động chuyển tiếp ngầm giữa các modal trong `GameScreen.js` được tinh chỉnh khớp chuẩn xác với thời gian diễn hoạt mới của từng modal.
 
 ### 🧙‍♀️ Ra Mắt Vai Trò Mới: Phù Thủy (Phe Dân Làng)
 - **Bậc Thầy Độc Dược:** Sở hữu 2 bình thuốc quyền năng (mỗi bình dùng 1 lần trong cả trận):
@@ -92,6 +260,13 @@ Chào mừng các dân làng và bầy sói! Dưới đây là thông tin chi ti
 
 ### 🎬 Trì Hoãn Công Bố Thắng Thua Cho Đến Khi Hết Hoạt Ảnh
 - Hệ thống luôn chiếu đầy đủ toàn bộ hoạt ảnh điện ảnh buổi sáng (Sói cào, Cứu sống, Khiên đỡ, Ném độc) trước khi công bố phe chiến thắng, giúp người chơi hiểu rõ nguyên nhân thắng bại.
+
+### ⚡ Tối Giản Giao Diện: Chạy Ngầm Toàn Bộ Bộ Đếm Tự Động Chuyển
+- **Ẩn Các Dòng Thông Báo Chuyển Động Rườm Rà:**
+  - Loại bỏ hoàn toàn các dòng chữ đếm ngược như *"⏳ Tự động chuyển bảng tổng kết sau: 5s"* hay *"⏳ Tự động chuyển vai trò tiếp theo sau 5s..."*.
+  - Bỏ phần đếm giây hiển thị trong nút bấm (ví dụ `⚰️ ĐÃ HIỂU (4s)` ➔ đổi thành `⚰️ ĐÃ HIỂU` gọn gàng).
+  - Bỏ thông báo đệm *"🌙 Chuẩn bị bước vào Ban Đêm..."* sau bảng treo cổ.
+- **Vận Hành Tự Nhiên, Trơn Tru:** Các bộ đếm thời gian và chuyển tiếp tuần tự vẫn hoạt động ngầm chính xác 100% trong nền (nếu người chơi không bấm bỏ qua thì game vẫn tự động chuyển mượt mà), mang lại giao diện tinh gọn, điện ảnh và chuyên nghiệp.
 
 ---
 

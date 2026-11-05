@@ -90,6 +90,7 @@ export default function App() {
   const [messages, setMessages] = useState([]);
   const [showRoleReveal, setShowRoleReveal] = useState(false);
   const [seerHistory, setSeerHistory] = useState({});
+  const [charmedHistory, setCharmedHistory] = useState({});
 
   // Khởi tạo Socket.io một lần duy nhất
   useEffect(() => {
@@ -171,6 +172,7 @@ export default function App() {
       setWasProtected(Boolean(data.wasProtected));
       setLastProtectedTarget(data.lastProtectedTarget || null);
       setSeerHistory(data.seerHistory || {});
+      setCharmedHistory(data.charmedHistory || {});
       setCurrentScreen('game');
       setError(null);
     });
@@ -235,6 +237,7 @@ export default function App() {
       setWinner(null);
       setWinMessage('');
       setSeerHistory({});
+      setCharmedHistory({});
       setShowRoleReveal(true);
       setCurrentScreen('game');
 
@@ -259,6 +262,7 @@ export default function App() {
       if (data.wolfVictim !== undefined) setWolfVictim(data.wolfVictim);
       if (data.witchState !== undefined) setWitchState(data.witchState);
       if (data.hunter !== undefined) setHunter(data.hunter);
+      if (data.charmedHistory !== undefined) setCharmedHistory(data.charmedHistory);
       if (data.players) setPlayers(data.players);
       if (data.winner) setWinner(data.winner);
       if (data.message) setWinMessage(data.message);
@@ -440,6 +444,7 @@ export default function App() {
             myId={myId}
             hostId={hostId}
             initialSeerHistory={seerHistory}
+            initialCharmedHistory={charmedHistory}
           />
         </ErrorBoundary>
       )}

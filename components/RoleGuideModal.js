@@ -3,7 +3,7 @@
 // Modal hiển thị danh sách các nhân vật và hướng dẫn chơi chi tiết
 // ============================================
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { COLORS } from '../utils/colors';
 
@@ -104,6 +105,24 @@ const ROLES_INFO = [
     ],
   },
   {
+    id: 'pied_piper',
+    name: 'Người Thổi Sáo',
+    emoji: '🎶',
+    team: 'Phe Thứ 3',
+    teamColor: '#A855F7',
+    teamEmoji: '🎶',
+    slogan: 'CHARM ALL LIVING SOULS TO WIN',
+    objective: 'Thôi miên toàn bộ người chơi còn sống trong làng bằng tiếng sáo mê hoặc để giành chiến thắng cho Phe Thứ 3.',
+    nightAction: 'Mỗi đêm sau khi các vai trò khác hành động, Người Thổi Sáo thức dậy và chọn 1 hoặc 2 người chơi còn sống (chưa bị thôi miên) để gieo bùa mê tiếng sáo. Người Thổi Sáo luôn nhìn thấy ai đã bị mình thôi miên với huy hiệu "🎶 ĐÃ THÔI MIÊN" dưới tên.',
+    dayAction: 'Ngụy trang khéo léo trà trộn giữa Dân Làng và Ma Sói. Tham gia bàn luận, điều hướng bỏ phiếu để loại bớt những kẻ ngáng đường mà không làm lộ thân phận.',
+    tips: [
+      'Tiên Tri soi Người Thổi Sáo VẪN RA PHE THIỆN! Hãy tận dụng điều này để tạo dựng lòng tin với Tiên Tri và dân làng.',
+      'Ưu tiên thôi miên những người có khả năng sống sót cao (như Bảo Vệ, Tiên Tri, hoặc người ít bị Sói nhắm đến).',
+      'Trong 5 giây trước bình minh, những người cùng bị thôi miên sẽ mở mắt nhìn thấy nhau để nhận diện đồng bọn chung bùa mê!',
+      'Khi toàn bộ người chơi còn sống (ngoại trừ bản thân) đều đã dính bùa mê, bạn sẽ NGAY LẬP TỨC giành chiến thắng cho Phe Thứ 3!',
+    ],
+  },
+  {
     id: 'villager',
     name: 'Dân Làng',
     emoji: '👨‍🌾',
@@ -126,6 +145,124 @@ export default function RoleGuideModal({ visible = false, onClose }) {
   const [selectedRoleIndex, setSelectedRoleIndex] = useState(0);
   const activeRole = ROLES_INFO[selectedRoleIndex];
 
+  // Ref & trạng thái cho tính năng giữ chuột trái kéo & lăn con chuột (Web/Desktop)
+  const tabsScrollRef = useRef(null);
+  const isMouseDownRef = useRef(false);
+  const startXRef = useRef(0);
+  const scrollLeftRef = useRef(0);
+  const dragDistanceRef = useRef(0);
+  const justDraggedRef = useRef(false);
+
+  const getScrollNode = () => {
+    if (!tabsScrollRef.current) return null;
+    if (typeof tabsScrollRef.current.getScrollableNode === 'function') {
+      return tabsScrollRef.current.getScrollableNode();
+    }
+    if (tabsScrollRef.current.nodeType) {
+      return tabsScrollRef.current;
+    }
+    return null;
+  };
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !visible) return;
+
+    let cleanup = null;
+    let attempts = 0;
+    let timer = null;
+
+    const setupListeners = () => {
+      const node = getScrollNode();
+      if (!node) {
+        if (attempts++ < 15) {
+          timer = setTimeout(setupListeners, 40);
+        }
+        return;
+      }
+
+      node.style.cursor = 'grab';
+
+      // 1. Con lăn chuột (Mouse Wheel): Cuộn ngang mượt mà khi lăn bánh xe chuột
+      const onWheel = (e) => {
+        const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+        if (delta !== 0) {
+          e.preventDefault();
+          if (typeof node.scrollBy === 'function') {
+            node.scrollBy({ left: delta, behavior: 'auto' });
+          } else {
+            node.scrollLeft += delta;
+          }
+        }
+      };
+
+      // 2. Giữ chuột trái kéo (Mouse Drag to scroll)
+      const onMouseDown = (e) => {
+        if (e.button !== 0) return; // Chỉ nhận click chuột trái
+        isMouseDownRef.current = true;
+        startXRef.current = e.pageX;
+        scrollLeftRef.current = node.scrollLeft;
+        dragDistanceRef.current = 0;
+        node.style.cursor = 'grabbing';
+        if (document.body) {
+          document.body.style.userSelect = 'none';
+        }
+      };
+
+      const onMouseMove = (e) => {
+        if (!isMouseDownRef.current) return;
+        const walk = e.pageX - startXRef.current;
+        dragDistanceRef.current = Math.abs(walk);
+        node.scrollLeft = scrollLeftRef.current - walk;
+      };
+
+      const onMouseUp = () => {
+        if (!isMouseDownRef.current) return;
+        isMouseDownRef.current = false;
+        node.style.cursor = 'grab';
+        if (document.body) {
+          document.body.style.removeProperty('user-select');
+        }
+
+        // Nếu kéo rê nhiều hơn 5px, chặn không cho kích hoạt chọn nhầm vai trò
+        if (dragDistanceRef.current > 5) {
+          justDraggedRef.current = true;
+          const stopGhostClick = (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            window.removeEventListener('click', stopGhostClick, true);
+          };
+          window.addEventListener('click', stopGhostClick, true);
+          setTimeout(() => {
+            justDraggedRef.current = false;
+            window.removeEventListener('click', stopGhostClick, true);
+          }, 120);
+        }
+      };
+
+      node.addEventListener('wheel', onWheel, { passive: false });
+      node.addEventListener('mousedown', onMouseDown, { capture: true });
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+
+      cleanup = () => {
+        node.removeEventListener('wheel', onWheel);
+        node.removeEventListener('mousedown', onMouseDown, { capture: true });
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+        if (document.body) {
+          document.body.style.removeProperty('user-select');
+        }
+      };
+    };
+
+    timer = setTimeout(setupListeners, 30);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      if (cleanup) cleanup();
+    };
+  }, [visible]);
+
   return (
     <Modal
       visible={visible}
@@ -146,27 +283,45 @@ export default function RoleGuideModal({ visible = false, onClose }) {
             </TouchableOpacity>
           </View>
 
-          {/* Role Tabs */}
-          <View style={styles.tabsRow}>
-            {ROLES_INFO.map((r, idx) => {
-              const isActive = idx === selectedRoleIndex;
-              return (
-                <TouchableOpacity
-                  key={r.id}
-                  style={[
-                    styles.tabItem,
-                    isActive && { backgroundColor: r.teamColor + '30', borderColor: r.teamColor },
-                  ]}
-                  onPress={() => setSelectedRoleIndex(idx)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.tabEmoji}>{r.emoji}</Text>
-                  <Text style={[styles.tabText, isActive && { color: r.teamColor, fontWeight: '800' }]}>
-                    {r.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+          {/* Role Tabs - Cuộn ngang mượt mà, hỗ trợ cả lăn chuột & giữ chuột trái kéo */}
+          <View style={styles.tabsContainer}>
+            <ScrollView
+              ref={tabsScrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tabsScrollContent}
+            >
+              {ROLES_INFO.map((r, idx) => {
+                const isActive = idx === selectedRoleIndex;
+                return (
+                  <TouchableOpacity
+                    key={r.id}
+                    style={[
+                      styles.tabItem,
+                      isActive && {
+                        backgroundColor: r.teamColor + '28',
+                        borderColor: r.teamColor,
+                        shadowColor: r.teamColor,
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.35,
+                        shadowRadius: 4,
+                        elevation: 3,
+                      },
+                    ]}
+                    onPress={() => {
+                      if (justDraggedRef.current) return;
+                      setSelectedRoleIndex(idx);
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.tabEmoji}>{r.emoji}</Text>
+                    <Text style={[styles.tabText, isActive && { color: r.teamColor, fontWeight: '800' }]}>
+                      {r.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
 
           {/* Role Content Body */}
@@ -333,33 +488,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  tabsRow: {
+  tabsContainer: {
+    backgroundColor: 'rgba(18, 12, 36, 0.95)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    ...(Platform.OS === 'web' ? { cursor: 'grab', userSelect: 'none' } : {}),
+  },
+  tabsScrollContent: {
     flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
-    backgroundColor: 'rgba(18, 12, 36, 0.9)',
+    gap: 10,
   },
   tabItem: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 9,
-    paddingHorizontal: 8,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1.5,
-    borderColor: 'transparent',
-    gap: 6,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    gap: 8,
+    flexShrink: 0,
+    ...(Platform.OS === 'web' ? { cursor: 'pointer', whiteSpace: 'nowrap', userSelect: 'none' } : {}),
   },
   tabEmoji: {
-    fontSize: 16,
+    fontSize: 18,
   },
   tabText: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#94A3B8',
   },

@@ -377,9 +377,15 @@ export default function SeerInspectionModal({
       }
     }, 2600);
 
+    // Tự động đóng sau khi hoạt ảnh kết thúc (3.5s) + 1.0s = 4.5s (4500ms)
+    const timerAutoClose = setTimeout(() => {
+      if (onClose) onClose();
+    }, 4500);
+
     return () => {
       clearTimeout(timerReveal);
       clearTimeout(timerClimax);
+      clearTimeout(timerAutoClose);
     };
   }, [visible, alignment]);
 
@@ -469,9 +475,6 @@ export default function SeerInspectionModal({
         <View style={styles.titleBadge}>
           <Text style={styles.titleEmoji}>🔮</Text>
           <Text style={styles.titleText}>MẮT THẦN TIÊN TRI</Text>
-        </View>
-        <View style={styles.timerBadge}>
-          <Text style={styles.timerText}>⏳ {Math.max(0, timeLeft)}s</Text>
         </View>
       </View>
 
@@ -796,14 +799,7 @@ export default function SeerInspectionModal({
           </Animated.View>
         )}
 
-        {/* Nút đóng / xác nhận xem xong */}
-        <TouchableOpacity
-          style={styles.closeBtn}
-          onPress={onClose}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.closeBtnText}>ĐÃ HIỂU ({Math.max(0, timeLeft)}s)</Text>
-        </TouchableOpacity>
+        {/* Không còn nút bấm đóng thủ công, hoạt ảnh tự động đóng sau 2s kết thúc */}
       </View>
     </Animated.View>
   );
