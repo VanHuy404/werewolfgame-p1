@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 
 const wolfClawImg = require('../assets/wolf_claw.png');
+const hunterImg = require('../assets/Hunter.png');
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -100,6 +101,31 @@ function playSynthSound(type) {
       gain.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + 1.5);
+    } else if (type === 'hunterCock') {
+      // 🏹 TIẾNG LÊN NỎ ĐANH THÉP KHI THỢ SĂN LỘ DIỆN
+      const clickOsc = ctx.createOscillator();
+      const clickGain = ctx.createGain();
+      clickOsc.type = 'square';
+      clickOsc.frequency.setValueAtTime(950, ctx.currentTime);
+      clickOsc.frequency.exponentialRampToValueAtTime(160, ctx.currentTime + 0.08);
+      clickGain.gain.setValueAtTime(0.38, ctx.currentTime);
+      clickGain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+      clickOsc.connect(clickGain);
+      clickGain.connect(ctx.destination);
+      clickOsc.start();
+      clickOsc.stop(ctx.currentTime + 0.08);
+
+      const clackOsc = ctx.createOscillator();
+      const clackGain = ctx.createGain();
+      clackOsc.type = 'sawtooth';
+      clackOsc.frequency.setValueAtTime(1250, ctx.currentTime + 0.1);
+      clackOsc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.22);
+      clackGain.gain.setValueAtTime(0.42, ctx.currentTime + 0.1);
+      clackGain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.22);
+      clackOsc.connect(clackGain);
+      clackGain.connect(ctx.destination);
+      clackOsc.start(ctx.currentTime + 0.1);
+      clackOsc.stop(ctx.currentTime + 0.22);
     }
   } catch (err) {
     // Bỏ qua lỗi audio
@@ -114,6 +140,7 @@ export default function WolfClawAttackModal({
 }) {
   // Giai đoạn: 'emerging' (nạn nhân xuất hiện) -> 'slashing' (sói cào) -> 'fallen' (đen xám tử nạn)
   const [stage, setStage] = useState('emerging');
+  const [revealedHunter, setRevealedHunter] = useState(false);
 
   // Animation values
   const backdropAnim = useRef(new Animated.Value(0)).current;
@@ -136,6 +163,15 @@ export default function WolfClawAttackModal({
   const deathBadgeScale = useRef(new Animated.Value(0.3)).current;
   const deathBadgeOpacity = useRef(new Animated.Value(0)).current;
 
+  // Hiệu ứng bừng sáng lộ diện Thợ Săn sau cú cào
+  const hunterRevealScale = useRef(new Animated.Value(0.7)).current;
+
+  const isHunter =
+    victimPlayer?.role === 'hunter' ||
+    victimPlayer?.isHunter === true ||
+    victimPlayer?.avatar === '🏹' ||
+    (typeof victimPlayer?.name === 'string' && victimPlayer?.name.toLowerCase().includes('thợ săn'));
+
   // Reset animations
   const resetAnimations = () => {
     backdropAnim.setValue(0);
@@ -151,6 +187,8 @@ export default function WolfClawAttackModal({
     grayscaleAnim.setValue(0);
     deathBadgeScale.setValue(0.3);
     deathBadgeOpacity.setValue(0);
+    hunterRevealScale.setValue(0.7);
+    setRevealedHunter(false);
   };
 
   useEffect(() => {
@@ -170,10 +208,22 @@ export default function WolfClawAttackModal({
       Animated.spring(avatarScale, { toValue: 1, friction: 5, tension: 50, useNativeDriver: true }),
     ]).start();
 
-    // 2. Sau 1.1s: SÓI CÀO BẬT RA ĐÈ LÊN AVATAR!
+    // 2. Sau 1.1s: SÓI CÀO BẬT RA ĐÈ LÊN AVATAR -> ĐÚNG LÚC NÀY NẾU LÀ THỢ SĂN MỚI LỘ DIỆN!
     const timerSlash = setTimeout(() => {
       setStage('slashing');
       playSynthSound('slash');
+
+      // Nếu là Thợ Săn: Sau khi sói cào vào thì lộ diện ngay lập tức
+      if (isHunter) {
+        setRevealedHunter(true);
+        playSynthSound('hunterCock');
+        Animated.spring(hunterRevealScale, {
+          toValue: 1,
+          friction: 4,
+          tension: 65,
+          useNativeDriver: true,
+        }).start();
+      }
 
       // Chớp sáng đỏ
       Animated.sequence([
@@ -235,7 +285,7 @@ export default function WolfClawAttackModal({
       clearTimeout(timerDeath);
       clearTimeout(timerAutoClose);
     };
-  }, [visible, victimPlayer]);
+  }, [visible, victimPlayer, isHunter]);
 
   if (!visible) return null;
 
@@ -266,19 +316,23 @@ export default function WolfClawAttackModal({
       <View style={styles.topBar}>
         <View style={styles.titleBadge}>
           <Text style={styles.titleEmoji}>🩸</Text>
-          <Text style={styles.titleText}>BÌNH MINH ĐẪM MÁU</Text>
+          <Text style={styles.titleText}>
+            {revealedHunter ? '🏹 BÌNH MINH ĐẪM MÁU - THỢ SĂN LỘ DIỆN' : 'BÌNH MINH ĐẪM MÁU'}
+          </Text>
         </View>
       </View>
 
       {/* Thông điệp sự kiện */}
       <View style={styles.announceHeaderBox}>
         <Text style={styles.announceMainTitle}>
-          {isFallen ? '💀 MA SÓI ĐÃ HẠ SÁT NẠN NHÂN' : '⚠️ MA SÓI TẤN CÔNG ĐÊM QUA!'}
+          {isFallen
+            ? (revealedHunter ? '💀 THỢ SĂN ĐÃ BỊ MA SÓI HẠ SÁT' : '💀 MA SÓI ĐÃ HẠ SÁT NẠN NHÂN')
+            : (revealedHunter ? '🏹 NẠN NHÂN CHÍNH LÀ THỢ SĂN!' : '⚠️ MA SÓI TẤN CÔNG ĐÊM QUA!')}
         </Text>
         <Text style={styles.announceSubTitle}>
           {isFallen
-            ? 'Vết thương chí mạng từ nanh vuốt ma quái không thể cứu chữa...'
-            : 'Một tiếng thét xé tan màn đêm yên bình của ngôi làng...'}
+            ? (revealedHunter ? 'Thợ Săn gục ngã dưới nanh vuốt Sói nhưng nỏ đã sẵn sàng báo thù...' : 'Vết thương chí mạng từ nanh vuốt ma quái không thể cứu chữa...')
+            : (revealedHunter ? 'Vết cào sói xé toạc danh tính — Thợ Săn chính thức lộ diện!' : 'Một tiếng thét xé tan màn đêm yên bình của ngôi làng...')}
         </Text>
       </View>
 
@@ -298,20 +352,36 @@ export default function WolfClawAttackModal({
         <View
           style={[
             styles.avatarCircle,
-            { backgroundColor: isFallen ? '#1E293B' : (victimPlayer?.avatarColor || '#38BDF8') },
+            { backgroundColor: isFallen ? '#1E293B' : (revealedHunter ? '#F59E0B' : (victimPlayer?.avatarColor || '#38BDF8')) },
+            revealedHunter && styles.avatarCircleHunter,
             isFallen && styles.avatarCircleDead,
           ]}
         >
-          {isCustomImage ? (
+          {revealedHunter ? (
+            <Animated.Image
+              source={hunterImg}
+              style={[
+                styles.avatarImg,
+                isFallen && styles.avatarGrayscale,
+                { transform: [{ scale: hunterRevealScale }] },
+              ]}
+              resizeMode="cover"
+            />
+          ) : isCustomImage ? (
             <Image
               source={{ uri: victimPlayer.avatar }}
-              style={styles.avatarImg}
+              style={[styles.avatarImg, isFallen && styles.avatarGrayscale]}
               resizeMode="cover"
             />
           ) : (
             <Text style={styles.avatarEmoji}>
               {victimPlayer?.avatar || '👤'}
             </Text>
+          )}
+
+          {/* Lớp hào quang Thợ Săn vàng rực khi lộ diện */}
+          {revealedHunter && !isFallen && (
+            <View style={styles.hunterAuraOverlay} pointerEvents="none" />
           )}
 
           {/* LỚP PHỦ ĐEN XÁM (GRAYSCALE & DARK DEATH FILTER) */}
@@ -321,8 +391,8 @@ export default function WolfClawAttackModal({
               { opacity: grayscaleAnim },
             ]}
           >
-            {/* Biểu tượng đầu lâu tử nạn mờ ảo chìm trong avatar */}
-            <Text style={styles.deathSkullWatermark}>💀</Text>
+            {/* Biểu tượng đầu lâu tử nạn mờ ảo chìm trong avatar (không hiện nếu là Hunter có ảnh) */}
+            {!revealedHunter && <Text style={styles.deathSkullWatermark}>💀</Text>}
             {/* Lớp lọc đen xám tử vong */}
             <View style={styles.deathFilterTone} />
           </Animated.View>
@@ -411,8 +481,10 @@ export default function WolfClawAttackModal({
             },
           ]}
         >
-          <View style={styles.deathBadgeInner}>
-            <Text style={styles.deathBadgeTitle}>ĐÃ BỊ SÓI CẮN</Text>
+          <View style={[styles.deathBadgeInner, revealedHunter && styles.deathBadgeInnerHunter]}>
+            <Text style={[styles.deathBadgeTitle, revealedHunter && styles.deathBadgeTitleHunter]}>
+              {revealedHunter ? '🏹 THỢ SĂN ĐÃ BỊ SÓI CẮN' : 'ĐÃ BỊ SÓI CẮN'}
+            </Text>
           </View>
         </Animated.View>
       </Animated.View>
@@ -529,6 +601,18 @@ const styles = StyleSheet.create({
     boxShadow: '0 0 20px rgba(239, 68, 68, 0.6)',
     position: 'relative',
   },
+  avatarCircleHunter: {
+    borderColor: '#F59E0B',
+    boxShadow: '0 0 25px rgba(245, 158, 11, 0.85)',
+  },
+  hunterAuraOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderWidth: 3,
+    borderColor: '#F59E0B',
+    borderRadius: 115,
+    zIndex: 4,
+  },
   avatarCircleDead: {
     borderColor: '#64748B',
     boxShadow: '0 0 10px rgba(15, 23, 42, 0.8)',
@@ -536,6 +620,9 @@ const styles = StyleSheet.create({
   avatarImg: {
     width: '100%',
     height: '100%',
+  },
+  avatarGrayscale: {
+    opacity: 0.45,
   },
   avatarEmoji: {
     fontSize: 105,
@@ -636,11 +723,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     boxShadow: '0 0 16px rgba(239, 68, 68, 0.55)',
   },
+  deathBadgeInnerHunter: {
+    backgroundColor: 'rgba(69, 26, 3, 0.94)',
+    borderColor: '#F59E0B',
+    boxShadow: '0 0 16px rgba(245, 158, 11, 0.7)',
+  },
   deathBadgeTitle: {
     fontSize: 15,
     fontWeight: '900',
     color: '#FCA5A5',
     letterSpacing: 1.5,
+  },
+  deathBadgeTitleHunter: {
+    color: '#FEF08A',
   },
 
   // Bottom Bar

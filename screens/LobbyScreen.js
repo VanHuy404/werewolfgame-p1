@@ -95,9 +95,23 @@ export default function LobbyScreen({
 
   const handleCopyCode = () => {
     if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(roomCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      try {
+        const origin = window.location.origin || '';
+        const pathname = window.location.pathname || '';
+        const shareUrl = `${origin}${pathname}?room=${roomCode}`;
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }).catch(() => {
+          navigator.clipboard.writeText(roomCode);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        });
+      } catch (e) {
+        navigator.clipboard.writeText(roomCode);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
     }
   };
 
@@ -170,7 +184,7 @@ export default function LobbyScreen({
             activeOpacity={0.7}
           >
             <Text style={styles.copyBtnText}>
-              {copied ? '✅ Đã sao chép!' : '📋 Sao chép mã'}
+              {copied ? '✅ Đã chép link phòng!' : '🔗 Sao chép link phòng'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -349,19 +363,6 @@ function SettingBadge({ emoji, label, value, color }) {
 }
 
 const styles = StyleSheet.create({
-  gearBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(167, 139, 250, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(167, 139, 250, 0.4)',
-  },
-  gearIcon: {
-    fontSize: 20,
-  },
   container: {
     flex: 1,
     backgroundColor: '#0A0819', // Nền đen không gian huyền bí đồng bộ với HomeScreen
@@ -560,6 +561,7 @@ const styles = StyleSheet.create({
   },
   settingsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: 8,
   },
@@ -571,6 +573,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.06)',
+    minWidth: 60,
     flex: 1,
   },
   settingBadgeEmoji: {

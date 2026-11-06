@@ -22,7 +22,22 @@ import {
 import { playFluteSynth } from './PiedPiperModal';
 
 const victoryImg = require('../assets/pied_piper_victory.jpg');
+const piperVictoryVideoAsset = require('../assets/videos/The_Perfect_Victory.mp4');
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+function resolveVictoryVideoUri() {
+  if (typeof piperVictoryVideoAsset === 'string') return piperVictoryVideoAsset;
+  if (piperVictoryVideoAsset?.default) {
+    if (typeof piperVictoryVideoAsset.default === 'string') return piperVictoryVideoAsset.default;
+    if (piperVictoryVideoAsset.default.uri) return piperVictoryVideoAsset.default.uri;
+  }
+  if (piperVictoryVideoAsset?.uri) return piperVictoryVideoAsset.uri;
+  try {
+    const res = Image.resolveAssetSource(piperVictoryVideoAsset);
+    if (res?.uri) return res.uri;
+  } catch (e) {}
+  return '/assets/videos/The_Perfect_Victory.mp4';
+}
 
 const PARTICLES = Array.from({ length: 18 }, (_, i) => {
   const angle = (i / 18) * 2 * Math.PI;
@@ -44,6 +59,9 @@ export default function PiedPiperVictoryModal({
   duration = 5,
   onComplete = () => {},
 }) {
+  const [isVideoPlaying, setIsVideoPlaying] = useState(Platform.OS === 'web');
+  const videoRef = useRef(null);
+
   const [timeLeft, setTimeLeft] = useState(duration);
   const player = winnerPlayer || { name: 'Người Thổi Sáo', avatar: '🎶', avatarColor: '#A855F7' };
 
@@ -53,13 +71,51 @@ export default function PiedPiperVictoryModal({
   const playerCardScale = useRef(new Animated.Value(0.7)).current;
   const particlesAnim = useRef(new Animated.Value(0)).current;
 
+  const handleVideoFinished = () => {
+    setIsVideoPlaying(false);
+  };
+
+  // Quản lý phát video The_Perfect_Victory.mp4 trước khi vào hoạt ảnh
   useEffect(() => {
     if (!visible) {
+      setIsVideoPlaying(Platform.OS === 'web');
       fadeAnim.setValue(0);
       scaleAnim.setValue(0.85);
       bannerY.setValue(-40);
       playerCardScale.setValue(0.7);
       particlesAnim.setValue(0);
+      return;
+    }
+
+    if (isVideoPlaying && Platform.OS === 'web') {
+      if (videoRef.current) {
+        try {
+          videoRef.current.currentTime = 0;
+          const playPromise = videoRef.current.play();
+          if (playPromise !== undefined) {
+            playPromise.catch((err) => {
+              console.log('Unmuted autoplay blocked, retrying muted:', err);
+              if (videoRef.current) {
+                videoRef.current.muted = true;
+                videoRef.current.play().catch(() => {});
+              }
+            });
+          }
+        } catch (e) {}
+      }
+
+      // Timeout dự phòng 10.5s nếu video bị dừng hoặc không nhận onEnded
+      const fallbackTimer = setTimeout(() => {
+        handleVideoFinished();
+      }, 10500);
+
+      return () => clearTimeout(fallbackTimer);
+    }
+  }, [visible, isVideoPlaying]);
+
+  // Quản lý hoạt ảnh vinh danh Người Thổi Sáo sau khi video kết thúc
+  useEffect(() => {
+    if (!visible || isVideoPlaying) {
       return;
     }
 
@@ -79,7 +135,7 @@ export default function PiedPiperVictoryModal({
       ),
     ]).start();
 
-    // Tự động chuyển tiếp sau khi hoạt ảnh kết thúc (tăng thêm 2s theo yêu cầu) = 4.2s (4200ms)
+    // Tự động chuyển tiếp sau khi hoạt ảnh kết thúc = 4.2s (4200ms)
     const timerAutoClose = setTimeout(() => {
       onComplete();
     }, 4200);
@@ -87,9 +143,38 @@ export default function PiedPiperVictoryModal({
     return () => {
       clearTimeout(timerAutoClose);
     };
-  }, [visible]);
+  }, [visible, isVideoPlaying]);
 
   if (!visible) return null;
+
+  // Giai đoạn 1: Chiếu video The_Perfect_Victory.mp4 toàn màn hình
+  if (isVideoPlaying && Platform.OS === 'web') {
+    return (
+      <View style={styles.videoOverlay}>
+        <video
+          ref={videoRef}
+          src={resolveVictoryVideoUri()}
+          autoPlay
+          playsInline
+          controls={false}
+          style={styles.webVideoElement}
+          onEnded={handleVideoFinished}
+          onError={() => {
+            console.warn('The_Perfect_Victory.mp4 failed, proceeding to animation directly');
+            handleVideoFinished();
+          }}
+        />
+        {/* Nút Bỏ qua video */}
+        <TouchableOpacity
+          style={styles.skipVideoBtn}
+          onPress={handleVideoFinished}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.skipVideoBtnText}>Bỏ qua video ⏭️</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const isCustomAvatar = typeof player.avatar === 'string' &&
     (player.avatar.startsWith('http') || player.avatar.startsWith('data:') || player.avatar.length > 25);
@@ -380,6 +465,39 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '900',
     letterSpacing: 0.8,
+  },
+  videoOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999999,
+  },
+  webVideoElement: {
+    width: '100%',
+    height: '100%',
+    maxWidth: '100vw',
+    maxHeight: '100vh',
+    objectFit: 'contain',
+    backgroundColor: '#000000',
+  },
+  skipVideoBtn: {
+    position: 'absolute',
+    top: 24,
+    right: 24,
+    backgroundColor: 'rgba(24, 18, 38, 0.85)',
+    borderWidth: 1.5,
+    borderColor: '#C084FC',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    zIndex: 1000000,
+  },
+  skipVideoBtnText: {
+    color: '#F5D0FE',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 });
 

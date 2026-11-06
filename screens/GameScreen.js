@@ -29,6 +29,7 @@ import ThreeWayClashModal from '../components/ThreeWayClashModal';
 import DualKillClashModal from '../components/DualKillClashModal';
 import PiedPiperModal, { playFluteSynth } from '../components/PiedPiperModal';
 import PiedPiperPurifiedModal, { playPurificationSynth } from '../components/PiedPiperPurifiedModal';
+import DaytimeHangingModal from '../components/DaytimeHangingModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -206,6 +207,20 @@ export default function GameScreen({
 
   // Hiệu ứng Cả Ma Sói và Phù Thủy cùng giết 1 người trong đêm
   const [dualKillModalVisible, setDualKillModalVisible] = useState(false);
+
+  // Hiệu ứng Đoạn Đầu Đài Treo Cổ Ban Ngày
+  const [daytimeHangingModalVisible, setDaytimeHangingModalVisible] = useState(false);
+  const [daytimeHangingVictim, setDaytimeHangingVictim] = useState(null);
+  const pendingHangingCallbackRef = useRef(null);
+
+  const handleDaytimeHangingClose = () => {
+    setDaytimeHangingModalVisible(false);
+    if (pendingHangingCallbackRef.current) {
+      const cb = pendingHangingCallbackRef.current;
+      pendingHangingCallbackRef.current = null;
+      cb();
+    }
+  };
 
   // Trạng thái & Hiệu ứng Phù Thủy
   const [witchState, setWitchState] = useState(initialWitchState || { hasHeal: true, hasPoison: true });
@@ -599,90 +614,101 @@ export default function GameScreen({
         setLastVoteEliminated(null);
       }, 4500);
 
-      const showWolfOverlay = (onFinished) => {
-        if (data.remainingWolves !== undefined && data.remainingWolves !== null) {
-          setRemainingWolvesOverlay({
-            count: data.remainingWolves,
-            eliminated: data.eliminated || null,
-          });
-          wolfOverlayScale.setValue(0.7);
-          wolfOverlayOpacity.setValue(0);
-
-          Animated.parallel([
-            Animated.spring(wolfOverlayScale, {
-              toValue: 1,
-              friction: 6,
-              tension: 50,
-              useNativeDriver: true,
-            }),
-            Animated.timing(wolfOverlayOpacity, {
-              toValue: 1,
-              duration: 250,
-              useNativeDriver: true,
-            }),
-          ]).start();
-
-          if (wolfOverlayTimerRef.current) {
-            clearTimeout(wolfOverlayTimerRef.current);
-          }
-
-          wolfOverlayTimerRef.current = setTimeout(() => {
-            Animated.timing(wolfOverlayOpacity, {
-              toValue: 0,
-              duration: 350,
-              useNativeDriver: true,
-            }).start(() => {
-              setRemainingWolvesOverlay(null);
-              if (onFinished) onFinished();
+      const runAfterHanging = () => {
+        const showWolfOverlay = (onFinished) => {
+          if (data.remainingWolves !== undefined && data.remainingWolves !== null) {
+            setRemainingWolvesOverlay({
+              count: data.remainingWolves,
+              eliminated: data.eliminated || null,
             });
-          }, 3800);
+            wolfOverlayScale.setValue(0.7);
+            wolfOverlayOpacity.setValue(0);
+
+            Animated.parallel([
+              Animated.spring(wolfOverlayScale, {
+                toValue: 1,
+                friction: 6,
+                tension: 50,
+                useNativeDriver: true,
+              }),
+              Animated.timing(wolfOverlayOpacity, {
+                toValue: 1,
+                duration: 250,
+                useNativeDriver: true,
+              }),
+            ]).start();
+
+            if (wolfOverlayTimerRef.current) {
+              clearTimeout(wolfOverlayTimerRef.current);
+            }
+
+            wolfOverlayTimerRef.current = setTimeout(() => {
+              Animated.timing(wolfOverlayOpacity, {
+                toValue: 0,
+                duration: 350,
+                useNativeDriver: true,
+              }).start(() => {
+                setRemainingWolvesOverlay(null);
+                if (onFinished) onFinished();
+              });
+            }, 3800);
+          } else {
+            if (onFinished) onFinished();
+          }
+        };
+
+        // YÊU CẦU: Dàn tuần tự các hoạt ảnh, KHÔNG ĐỂ ĐÈ LÊN NHAU.
+        // 1. Hiện Bảng Treo Cổ & Sói còn lại trước (không hiển thị người bị thôi miên theo Phương Án 1).
+        // 2. Sau khi Bảng đóng -> Nếu Thổi Sáo chết thì chiếu Hoạt ảnh Người Thổi Sáo chết (4.5s).
+        // 3. Sau khi modal Thổi Sáo chết đóng (cuối ngày trước khi vào đêm) -> Mới kích hoạt Thanh Tẩy Hoàng Kim trên màn hình chính!
+        if (data.isPiedPiperDead) {
+          const victimIds = data.purifiedPlayers ? data.purifiedPlayers.map((p) => p.id) : [];
+          pendingPurifiedVictimsRef.current = victimIds;
+          setPurifiedModalData({
+            piedPiper: data.eliminated,
+          });
+
+          // 1. Hiển thị Bảng Treo Cổ & Số Lượng Sói Còn Lại trước (3.8s)
+          showWolfOverlay(() => {
+            // 2. Sau khi Bảng Treo Cổ đóng -> Mở Hoạt ảnh Người Thổi Sáo chết (4.5s)
+            setTimeout(() => {
+              setPurifiedModalVisible(true);
+
+              const triggerFinalPurification = () => {
+                if (!votePiedPiperTimerActiveRef.current) return;
+                votePiedPiperTimerActiveRef.current = false;
+                setPurifiedModalVisible(false);
+
+                // 3. Cuối ngày trước khi vào đêm -> MỚI KÍCH HOẠT THANH TẨY HOÀNG KIM TRỰC TIẾP TRÊN MÀN HÌNH CHÍNH (3.5s)!
+                setTimeout(() => {
+                  triggerLivePurification(victimIds);
+                  pendingPurifiedVictimsRef.current = [];
+                }, 250);
+              };
+
+              votePiedPiperTimerActiveRef.current = true;
+              votePiedPiperNextRef.current = triggerFinalPurification;
+
+              if (autoAdvanceModalTimerRef.current) clearTimeout(autoAdvanceModalTimerRef.current);
+              autoAdvanceModalTimerRef.current = setTimeout(() => {
+                if (votePiedPiperTimerActiveRef.current) {
+                  triggerFinalPurification();
+                }
+              }, 3500);
+            }, 250);
+          });
         } else {
-          if (onFinished) onFinished();
+          showWolfOverlay();
         }
       };
 
-      // YÊU CẦU: Dàn tuần tự các hoạt ảnh, KHÔNG ĐỂ ĐÈ LÊN NHAU.
-      // 1. Hiện Bảng Treo Cổ & Sói còn lại trước (không hiển thị người bị thôi miên theo Phương Án 1).
-      // 2. Sau khi Bảng đóng -> Nếu Thổi Sáo chết thì chiếu Hoạt ảnh Người Thổi Sáo chết (4.5s).
-      // 3. Sau khi modal Thổi Sáo chết đóng (cuối ngày trước khi vào đêm) -> Mới kích hoạt Thanh Tẩy Hoàng Kim trên màn hình chính!
-      if (data.isPiedPiperDead) {
-        const victimIds = data.purifiedPlayers ? data.purifiedPlayers.map((p) => p.id) : [];
-        pendingPurifiedVictimsRef.current = victimIds;
-        setPurifiedModalData({
-          piedPiper: data.eliminated,
-        });
-
-        // 1. Hiển thị Bảng Treo Cổ & Số Lượng Sói Còn Lại trước (3.8s)
-        showWolfOverlay(() => {
-          // 2. Sau khi Bảng Treo Cổ đóng -> Mở Hoạt ảnh Người Thổi Sáo chết (4.5s)
-          setTimeout(() => {
-            setPurifiedModalVisible(true);
-
-            const triggerFinalPurification = () => {
-              if (!votePiedPiperTimerActiveRef.current) return;
-              votePiedPiperTimerActiveRef.current = false;
-              setPurifiedModalVisible(false);
-
-              // 3. Cuối ngày trước khi vào đêm -> MỚI KÍCH HOẠT THANH TẨY HOÀNG KIM TRỰC TIẾP TRÊN MÀN HÌNH CHÍNH (3.5s)!
-              setTimeout(() => {
-                triggerLivePurification(victimIds);
-                pendingPurifiedVictimsRef.current = [];
-              }, 250);
-            };
-
-            votePiedPiperTimerActiveRef.current = true;
-            votePiedPiperNextRef.current = triggerFinalPurification;
-
-            if (autoAdvanceModalTimerRef.current) clearTimeout(autoAdvanceModalTimerRef.current);
-            autoAdvanceModalTimerRef.current = setTimeout(() => {
-              if (votePiedPiperTimerActiveRef.current) {
-                triggerFinalPurification();
-              }
-            }, 3500);
-          }, 250);
-        });
+      // NẾU CÓ NGƯỜI BỊ TREO CỔ: Ưu tiên mở Hoạt ảnh Đoạn Đầu Đài trước (3.8s)
+      if (data.eliminated) {
+        setDaytimeHangingVictim(data.eliminated);
+        setDaytimeHangingModalVisible(true);
+        pendingHangingCallbackRef.current = runAfterHanging;
       } else {
-        showWolfOverlay();
+        runAfterHanging();
       }
     };
 
@@ -2064,6 +2090,14 @@ export default function GameScreen({
             piedPiper={purifiedModalData?.piedPiper}
             duration={5}
             onClose={handlePiedPiperDeathModalClose}
+          />
+
+          {/* ================= MODAL ĐOẠN ĐẦU ĐÀI TREO CỔ BAN NGÀY ================= */}
+          <DaytimeHangingModal
+            visible={daytimeHangingModalVisible}
+            victimPlayer={daytimeHangingVictim}
+            duration={5}
+            onClose={handleDaytimeHangingClose}
           />
 
           {/* ================= MODAL PHÙ THỦY CHỌN CỨU NẠN NHÂN TRONG ĐÊM ================= */}

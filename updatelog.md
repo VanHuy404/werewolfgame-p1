@@ -2,6 +2,106 @@
 
 Chào mừng các dân làng và bầy sói! Dưới đây là thông tin chi tiết về các bản cập nhật mới nhất của **Ma Sói Online**, tập trung vào tính năng mới, cân bằng vai trò và tối ưu hóa trải nghiệm người chơi.
 
+## 🏹 Phiên Bản 2.5.8 - HIỆU ỨNG THỢ SĂN LỘ DIỆN KHI BỊ TREO CỔ & SAU KHI SÓI CÀO, ĐỒNG BỘ NỀN SẢNH CHỜ CHO CÀI ĐẶT PHÒNG
+*(Cập nhật ngày: 06/11/2026)*
+
+### 🏹✨ Lộ Diện Danh Tính Thợ Săn Tại Thời Khắc Cao Trào:
+- **Đoạn Đầu Đài Treo Cổ Ban Ngày (DaytimeHangingModal.js):**
+  - Trước khi hành quyết (0 - 1000ms): Thợ Săn đứng trên đoạn đầu đài hiển thị hình ảnh / emoji người chơi bình thường.
+  - Đến 1000ms: Nổ chớp sáng hoàng kim, âm thanh lên nỏ đanh thép, avatar nứt vỡ và **LỘ DIỆN** chân dung Hunter.png, chạy dòng chữ vàng kim rực lửa *"Chết chưa phải là kết thúc"* và banner *"ĐÃ LỘ DIỆN LÀ THỢ SĂN!"*.
+  - Đến 1650ms: Sập bục gỗ rầm rập, avatar rơi thụt xuống đu đưa trăn trối.
+- **Vuốt Sói Cào Xé Ban Đêm (WolfClawAttackModal.js):**
+  - Ban đầu hiển thị avatar người chơi bình thường.
+  - Đúng thời khắc 1100ms khi vuốt sói chém xé toạc avatar: Âm thanh nỏ nạp đạn vang lên, avatar bừng sáng hào quang vàng cam và **LỘ DIỆN** hình ảnh Hunter.png.
+  - Tiêu đề chuyển sang *"🏹 BÌNH MINH ĐẪM MÁU - THỢ SĂN LỘ DIỆN"*, bảng tên tử nạn dập chữ *"🏹 THỢ SĂN ĐÃ BỊ SÓI CẮN"*.
+
+### 🎨 Tối Ưu Nền Tối Sảnh Chờ & Chữ Sáng Cho Toàn Bộ Cài Đặt Phòng:
+- Toàn bộ 8 nhóm Dropdown hiệu ứng và modal Cài Đặt Phòng được đồng bộ về màu nền tím than sảnh chờ (rgba(21, 18, 43, 0.98) / #15122B).
+- Viền sáng rực rỡ đặc trưng của từng vai trò (themeColor), loại bỏ toàn bộ các nền pastel đục cũ gây mờ chữ.
+- Chữ tiêu đề màu trắng tinh khiết (#FFFFFF) kèm bóng đổ tương phản cao, cực kỳ sắc nét và dễ đọc.
+- Đã bỏ hoàn toàn các hậu tố số lượng hoạt ảnh thừa (2 Hoạt Ảnh), (3 Hoạt Ảnh).
+
+## 🔗 Phiên Bản 2.5.7 - FIX LẠI ĐƯỜNG DẪN VÀO PHÒNG & TỰ ĐỘNG NHẬN DIỆN LINK PHÒNG QUA URL
+*(Cập nhật ngày: 06/11/2026)*
+
+### 🚪🔗 Hoàn Thiện Tuyệt Đối Đường Dẫn Vào Phòng & Chia Sẻ Link:
+- **Khôi Phục Luồng Tạo Phòng & Vào Phòng Mượt Mà:**
+  - Nút **"🏠 Tạo Phòng"** trên `HomeScreen.js` kết nối trực tiếp với server Socket.io (`create-room`), đưa người chơi vào thẳng phòng chờ (Lobby) ngay lập tức.
+  - Toàn bộ cài đặt phòng và kho hiệu ứng điện ảnh được quản lý qua nút ⚙️ trên Header của Lobby.
+- **Tự Động Nhận Diện Link Vào Phòng Trên Web:**
+  - Tự động đọc và điền mã phòng từ đường dẫn URL (`?room=XYZ`, `?code=XYZ` hoặc `#XYZ`) khi người chơi nhấp vào liên kết được bạn bè gửi.
+  - Tự động bóc tách mã phòng chính xác ngay cả khi người chơi dán trực tiếp toàn bộ link URL vào ô nhập mã.
+- **Nút "🔗 Sao Chép Link Phòng" Trong Phòng Chờ:**
+  - Nút sao chép trong `LobbyScreen.js` giờ đây sao chép trực tiếp đường link phòng hoàn chỉnh (`window.location.origin + window.location.pathname + '?room=' + roomCode`) để gửi cho bạn bè vào phòng một chạm!
+
+## ⚖️ Phiên Bản 2.5.6 - HOẠT ẢNH ĐOẠN ĐẦU ĐÀI (TREO CỔ BAN NGÀY) ĐỘC QUYỀN SÓI & THỢ SĂN, VIDEO CHIẾN THẮNG THỔI SÁO & DROPDOWN BOX THƯ VIỆN HIỆU ỨNG
+*(Cập nhật ngày: 06/11/2026)*
+
+### 🗂️✨ Tối Ưu Nút Thử Hiệu Ứng Theo Dạng Dropdown Màu Sắc Tươi Sáng & Kết Nối Toàn Diện Cài Đặt Phòng:
+- **Sửa Lại Đường Dẫn Vào Cài Đặt Phòng (`RoomSettings`):**
+  - **Trên Màn Hình Chính (`HomeScreen.js`):** Nút **"🏠 Tạo Phòng"** được kết nối trực tiếp để mở Modal Cài Đặt Phòng (`setShowSettings(true)`), giúp Chủ phòng có thể chỉnh vai trò và xem trước / thử nghiệm các hiệu ứng điện ảnh trước khi tạo phòng mà không cần thêm bất kỳ phần tử giao diện dư thừa nào.
+  - **Trong Phòng Chờ (`LobbyScreen.js`):** Giữ nguyên giao diện gọn gàng nguyên bản, mở Cài đặt phòng qua biểu tượng ⚙️ trên thanh Header.
+- **Gỡ Bỏ Hoàn Toàn Hộp Tiêu Đề Rườm Rà:**
+  - Loại bỏ hoàn toàn khối header banner "Thư Viện Hiệu Ứng Điện Ảnh" và các nút "Mở hết / Thu gọn" theo đúng yêu cầu, giúp giao diện trở lại gọn gàng, không chiếm dụng không gian.
+- **Lược Bỏ Số Lượng Hoạt Ảnh Rườm Rà Trong Tiêu Đề:**
+  - Bỏ toàn bộ các hậu tố như `(2 Hoạt Ảnh)`, `(3 Hoạt Ảnh)`, `(4 Hoạt Ảnh)` khỏi tiêu đề dropdown, giúp tên nhóm hiệu ứng tinh gọn, thẩm mỹ và thanh lịch hơn.
+- **Màu Sắc Tươi Sáng & Tràn Đầy Năng Lượng (Không Bị Đậm Đen):**
+  - Chuyển màu nền các dropdown sang bảng màu tươi sáng rực rỡ (medium-vibrant tones), tôn vinh chữ trắng sáng `#FFFFFF` nổi bật 100%:
+    1. `🔮 Thử Hiệu Ứng Tiên Tri`: Nền tím tươi `#7C3AED`, viền tím sáng `#C084FC`.
+    2. `🩸🐺 Thử Hiệu Ứng Bị Sói Cào Tử Nạn`: Nền đỏ tươi `#DC2626`, viền đỏ hồng `#FCA5A5`.
+    3. `🛡️ Thử Hiệu Ứng Khiên Bảo Vệ Thành Công`: Nền xanh trời tươi `#0284C7`, viền xanh thiên thanh `#7DD3FC`.
+    4. `🧙‍♀️🧪 Thử Hiệu Ứng Phù Thủy (Bình Cứu & Thuốc Độc)`: Nền tím hoa cà tươi `#9333EA`, viền hồng tím `#F0ABFC`.
+    5. `🛡️🐺☠️ Thử Xung Đột Đa Phe Ban Đêm`: Nền đỏ hồng tươi `#E11D48`, viền hồng sáng `#FDA4AF`.
+    6. `🏹 Thợ Săn Nổ Súng Trăn Trối`: Nền hổ phách vàng tươi `#D97706`, viền vàng tươi `#FDE68A`.
+    7. `🎶👑 Thử Hiệu Ứng Người Thổi Sáo`: Nền hồng tím tươi `#C026D3`, viền tím sáng `#F5D0FE`.
+    8. `⚖️⚰️ Thử Hoạt Ảnh Đoạn Đầu Đài (Treo Cổ)`: Nền cam tươi `#EA580C`, viền cam đào nhạt `#FED7AA`.
+  - Giữ phông chữ **Trắng Tinh Khiết (`#FFFFFF`)**, độ đậm cực đại `fontWeight: 900`, cỡ chữ lớn `14px`, kết hợp hiệu ứng đổ bóng đen (`textShadow`), giúp hiển thị vô cùng sắc nét và bắt mắt.
+  - Hộp nội dung mở rộng dùng nền đen sâu `#0F172A` với viền màu phe, các nút chức năng bên trong đều có chữ `#FFFFFF` sắc nét và viền dày `2px`.
+
+### 🐺⚖️ Hoạt Ảnh Treo Cổ Riêng Cho MA SÓI - Lộ Diện & Tiếng Sói Hú Lần Cuối:
+- **Lộ Diện Nguyên Hình Ma Sói Hung Tợn (Xóa Bỏ Icon Đầu Lâu & Sói Thừa):**
+  - Khi người bị dân làng biểu quyết treo cổ là Ma Sói, avatar nạn nhân nứt toác bốc khói huyết sát đỏ rực (`🔥`, `🩸`, `⚡`) và lập tức chuyển hóa thành chân dung Ma Sói `werewolf.jpg` nhe nanh gầm thét.
+  - **Xóa bỏ hoàn toàn 2 icon đầu lâu và sói thừa (`🐺💀`)** từng hiển thị đè lên khuôn mặt Ma Sói khi chết, giúp hình ảnh Ma Sói lộ diện sắc nét, nguyên vẹn và chân thực nhất.
+  - Viền avatar phát quang đỏ rực (`#DC2626`, `boxShadow: 0 0 30px rgba(220, 38, 38, 0.95)`), đôi mắt đỏ rực nhấp nháy u tối.
+- **Tiếng Sói Hú Bi Tráng Lần Cuối Trước Khi Chết (`wolfHowl`):**
+  - Tích hợp hiệu ứng âm thanh Web Audio API độc quyền: Bắt đầu từ tiếng gầm trầm rền rĩ, lướt vút lên cao trào tiếng hú ai oán (vibrato run rẩy rợn người), rồi tuột dốc lịm dần khi cánh cửa bục gỗ mở sập và thi thể sói đung đưa trên thòng lọng.
+  - Huy hiệu dập xuống: `🐺 MA SÓI ĐÃ BỊ DÂN LÀNG TREO CỔ!`.
+
+### 🏹✨ Tích Hợp Hình Ảnh Độc Quyền THỢ SĂN (`Hunter.png`) Vào Hoạt Ảnh Treo Cổ & Bị Sói Cắn:
+- **Áp Dụng Hình Ảnh Mới `Hunter.png`:**
+  - **Khi Thợ Săn Bị Treo Cổ Ban Ngày (`DaytimeHangingModal.js`):** Khung avatar thòng lọng hiển thị hình ảnh minh họa chân thực của Thợ Săn `assets/Hunter.png` với khung viền vàng hoàng kim rực sáng, không bị che bởi icon đầu lâu mờ ảo.
+  - **Khi Thợ Săn Bị Ma Sói Cắn Ban Đêm (`WolfClawAttackModal.js`):** Avatar nạn nhân hiển thị ảnh `assets/Hunter.png`, khi bị vuốt sói chém xé toạc sẽ chuyển dần sang tông màu đen xám tử nạn đanh thép, kèm tiêu đề `🏹 THỢ SĂN ĐÃ BỊ SÓI CẮN`.
+  - Bổ sung nút thử nghiệm *"🏹🩸 Thử Sói Cào (Thợ Săn - Ảnh Hunter)"* trong Cài Đặt Phòng giúp chủ phòng xem trước hiệu ứng bất kỳ lúc nào.
+- **Dòng Chữ Chạy Lên Màu Vàng Kim:**
+  - Khi Thợ Săn bị treo cổ, dòng chữ vàng kim rực rỡ **"Chết chưa phải là kết thúc"** lướt vút từ dưới lên trên avatar (`translateY: 35 -> 0`, `opacity: 0 -> 1`), tỏa ánh sáng hoàng kim lấp lánh (`#FEF08A`, bóng phát sáng vàng kim `#F59E0B`).
+  - Hàng loạt hạt ánh sáng hoàng kim, cung tên và mục tiêu ngắm (`🏹`, `✨`, `⭐`, `💫`, `🎯`) bay lơ lửng quanh xà treo cổ.
+- **SFX Lên Nỏ Đanh Thép & Chuông Ngân Báo Thù (`hunterCock`):**
+  - Tiếng kim loại lên đạn nỏ đanh gọn (`click-clack`) kết hợp chuông ngân arpeggio hoàng kim báo hiệu phát súng trăn trối sắp khai hỏa.
+  - Huy hiệu dập xuống: `🏹 PHÁT SÚNG TRĂN TRỐI ĐƯỢC KÍCH HOẠT!`.
+
+### 🎬👑 Chèn Video Điện Ảnh "The_Perfect_Victory.mp4" Trước Hoạt Ảnh Chiến Thắng Thổi Sáo:
+- **Trình Chiếu Video Trước Khi Kích Hoạt Hoạt Ảnh Vinh Danh:**
+  - Khi Người Thổi Sáo hoàn thành bùa mê toàn bộ người chơi còn sống (`PiedPiperVictoryModal`), game sẽ tự động ưu tiên phát video chiến thắng điện ảnh độ nét cao `assets/videos/The_Perfect_Victory.mp4` toàn màn hình.
+  - Sau khi video chạy hết toàn bộ (`onEnded`), giao diện sẽ chuyển tiếp mượt mà sang hoạt ảnh vinh danh trăng rằm cõi mê cùng tên và avatar người chiến thắng (kéo dài 4.2s) rồi mới chuyển sang màn hình kết thúc ván (`GameOverScreen`).
+  - Trang bị nút **"Bỏ qua video ⏭️"** ở góc trên phải giúp người chơi có thể lướt nhanh sang hoạt ảnh bất kỳ lúc nào.
+  - Tích hợp timeout dự phòng an toàn (10.5s) và cơ chế tự động chuyển sang muted nếu trình duyệt chặn phát âm thanh tự động, đảm bảo không bao giờ bị đứng màn hình.
+
+### ⚖️⚰️ Đột Phá Hoạt Ảnh Treo Cổ Ban Ngày (`DaytimeHangingModal`):
+- **Bối Cảnh Quảng Trường U Ám:**
+  - Tiếng chuông nhà thờ u tối điểm tiếng vang vọng (`bellToll`), tiếng quạ kêu khàn đặc trên nóc nhà thờ (`crowCaw`).
+  - Giá treo cổ bằng gỗ sồi già cổ kính (`gallows beam`) với dây thừng thòng lọng rủ xuống quàng quanh cổ Avatar nạn nhân.
+  - Câu phán quyết chạy typewriter: `"Phán quyết dân làng: [Tên nạn nhân] bị tuyên án treo cổ!"` trong lúc Avatar run rẩy trước giờ hành quyết.
+- **Kỹ Xảo Sập Bục Gỗ & Rơi Thụt Xuống:**
+  - Hai cánh cửa bục gỗ mở sập đánh RẦM (`trapdoorCrash`), tiếng dây thừng căng siết (`ropeSnap`).
+  - Màn hình rung chấn mạnh mẽ, Avatar rơi thụt giật mạnh xuống `+48px` rồi đung đưa qua lại chậm dần như con lắc.
+  - 12 mảnh vụn gỗ và lông quạ đen bay lả tả rơi rụng.
+- **Tử Nạn & Tích Hợp Liền Mạch:**
+  - Avatar chuyển sang đen xám tử nạn, biểu tượng đầu lâu `💀` in dấu, huy hiệu `⚰️ ĐÃ BỊ DÂN LÀNG TREO CỔ` dập xuống.
+  - Tích hợp chuẩn xác vào luồng biểu quyết: Sau khi kết thúc hoạt ảnh treo cổ, game tự động chuyển tiếp sang Bảng hiển thị số Sói còn lại trong làng.
+  - Bổ sung nút thử nghiệm: **`⚖️⚰️ Thử Hoạt Ảnh Đoạn Đầu Đài (Treo Cổ Ban Ngày)`** trong Cài Đặt Phòng.
+
+---
+
 ## ⚔️ Phiên Bản 2.5.5 - ĐỒNG BỘ NÉM THUỐC ĐỘC BIẾN MẤT, BỎ VÒNG TRÒN VÀ CHÈN VIDEO THỔI SÁO TỬ NẠN
 *(Cập nhật ngày: 05/11/2026)*
 

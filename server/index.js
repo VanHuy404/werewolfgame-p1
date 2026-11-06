@@ -743,7 +743,13 @@ function concludeDayVote(room) {
   // Gửi kết quả biểu quyết kèm remainingWolves (không gửi charmedCount lên bảng chung để bảo vệ bí mật Phương án 1)
   io.to(room.code).emit('vote-result', {
     eliminated: eliminated
-      ? { id: eliminated.id, name: eliminated.name, avatar: eliminated.avatar }
+      ? {
+          id: eliminated.id,
+          name: eliminated.name,
+          avatar: eliminated.avatar,
+          avatarColor: eliminated.avatarColor,
+          role: eliminated.role,
+        }
       : null,
     votes: voteDetails,
     remainingWolves,

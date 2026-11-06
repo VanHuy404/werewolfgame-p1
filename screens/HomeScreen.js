@@ -83,6 +83,24 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
         Animated.timing(starTwinkle, { toValue: 0.35, duration: 1800, useNativeDriver: true }),
       ])
     ).start();
+
+    // Tự động nhận diện đường dẫn (link) vào phòng từ URL trên Web (?room=XYZ hoặc ?code=XYZ)
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlRoom = urlParams.get('room') || urlParams.get('code') || urlParams.get('roomCode');
+        if (urlRoom) {
+          setRoomCode(urlRoom.trim().toUpperCase());
+        } else if (window.location.hash && window.location.hash.length > 1) {
+          const hashClean = window.location.hash.replace('#', '').replace('room=', '').trim();
+          if (hashClean.length >= 4) {
+            setRoomCode(hashClean.toUpperCase());
+          }
+        }
+      } catch (e) {
+        console.warn('Lỗi đọc tham số phòng từ link:', e);
+      }
+    }
   }, []);
 
   const handleCreateRoom = () => {
@@ -127,9 +145,31 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
     });
   };
 
+  // Trích xuất mã phòng chuẩn xác ngay cả khi người chơi dán nguyên link URL vào ô
+  const handleCodeChange = (text) => {
+    let clean = (text || '').trim();
+    if (clean.includes('room=')) {
+      const match = clean.match(/room=([A-Za-z0-9]+)/i);
+      if (match && match[1]) clean = match[1];
+    } else if (clean.includes('code=')) {
+      const match = clean.match(/code=([A-Za-z0-9]+)/i);
+      if (match && match[1]) clean = match[1];
+    } else if (clean.includes('/')) {
+      const parts = clean.split('?')[0].split('/');
+      const last = parts[parts.length - 1];
+      if (last) clean = last;
+    }
+    setRoomCode(clean.slice(0, 8).toUpperCase());
+    if (localError) setLocalError(null);
+  };
+
   const handleJoinRoom = () => {
     const trimmed = playerName.trim();
-    const code = roomCode.trim().toUpperCase();
+    let code = roomCode.trim().toUpperCase();
+    if (code.includes('ROOM=')) {
+      const m = code.match(/ROOM=([A-Z0-9]+)/);
+      if (m && m[1]) code = m[1];
+    }
     if (!trimmed) {
       setLocalError('Vui lòng nhập tên của bạn trước!');
       setTimeout(() => setLocalError(null), 3500);
@@ -326,13 +366,10 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
                   <TextInput
                     style={styles.inlineCodeInput}
                     value={roomCode}
-                    onChangeText={(text) => {
-                      setRoomCode(text.toUpperCase());
-                      if (localError) setLocalError(null);
-                    }}
+                    onChangeText={handleCodeChange}
                     placeholder="NHẬP MÃ PHÒNG (VD: ABC12)"
                     placeholderTextColor="#64748B"
-                    maxLength={6}
+                    maxLength={100}
                     autoCapitalize="characters"
                     autoCorrect={false}
                     onSubmitEditing={handleJoinRoom}

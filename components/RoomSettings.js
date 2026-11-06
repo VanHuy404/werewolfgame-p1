@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView,
+  View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Platform,
 } from 'react-native';
 import { COLORS } from '../utils/colors';
 import SeerInspectionModal from './SeerInspectionModal';
@@ -19,6 +19,7 @@ import PiedPiperModal from './PiedPiperModal';
 import PiedPiperVictoryModal from './PiedPiperVictoryModal';
 import PiedPiperPurifiedModal from './PiedPiperPurifiedModal';
 import DualKillClashModal from './DualKillClashModal';
+import DaytimeHangingModal from './DaytimeHangingModal';
 
 /**
  * @param {Object} props
@@ -92,6 +93,24 @@ export default function RoomSettings({
   const [piedPiperVictoryDemoVisible, setPiedPiperVictoryDemoVisible] = useState(false);
   const [piedPiperPurifiedDemoVisible, setPiedPiperPurifiedDemoVisible] = useState(false);
   const [dualKillDemoVisible, setDualKillDemoVisible] = useState(false);
+  const [daytimeHangingDemoVisible, setDaytimeHangingDemoVisible] = useState(false);
+  const [daytimeHangingDemoRole, setDaytimeHangingDemoRole] = useState('villager');
+
+  // Trạng thái đóng/mở dropdown các nhóm hiệu ứng điện ảnh
+  const [openSections, setOpenSections] = useState({
+    seer: false,
+    wolf: false,
+    guard: false,
+    witch: false,
+    clash: false,
+    hunter: false,
+    piper: false,
+    hanging: false,
+  });
+
+  const toggleSection = (key) => {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   // Helper lấy mục tiêu test hiệu ứng: Ưu tiên chọn chính Chủ Phòng (host)
   const getHostTarget = (fallbackName = 'Chủ Phòng', fallbackAvatar = '🧙‍♂️', fallbackColor = '#38BDF8') => {
@@ -124,7 +143,13 @@ export default function RoomSettings({
   };
 
   const handleTestClawEffect = () => {
-    const target = getHostTarget('Chủ Phòng (Nạn Nhân)', '🧙‍♂️', '#38BDF8');
+    const target = getHostTarget('Dân Làng (Nạn Nhân)', '🧑‍🌾', '#38BDF8');
+    setClawDemoTarget(target);
+    setClawDemoVisible(true);
+  };
+
+  const handleTestClawHunterEffect = () => {
+    const target = { ...getHostTarget('Thợ Săn (Nạn Nhân)', '🏹', '#F59E0B'), role: 'hunter', isHunter: true };
     setClawDemoTarget(target);
     setClawDemoVisible(true);
   };
@@ -476,149 +501,230 @@ export default function RoomSettings({
 
             {/* ================= KHỐI THỬ HIỆU ỨNG (CHỈ DÀNH CHO CHỦ PHÒNG) ================= */}
             {!readOnly && (
-              <View style={styles.seerDemoCard}>
-                <View style={styles.seerDemoHeader}>
-                  <Text style={styles.seerDemoHeaderEmoji}>✨</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.seerDemoHeaderTitle}>THỬ CÁC HIỆU ỨNG</Text>
-                    <Text style={styles.seerDemoHeaderSub}>
-                      Chủ phòng xem trước các hiệu ứng điện ảnh trong trận
-                    </Text>
+              <View style={styles.demoMainContainer}>
+                {/* 1. 🔮 NHÓM TIÊN TRI */}
+                <AccordionDemoBox
+                  isOpen={openSections.seer}
+                  onToggle={() => toggleSection('seer')}
+                  title="🔮 Thử Hiệu Ứng Tiên Tri"
+                  themeColor="#A855F7"
+                  bgColor="rgba(21, 18, 43, 0.95)"
+                >
+                  <View style={styles.seerDemoButtonsRow}>
+                    <TouchableOpacity
+                      style={styles.seerDemoBtnGood}
+                      onPress={() => handleTestSeerEffect('good')}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.seerDemoBtnGoodText}>🕊️ Soi Phe Thiện</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.seerDemoBtnEvil}
+                      onPress={() => handleTestSeerEffect('evil')}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.seerDemoBtnEvilText}>🐺 Soi Phe Ác</Text>
+                    </TouchableOpacity>
                   </View>
-                </View>
-                <View style={styles.seerDemoButtonsRow}>
+                </AccordionDemoBox>
+
+                {/* 2. 🐺🩸 NHÓM MA SÓI */}
+                <AccordionDemoBox
+                  isOpen={openSections.wolf}
+                  onToggle={() => toggleSection('wolf')}
+                  title="🩸🐺 Thử Hiệu Ứng Bị Sói Cào Tử Nạn"
+                  themeColor="#EF4444"
+                  bgColor="rgba(21, 18, 43, 0.95)"
+                >
                   <TouchableOpacity
-                    style={styles.seerDemoBtnGood}
-                    onPress={() => handleTestSeerEffect('good')}
+                    style={[styles.clawDemoBtn, { marginTop: 0 }]}
+                    onPress={handleTestClawEffect}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.seerDemoBtnGoodText}>🕊️ Soi Phe Thiện</Text>
+                    <Text style={styles.clawDemoBtnText}>🩸🐺 Thử Sói Cào (Dân Làng)</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={styles.seerDemoBtnEvil}
-                    onPress={() => handleTestSeerEffect('evil')}
+                    style={[styles.clawDemoBtn, { backgroundColor: 'rgba(217, 119, 6, 0.45)', borderColor: '#F59E0B', borderWidth: 2 }]}
+                    onPress={handleTestClawHunterEffect}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.seerDemoBtnEvilText}>🐺 Soi Phe Ác</Text>
+                    <Text style={styles.clawDemoBtnText}>🏹🩸 Thử Sói Cào (Thợ Săn)</Text>
                   </TouchableOpacity>
-                </View>
+                </AccordionDemoBox>
 
-                {/* Nút thử nghiệm Sói Cào Tử Nạn buổi sáng */}
-                <TouchableOpacity
-                  style={styles.clawDemoBtn}
-                  onPress={handleTestClawEffect}
-                  activeOpacity={0.8}
+                {/* 3. 🛡️ NHÓM BẢO VỆ */}
+                <AccordionDemoBox
+                  isOpen={openSections.guard}
+                  onToggle={() => toggleSection('guard')}
+                  title="🛡️ Thử Hiệu Ứng Khiên Bảo Vệ Thành Công"
+                  themeColor="#0284C7"
+                  bgColor="rgba(21, 18, 43, 0.95)"
                 >
-                  <Text style={styles.clawDemoBtnText}>🩸🐺 Thử Hiệu Ứng Bị Sói Cào Tử Nạn</Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.saveDemoBtn, { marginTop: 0 }]}
+                    onPress={handleTestSaveEffect}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.saveDemoBtnText}>🛡️ Thử Hiệu Ứng Khiên Bảo Vệ Thành Công</Text>
+                  </TouchableOpacity>
+                </AccordionDemoBox>
 
-                {/* Nút thử nghiệm Khiên Bảo Vệ Thành Công */}
-                <TouchableOpacity
-                  style={styles.saveDemoBtn}
-                  onPress={handleTestSaveEffect}
-                  activeOpacity={0.8}
+                {/* 4. 🧙‍♀️🧪 NHÓM PHÙ THỦY */}
+                <AccordionDemoBox
+                  isOpen={openSections.witch}
+                  onToggle={() => toggleSection('witch')}
+                  title="🧙‍♀️🧪 Thử Hiệu Ứng Phù Thủy"
+                  themeColor="#C026D3"
+                  bgColor="rgba(21, 18, 43, 0.95)"
                 >
-                  <Text style={styles.saveDemoBtnText}>🛡️ Thử Hiệu Ứng Khiên Bảo Vệ Thành Công</Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.witchHealDemoBtn, { marginTop: 0 }]}
+                    onPress={handleTestWitchHealEffect}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.witchHealDemoBtnText}>🧪 Thử Hiệu Ứng Phù Thủy Cứu Sống</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.witchPoisonDemoBtn}
+                    onPress={handleTestWitchPoisonEffect}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.witchPoisonDemoBtnText}>☠️ Thử Hiệu Ứng Phù Thủy Ném Thuốc Độc</Text>
+                  </TouchableOpacity>
+                </AccordionDemoBox>
 
-                {/* Nút thử nghiệm Phù Thủy Cứu Sống */}
-                <TouchableOpacity
-                  style={styles.witchHealDemoBtn}
-                  onPress={handleTestWitchHealEffect}
-                  activeOpacity={0.8}
+                {/* 5. ⚔️💥 NHÓM XUNG ĐỘT ĐA PHE BAN ĐÊM */}
+                <AccordionDemoBox
+                  isOpen={openSections.clash}
+                  onToggle={() => toggleSection('clash')}
+                  title="🛡️🐺☠️ Thử Xung Đột Đa Phe Ban Đêm"
+                  themeColor="#F43F5E"
+                  bgColor="rgba(21, 18, 43, 0.95)"
                 >
-                  <Text style={styles.witchHealDemoBtnText}>🧪 Thử Hiệu Ứng Phù Thủy Cứu Sống (Bình Cứu)</Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.clashDemoBtn, { marginTop: 0 }]}
+                    onPress={handleTestShieldClashEffect}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.clashDemoBtnText}>🛡️☠️ Thử Xung Đột: Khiên Bảo Vệ + Phù Thủy Bỏ Độc</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.clashDemoBtn, { backgroundColor: 'rgba(56, 189, 248, 0.25)', borderColor: '#38BDF8', borderWidth: 2 }]}
+                    onPress={handleTestThreeWayClashEffect}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.clashDemoBtnText}>🛡️🐺☠️ Thử Tương Tác: Bảo Vệ + Ma Sói + Phù Thủy</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.clashDemoBtn, { backgroundColor: 'rgba(220, 38, 38, 0.35)', borderColor: '#DC2626', borderWidth: 2 }]}
+                    onPress={() => setDualKillDemoVisible(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.clashDemoBtnText}>🐺🧪 Thử Sói & Phù Thủy Cùng Giết</Text>
+                  </TouchableOpacity>
+                </AccordionDemoBox>
 
-                {/* Nút thử nghiệm Phù Thủy Ném Thuốc Độc */}
-                <TouchableOpacity
-                  style={styles.witchPoisonDemoBtn}
-                  onPress={handleTestWitchPoisonEffect}
-                  activeOpacity={0.8}
+                {/* 6. 🏹🎯 NHÓM THỢ SĂN */}
+                <AccordionDemoBox
+                  isOpen={openSections.hunter}
+                  onToggle={() => toggleSection('hunter')}
+                  title="🏹 Thợ Săn Nổ Súng Trăn Trối"
+                  themeColor="#F59E0B"
+                  bgColor="rgba(21, 18, 43, 0.95)"
                 >
-                  <Text style={styles.witchPoisonDemoBtnText}>☠️ Thử Hiệu Ứng Phù Thủy Ném Thuốc Độc</Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.hunterDemoBtn, { marginTop: 0, borderWidth: 2 }]}
+                    onPress={handleTestHunterNormalEffect}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.hunterDemoBtnText}>🏹 Thợ Săn Bắn Vào Dân</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(127, 29, 29, 0.5)', borderColor: '#EF4444', borderWidth: 2 }]}
+                    onPress={handleTestHunterWolfEffect}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.hunterDemoBtnText}>🏹🐺 Thợ Săn Bắn Vào Sói</Text>
+                  </TouchableOpacity>
+                </AccordionDemoBox>
 
-                {/* Nút thử nghiệm Xung Đột Khiên Bảo Vệ & Thuốc Độc Phù Thủy */}
-                <TouchableOpacity
-                  style={styles.clashDemoBtn}
-                  onPress={handleTestShieldClashEffect}
-                  activeOpacity={0.8}
+                {/* 7. 🎶👑 NHÓM NGƯỜI THỔI SÁO */}
+                <AccordionDemoBox
+                  isOpen={openSections.piper}
+                  onToggle={() => toggleSection('piper')}
+                  title="🎶👑 Thử Hiệu Ứng Người Thổi Sáo"
+                  themeColor="#E879F9"
+                  bgColor="rgba(21, 18, 43, 0.95)"
                 >
-                  <Text style={styles.clashDemoBtnText}>🛡️☠️ Thử Xung Đột: Khiên Bảo Vệ + Phù Thủy Độc</Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.hunterDemoBtn, { marginTop: 0, backgroundColor: 'rgba(192, 132, 252, 0.35)', borderColor: '#C084FC', borderWidth: 2 }]}
+                    onPress={handleTestPiedPiperEffect}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.hunterDemoBtnText}>🎶 Thử Thổi Sáo 1 Người</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(168, 85, 247, 0.35)', borderColor: '#A855F7', borderWidth: 2 }]}
+                    onPress={handleTestPiedPiperDualEffect}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.hunterDemoBtnText}>🎶🎶 Thử Thổi Sáo 2 Người</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(147, 51, 234, 0.45)', borderColor: '#E879F9', borderWidth: 2 }]}
+                    onPress={handleTestPiedPiperVictoryEffect}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.hunterDemoBtnText}>👑 Thử Chiến Thắng</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(245, 158, 11, 0.45)', borderColor: '#F59E0B', borderWidth: 2 }]}
+                    onPress={handleTestPiedPiperPurifiedEffect}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.hunterDemoBtnText}>⚰️ Thử Thổi Sáo Tử Nạn</Text>
+                  </TouchableOpacity>
+                </AccordionDemoBox>
 
-                {/* Nút thử nghiệm Tương Tác Giữa Bảo Vệ, Ma Sói & Phù Thủy */}
-                <TouchableOpacity
-                  style={[styles.clashDemoBtn, { backgroundColor: 'rgba(56, 189, 248, 0.15)', borderColor: '#38BDF8' }]}
-                  onPress={handleTestThreeWayClashEffect}
-                  activeOpacity={0.8}
+                {/* 8. ⚖️⚰️ NHÓM ĐOẠN ĐẦU ĐÀI (TREO CỔ BAN NGÀY) */}
+                <AccordionDemoBox
+                  isOpen={openSections.hanging}
+                  onToggle={() => toggleSection('hanging')}
+                  title="⚖️⚰️ Thử Hoạt Ảnh Treo Cổ"
+                  themeColor="#FB923C"
+                  bgColor="rgba(21, 18, 43, 0.95)"
                 >
-                  <Text style={[styles.clashDemoBtnText, { color: '#7DD3FC' }]}>🛡️🐺☠️ Thử Tương Tác: Bảo Vệ + Ma Sói + Phù Thủy</Text>
-                </TouchableOpacity>
-
-                {/* Nút thử nghiệm Hoạt Ảnh Cả Sói và Phù Thủy cùng giết 1 người */}
-                <TouchableOpacity
-                  style={[styles.clashDemoBtn, { backgroundColor: 'rgba(220, 38, 38, 0.25)', borderColor: '#DC2626' }]}
-                  onPress={() => setDualKillDemoVisible(true)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.clashDemoBtnText, { color: '#FCA5A5' }]}>🐺🧪 Thử Hoạt Ảnh Sói & Phù Thủy Cùng Giết (Cả Thiện & Ác)</Text>
-                </TouchableOpacity>
-
-                {/* Nút thử nghiệm Thợ Săn Bắn Vào Dân */}
-                <TouchableOpacity
-                  style={styles.hunterDemoBtn}
-                  onPress={handleTestHunterNormalEffect}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.hunterDemoBtnText}>🏹 Thợ Săn Bắn Vào Dân</Text>
-                </TouchableOpacity>
-
-                {/* Nút thử nghiệm Thợ Săn Bắn Vào Sói */}
-                <TouchableOpacity
-                  style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(127, 29, 29, 0.4)', borderColor: '#EF4444' }]}
-                  onPress={handleTestHunterWolfEffect}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.hunterDemoBtnText, { color: '#FECACA' }]}>🏹🐺 Thợ Săn Bắn Vào Sói</Text>
-                </TouchableOpacity>
-
-                {/* Nút thử nghiệm Người Thổi Sáo Thôi Miên 1 Người */}
-                <TouchableOpacity
-                  style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(192, 132, 252, 0.25)', borderColor: '#C084FC' }]}
-                  onPress={handleTestPiedPiperEffect}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.hunterDemoBtnText, { color: '#F0ABFC' }]}>🎶 Thử Thổi Sáo 1 Người</Text>
-                </TouchableOpacity>
-
-                {/* Nút thử nghiệm Người Thổi Sáo Thôi Miên 2 Người */}
-                <TouchableOpacity
-                  style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(168, 85, 247, 0.3)', borderColor: '#A855F7' }]}
-                  onPress={handleTestPiedPiperDualEffect}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.hunterDemoBtnText, { color: '#E9D5FF' }]}>🎶🎶 Thử Thổi Sáo 2 Người</Text>
-                </TouchableOpacity>
-
-                {/* Nút thử nghiệm Hoạt Ảnh Chiến Thắng Người Thổi Sáo */}
-                <TouchableOpacity
-                  style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(147, 51, 234, 0.35)', borderColor: '#E879F9' }]}
-                  onPress={handleTestPiedPiperVictoryEffect}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.hunterDemoBtnText, { color: '#FDF4FF' }]}>👑 Thử Hoạt Ảnh Chiến Thắng Người Thổi Sáo (5s)</Text>
-                </TouchableOpacity>
-
-                {/* Nút thử nghiệm Hoạt Ảnh Người Thổi Sáo Chết */}
-                <TouchableOpacity
-                  style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(245, 158, 11, 0.35)', borderColor: '#F59E0B' }]}
-                  onPress={handleTestPiedPiperPurifiedEffect}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.hunterDemoBtnText, { color: '#FEF08A' }]}>⚰️ Thử Hoạt Ảnh Người Thổi Sáo Chết (Thanh Tẩy Hoàng Kim)</Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.hunterDemoBtn, { marginTop: 0, backgroundColor: 'rgba(180, 83, 9, 0.45)', borderColor: '#D97706', borderWidth: 2 }]}
+                    onPress={() => {
+                      setDaytimeHangingDemoRole('villager');
+                      setDaytimeHangingDemoVisible(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.hunterDemoBtnText}>⚖️⚰️ Thử Treo Cổ Dân Làng</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(220, 38, 38, 0.45)', borderColor: '#EF4444', borderWidth: 2 }]}
+                    onPress={() => {
+                      setDaytimeHangingDemoRole('wolf');
+                      setDaytimeHangingDemoVisible(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.hunterDemoBtnText}>🐺⚖️ Thử Treo Cổ Sói</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(245, 158, 11, 0.45)', borderColor: '#F59E0B', borderWidth: 2 }]}
+                    onPress={() => {
+                      setDaytimeHangingDemoRole('hunter');
+                      setDaytimeHangingDemoVisible(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.hunterDemoBtnText}>🏹⚖️ Thử Treo Cổ Thợ Săn</Text>
+                  </TouchableOpacity>
+                </AccordionDemoBox>
               </View>
             )}
           </ScrollView>
@@ -749,12 +855,79 @@ export default function RoomSettings({
           duration={5}
           onClose={() => setDualKillDemoVisible(false)}
         />
+
+        {/* Modal chạy thử Hoạt ảnh Đoạn Đầu Đài Treo Cổ Ban Ngày (Hỗ trợ Dân làng, Sói, Thợ Săn) */}
+        <DaytimeHangingModal
+          visible={daytimeHangingDemoVisible}
+          victimPlayer={{
+            ...getHostTarget(
+              daytimeHangingDemoRole === 'wolf' ? 'Kẻ Đội Lốt Sói' : daytimeHangingDemoRole === 'hunter' ? 'Thợ Săn Bị Treo Cổ' : 'Kẻ Bị Phán Quyết',
+              daytimeHangingDemoRole === 'wolf' ? '🐺' : daytimeHangingDemoRole === 'hunter' ? '🏹' : '🧑‍🌾',
+              daytimeHangingDemoRole === 'wolf' ? '#DC2626' : daytimeHangingDemoRole === 'hunter' ? '#F59E0B' : '#EF4444'
+            ),
+            role: daytimeHangingDemoRole,
+            isWolf: daytimeHangingDemoRole === 'wolf',
+            isHunter: daytimeHangingDemoRole === 'hunter',
+          }}
+          duration={5}
+          onClose={() => setDaytimeHangingDemoVisible(false)}
+        />
       </View>
     </Modal>
   );
 }
 
 // ==================== SUB-COMPONENTS ====================
+
+/** Khối dropdown Accordion gom nhóm hiệu ứng điện ảnh */
+function AccordionDemoBox({
+  isOpen,
+  onToggle,
+  title,
+  themeColor,
+  bgColor = 'rgba(21, 18, 43, 0.95)',
+  children,
+}) {
+  return (
+    <View style={styles.accordionContainer}>
+      <TouchableOpacity
+        style={[
+          styles.accordionHeaderBtn,
+          {
+            backgroundColor: bgColor || 'rgba(21, 18, 43, 0.95)',
+            borderColor: themeColor,
+            borderBottomLeftRadius: isOpen ? 0 : 12,
+            borderBottomRightRadius: isOpen ? 0 : 12,
+            ...(Platform.OS === 'web' ? { boxShadow: `0 0 12px ${themeColor}50` } : {}),
+          },
+        ]}
+        onPress={onToggle}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.accordionHeaderBtnText}>
+          {title}
+        </Text>
+        <Text style={[styles.accordionChevron, { color: themeColor }]}>
+          {isOpen ? '▲' : '▼'}
+        </Text>
+      </TouchableOpacity>
+
+      {isOpen && (
+        <View
+          style={[
+            styles.accordionExpandedBody,
+            {
+              borderColor: themeColor,
+              backgroundColor: 'rgba(16, 13, 34, 0.98)',
+            },
+          ]}
+        >
+          {children}
+        </View>
+      )}
+    </View>
+  );
+}
 
 /** Hàng cài đặt với nút +/- */
 function SettingRow({ emoji, label, value, onDecrease, onIncrease, min = 0, max = 99, color, error = false, suffix = '', readOnly = false }) {
@@ -809,23 +982,25 @@ function SummaryItem({ emoji, label, count, color }) {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: COLORS.overlay,
+    backgroundColor: 'rgba(5, 3, 15, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modal: {
-    backgroundColor: COLORS.white,
+    backgroundColor: 'rgba(21, 18, 43, 0.98)',
     borderRadius: 24,
-    padding: 24,
+    padding: 22,
     width: '100%',
-    maxWidth: 420,
-    maxHeight: '85%',
+    maxWidth: 440,
+    maxHeight: '88%',
+    borderWidth: 1.5,
+    borderColor: 'rgba(124, 58, 237, 0.35)',
     elevation: 20,
-    shadowColor: '#000',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
+    shadowOpacity: 0.35,
+    shadowRadius: 25,
   },
   header: {
     flexDirection: 'row',
@@ -839,7 +1014,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 22,
     fontWeight: '900',
-    color: COLORS.black,
+    color: '#F8FAFC',
   },
 
   // Setting rows
@@ -847,19 +1022,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: COLORS.grayLight,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    padding: 13,
+    marginBottom: 9,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   settingRowError: {
-    borderColor: COLORS.danger + '60',
-    backgroundColor: COLORS.danger + '08',
+    borderColor: 'rgba(239, 68, 68, 0.6)',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
   },
   autoRow: {
-    backgroundColor: COLORS.grayLight + 'AA',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
   },
   settingLeft: {
     flexDirection: 'row',
@@ -872,16 +1047,16 @@ const styles = StyleSheet.create({
   settingLabel: {
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.black,
+    color: '#F8FAFC',
   },
   settingHint: {
     fontSize: 11,
-    color: COLORS.gray,
+    color: '#94A3B8',
     fontStyle: 'italic',
   },
   settingRange: {
     fontSize: 11,
-    color: COLORS.gray,
+    color: '#94A3B8',
   },
   settingRight: {
     flexDirection: 'row',
@@ -892,30 +1067,30 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.white,
+    backgroundColor: 'rgba(124, 58, 237, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.grayMedium,
+    borderWidth: 1.5,
+    borderColor: 'rgba(167, 139, 250, 0.4)',
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   adjustBtnDisabled: {
-    backgroundColor: COLORS.grayLight,
-    borderColor: COLORS.grayLight,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     elevation: 0,
   },
   adjustBtnText: {
     fontSize: 20,
     fontWeight: '800',
-    color: COLORS.black,
+    color: '#FFFFFF',
     lineHeight: 22,
   },
   adjustBtnTextDisabled: {
-    color: COLORS.grayMedium,
+    color: '#475569',
   },
   valueBadge: {
     minWidth: 44,
@@ -944,16 +1119,18 @@ const styles = StyleSheet.create({
 
   // Summary
   summaryBox: {
-    backgroundColor: COLORS.primary + '08',
+    backgroundColor: 'rgba(124, 58, 237, 0.12)',
     borderRadius: 14,
     padding: 14,
     marginTop: 6,
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(124, 58, 237, 0.25)',
   },
   summaryTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: COLORS.grayDark,
+    color: '#C4B5FD',
     marginBottom: 10,
   },
   summaryGrid: {
@@ -974,7 +1151,7 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 11,
-    color: COLORS.gray,
+    color: '#94A3B8',
     fontWeight: '600',
   },
 
@@ -1004,35 +1181,91 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: COLORS.grayLight,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     alignItems: 'center',
   },
   cancelBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.grayDark,
+    color: '#E2E8F0',
   },
   confirmBtn: {
     flex: 2,
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: COLORS.primary,
+    backgroundColor: '#7C3AED',
+    borderWidth: 1,
+    borderColor: 'rgba(196, 181, 253, 0.4)',
     alignItems: 'center',
     elevation: 4,
-    shadowColor: COLORS.primary,
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.35,
     shadowRadius: 8,
   },
   confirmBtnDisabled: {
-    backgroundColor: COLORS.grayMedium,
+    backgroundColor: '#1E1B3A',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     elevation: 0,
     shadowOpacity: 0,
   },
   confirmBtnText: {
     fontSize: 15,
     fontWeight: '800',
-    color: COLORS.white,
+    color: '#FFFFFF',
+  },
+
+  // Khối thư viện hiệu ứng điện ảnh (Chia box dropdown)
+  demoMainContainer: {
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  accordionContainer: {
+    marginTop: 8,
+  },
+  accordionHeaderBtn: {
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  accordionHeaderBtnText: {
+    fontWeight: '900',
+    fontSize: 14,
+    letterSpacing: 0.5,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 1)',
+    textShadowOffset: { width: 0, height: 1.5 },
+    textShadowRadius: 4,
+    flex: 1,
+    marginRight: 8,
+  },
+  accordionChevron: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  accordionExpandedBody: {
+    borderWidth: 2,
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    backgroundColor: 'rgba(16, 13, 34, 0.98)',
+    padding: 12,
+    gap: 8,
   },
 
   // Khối thử hiệu ứng Tiên Tri dành cho Chủ Phòng
@@ -1117,11 +1350,14 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   clawDemoBtnText: {
-    color: '#FECACA',
+    color: '#FFFFFF',
     fontWeight: '900',
-    fontSize: 12.5,
+    fontSize: 13,
     letterSpacing: 0.5,
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   saveDemoBtn: {
     backgroundColor: 'rgba(14, 165, 233, 0.25)',
@@ -1135,11 +1371,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   saveDemoBtnText: {
-    color: '#BAE6FD',
+    color: '#FFFFFF',
     fontWeight: '900',
-    fontSize: 12.5,
+    fontSize: 13,
     letterSpacing: 0.5,
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   witchHealDemoBtn: {
     backgroundColor: 'rgba(16, 185, 129, 0.25)',
@@ -1153,11 +1392,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   witchHealDemoBtnText: {
-    color: '#A7F3D0',
+    color: '#FFFFFF',
     fontWeight: '900',
-    fontSize: 12.5,
+    fontSize: 13,
     letterSpacing: 0.5,
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   witchPoisonDemoBtn: {
     backgroundColor: 'rgba(168, 85, 247, 0.25)',
@@ -1171,11 +1413,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   witchPoisonDemoBtnText: {
-    color: '#E9D5FF',
+    color: '#FFFFFF',
     fontWeight: '900',
-    fontSize: 12.5,
+    fontSize: 13,
     letterSpacing: 0.5,
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   clashDemoBtn: {
     backgroundColor: 'rgba(244, 63, 94, 0.22)',
@@ -1189,11 +1434,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   clashDemoBtnText: {
-    color: '#FECDD3',
+    color: '#FFFFFF',
     fontWeight: '900',
-    fontSize: 12.5,
+    fontSize: 13,
     letterSpacing: 0.5,
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   hunterDemoBtn: {
     backgroundColor: 'rgba(245, 158, 11, 0.25)',
@@ -1207,11 +1455,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   hunterDemoBtnText: {
-    color: '#FDE68A',
+    color: '#FFFFFF',
     fontWeight: '900',
-    fontSize: 12.5,
+    fontSize: 13,
     letterSpacing: 0.5,
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
 
   // Tùy chọn mở rộng cho Người Thổi Sáo
