@@ -28,50 +28,55 @@ export default function ChatBox({
   myId,
   phase = null,
   onMinimize = null,
+  isCouple = false,
+  partner = null,
 }) {
   const { width: windowWidth } = useWindowDimensions();
   const isMobile = windowWidth <= 860;
   const isSmallMobile = windowWidth < 450;
   const isWolf = myRole === 'wolf';
 
-  // Sói có 2 kênh: 'village' (Làng) và 'wolf' (Hang Sói)
-  // Mặc định ban đêm thì mở Hang Sói, ban ngày mở Làng
+  // Các kênh: 'village' (Làng), 'wolf' (Hang Sói), 'couple' (Cặp Đôi)
   const [activeChannel, setActiveChannel] = useState(isWolf && isNight ? 'wolf' : 'village');
   const [text, setText] = useState('');
   const [hasUnreadWolf, setHasUnreadWolf] = useState(false);
+  const [hasUnreadCouple, setHasUnreadCouple] = useState(false);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const flatListRef = useRef(null);
   const inputRef = useRef(null);
 
   // Cập nhật tab mặc định khi đổi đêm/ngày nếu cần
   useEffect(() => {
-    if (isWolf) {
-      if (isNight) {
-        setActiveChannel('wolf');
-      }
+    if (isWolf && isNight && activeChannel !== 'couple') {
+      setActiveChannel('wolf');
     }
   }, [isNight, isWolf]);
 
   // Lọc tin nhắn theo kênh
   const filteredMessages = messages.filter((m) => {
-    if (isWolf) {
-      return activeChannel === 'wolf' ? m.isWolfChat : !m.isWolfChat;
+    if (activeChannel === 'wolf') {
+      return m.isWolfChat;
     }
-    // Người không phải Sói chỉ thấy tin Làng
-    return !m.isWolfChat;
+    if (activeChannel === 'couple') {
+      return m.isCoupleChat;
+    }
+    return !m.isWolfChat && !m.isCoupleChat;
   });
 
-  // Kiểm tra tin nhắn mới trong kênh Sói khi đang ở kênh Làng
+  // Kiểm tra tin nhắn mới trong kênh Sói & Couple khi đang ở kênh khác
   useEffect(() => {
-    if (isWolf && activeChannel === 'village' && messages.length > 0) {
+    if (messages.length > 0) {
       const lastMsg = messages[messages.length - 1];
-      if (lastMsg.isWolfChat && lastMsg.playerId !== myId) {
+      if (isWolf && activeChannel !== 'wolf' && lastMsg.isWolfChat && lastMsg.playerId !== myId) {
         setHasUnreadWolf(true);
       }
+      if (isCouple && activeChannel !== 'couple' && lastMsg.isCoupleChat && lastMsg.playerId !== myId) {
+        setHasUnreadCouple(true);
+      }
     }
-  }, [messages.length, activeChannel, isWolf]);
+  }, [messages.length, activeChannel, isWolf, isCouple]);
 
-  // Auto-scroll xuống khi có tin mới (chỉ tự cuộn nếu người dùng không đang cuộn lên đọc lịch sử)
+  // Auto-scroll xuống khi có tin mới
   useEffect(() => {
     if (flatListRef.current && filteredMessages.length > 0) {
       if (!isScrolledUp) {
@@ -83,17 +88,21 @@ export default function ChatBox({
   }, [filteredMessages.length]);
 
   const isCurrentChannelWolf = isWolf && activeChannel === 'wolf';
+  const isCurrentChannelCouple = isCouple && activeChannel === 'couple';
   const isWolfChatLocked = isCurrentChannelWolf && phase === 'day_vote';
+  const isCoupleChatLocked = isCurrentChannelCouple && isNight;
 
   const handleSend = () => {
     const trimmed = text.trim();
-    if (!trimmed || disabled || isWolfChatLocked) return;
+    if (!trimmed || disabled || isWolfChatLocked || isCoupleChatLocked) return;
 
     const sendingToWolf = isWolf && activeChannel === 'wolf';
-    // Nếu ở kênh Làng ban đêm -> không cho gửi
-    if (!sendingToWolf && isNight) return;
+    const sendingToCouple = isCouple && activeChannel === 'couple';
 
-    onSend(trimmed, sendingToWolf);
+    // Nếu ở kênh Làng ban đêm -> không cho gửi
+    if (!sendingToWolf && !sendingToCouple && isNight) return;
+
+    onSend(trimmed, sendingToWolf, sendingToCouple);
     setText('');
     setIsScrolledUp(false);
     setTimeout(() => {
@@ -105,9 +114,8 @@ export default function ChatBox({
   const handleSwitchChannel = (channel) => {
     setActiveChannel(channel);
     setIsScrolledUp(false);
-    if (channel === 'wolf') {
-      setHasUnreadWolf(false);
-    }
+    if (channel === 'wolf') setHasUnreadWolf(false);
+    if (channel === 'couple') setHasUnreadCouple(false);
     setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: false });
     }, 80);
@@ -156,7 +164,8 @@ export default function ChatBox({
         isMobile && styles.messageBubbleMobile,
         isMe ? styles.myMessage : styles.otherMessage,
         item.isWolfChat && styles.wolfMessage,
-        isNight && !isMe && !item.isWolfChat && styles.nightOtherMessage,
+        item.isCoupleChat && styles.coupleMessage,
+        isNight && !isMe && !item.isWolfChat && !item.isCoupleChat && styles.nightOtherMessage,
       ]}>
         {!isMe && (
           <View style={styles.senderRow}>
@@ -164,9 +173,10 @@ export default function ChatBox({
               styles.senderName,
               isMobile && styles.senderNameMobile,
               item.isWolfChat && styles.senderNameWolf,
+              item.isCoupleChat && styles.senderNameCouple,
             ]}>
               {item.playerName}
-              {item.isWolfChat ? ' 🐺' : ''}
+              {item.isWolfChat ? ' 🐺' : item.isCoupleChat ? ' 💘' : ''}
             </Text>
           </View>
         )}
@@ -174,6 +184,7 @@ export default function ChatBox({
           styles.messageText,
           isMobile && styles.messageTextMobile,
           isMe && styles.myMessageText,
+          item.isCoupleChat && styles.coupleMessageText,
         ]}>
           {item.message}
         </Text>
@@ -181,9 +192,9 @@ export default function ChatBox({
     );
   };
 
-  const isInputDisabled = disabled || (!isCurrentChannelWolf && isNight) || isWolfChatLocked;
+  const isInputDisabled = disabled || (!isCurrentChannelWolf && !isCurrentChannelCouple && isNight) || isWolfChatLocked || isCoupleChatLocked;
 
-  const bgColor = isNight || isCurrentChannelWolf ? COLORS.nightCard : COLORS.dayCard;
+  const bgColor = isNight || isCurrentChannelWolf || isCurrentChannelCouple ? COLORS.nightCard : COLORS.dayCard;
   const inputBg = 'rgba(255, 255, 255, 0.12)';
   const inputColor = '#FFFFFF';
   const placeholderColor = 'rgba(255, 255, 255, 0.55)';
@@ -191,8 +202,12 @@ export default function ChatBox({
   let placeholderText = 'Nhắn tin...';
   if (isWolfChatLocked) {
     placeholderText = '🔒 Hang Sói tạm khóa trong giờ Bỏ Phiếu!';
+  } else if (isCoupleChatLocked) {
+    placeholderText = '🌙 Ban đêm làng đang ngủ, tâm sự Cặp Đôi mở vào buổi sáng!';
   } else if (isCurrentChannelWolf) {
     placeholderText = 'Nhắn bí mật cho bầy Sói...';
+  } else if (isCurrentChannelCouple) {
+    placeholderText = '💘 Nhắn tin bí mật cho người yêu...';
   } else if (isNight) {
     placeholderText = '😴 Làng đang ngủ (chỉ Sói mới chat được)...';
   }
@@ -201,7 +216,7 @@ export default function ChatBox({
     <View style={[styles.container, { backgroundColor: bgColor }]}>
       {/* ================= CHAT HEADER & TABS ================= */}
       <View style={[styles.topHeaderRow, isMobile && styles.topHeaderRowMobile]}>
-        {isWolf ? (
+        {(isWolf || isCouple) ? (
           <View style={styles.channelBar}>
             {/* Nút Chat Làng */}
             <TouchableOpacity
@@ -223,24 +238,48 @@ export default function ChatBox({
             </TouchableOpacity>
 
             {/* Nút Chat Sói Bí Mật */}
-            <TouchableOpacity
-              style={[
-                styles.channelTab,
-                isMobile && styles.channelTabMobile,
-                activeChannel === 'wolf' && styles.channelTabWolfActive,
-              ]}
-              onPress={() => handleSwitchChannel('wolf')}
-              activeOpacity={0.7}
-            >
-              <Text style={[
-                styles.channelTabText,
-                isMobile && styles.channelTabTextMobile,
-                activeChannel === 'wolf' && styles.channelTabWolfTextActive,
-              ]}>
-                🐺 Hang Sói
-              </Text>
-              {hasUnreadWolf && <View style={styles.unreadDot} />}
-            </TouchableOpacity>
+            {isWolf && (
+              <TouchableOpacity
+                style={[
+                  styles.channelTab,
+                  isMobile && styles.channelTabMobile,
+                  activeChannel === 'wolf' && styles.channelTabWolfActive,
+                ]}
+                onPress={() => handleSwitchChannel('wolf')}
+                activeOpacity={0.7}
+              >
+                <Text style={[
+                  styles.channelTabText,
+                  isMobile && styles.channelTabTextMobile,
+                  activeChannel === 'wolf' && styles.channelTabWolfTextActive,
+                ]}>
+                  🐺 Hang Sói
+                </Text>
+                {hasUnreadWolf && <View style={styles.unreadDot} />}
+              </TouchableOpacity>
+            )}
+
+            {/* Nút Chat Cặp Đôi Bí Mật */}
+            {isCouple && (
+              <TouchableOpacity
+                style={[
+                  styles.channelTab,
+                  isMobile && styles.channelTabMobile,
+                  activeChannel === 'couple' && styles.channelTabCoupleActive,
+                ]}
+                onPress={() => handleSwitchChannel('couple')}
+                activeOpacity={0.7}
+              >
+                <Text style={[
+                  styles.channelTabText,
+                  isMobile && styles.channelTabTextMobile,
+                  activeChannel === 'couple' && styles.channelTabCoupleTextActive,
+                ]}>
+                  💘 Cặp Đôi
+                </Text>
+                {hasUnreadCouple && <View style={styles.unreadCoupleDot} />}
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           <View style={styles.header}>
@@ -515,11 +554,24 @@ const styles = StyleSheet.create({
   channelTabWolfTextActive: {
     color: COLORS.white,
   },
+  channelTabCoupleActive: {
+    backgroundColor: '#EC4899',
+  },
+  channelTabCoupleTextActive: {
+    color: COLORS.white,
+  },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: '#EF4444',
+    marginLeft: 6,
+  },
+  unreadCoupleDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#F472B6',
     marginLeft: 6,
   },
   wolfSubHeader: {
@@ -582,6 +634,14 @@ const styles = StyleSheet.create({
     borderColor: '#EF4444',
     backgroundColor: 'rgba(127, 29, 29, 0.45)',
   },
+  coupleMessage: {
+    borderWidth: 1.5,
+    borderColor: '#F472B6',
+    backgroundColor: 'rgba(157, 23, 77, 0.45)',
+  },
+  coupleMessageText: {
+    color: '#FFF1F2',
+  },
   senderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -605,6 +665,9 @@ const styles = StyleSheet.create({
   },
   senderNameWolf: {
     color: '#F87171',
+  },
+  senderNameCouple: {
+    color: '#F472B6',
   },
   messageText: {
     fontSize: 14.5,

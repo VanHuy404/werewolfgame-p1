@@ -1,3 +1,52 @@
+### 💔✨ Hoạt Ảnh Điện Ảnh Người Yêu Chết (Tim Vỡ Tuẫn Tình - CoupleHeartbreakModal)
+- **Điều Chỉnh Thứ Tự Biểu Quyết Treo Cổ Ban Ngày:**
+  - **Bảng số Sói xuất hiện SAU hiệu ứng chết của cặp đôi:** Khi người yêu bị biểu quyết treo cổ, hoạt ảnh Đoạn Đầu Đài (`DaytimeHangingModal`) chiếu xong -> Hoạt ảnh Tim Vỡ Tuẫn Tình (`CoupleHeartbreakModal`) xuất hiện ngay tiếp theo -> Sau khi người tình tuẫn tình xong, **BẢNG SỐ SÓI CÒN LẠI** (`showWolfOverlay`) mới xuất hiện để tổng kết toàn bộ số Sói còn lại trong làng.
+- **Bảo Đảm Tuyệt Đối Thứ Tự Tuần Tự (Không Đè & Không Mất Hoạt Ảnh):**
+  - **Chỉ xuất hiện sau khi người yêu chết trước trong hoạt ảnh của chính họ:** Hoạt ảnh tim vỡ `CoupleHeartbreakModal` chỉ kích hoạt khi hoạt ảnh tử vong của người yêu (Sói cào, Phù Thủy ném độc, Đòn trừng phạt kép, Ba bên xung đột, Đoạn đầu đài treo cổ, hoặc Thợ Săn bắn hạ) đã chiếu xong và đóng hoàn toàn.
+  - **Kiểm tra danh tính chuẩn xác:** Đảm bảo nạn nhân chết trong hoạt ảnh trước đó và người tuẫn tình chết theo là 2 người khác nhau trong Cặp Đôi Uyên Ương.
+  - **Cơ chế xếp hàng tuần tự (`pendingAfterHeartbreakCallbackRef`):** Nếu nạn nhân hoặc người tuẫn tình đồng thời là Người Thổi Sáo, hoạt ảnh Tim Vỡ sẽ chiếu trọn vẹn trước, sau đó mới tự động chuyển tiếp sang Hoạt ảnh Người Thổi Sáo Chết & Thanh Tẩy Hoàng Kim. Tuyệt đối không bao giờ có 2 hoạt ảnh mở đè lên nhau.
+  - **Mở rộng thời gian chờ trên Server:** Tăng `announceTime` (buổi sáng lên tới 14s - 24s), `voteTransitionDelay` (treo cổ lên 11s - 18s) và `hunterDelay` (bắn súng lên 12.5s - 18s) khi có người tình tuẫn tình, đảm bảo client chiếu xong 100% hoạt ảnh trước khi server chuyển pha hoặc kết thúc game.
+- **Tạo Hoạt Ảnh Điện Ảnh Bi Tráng Khi Người Yêu Chết (`CoupleHeartbreakModal`):**
+  - Kích hoạt khi 1 trong 2 người trong cặp đôi Cupid tử nạn (do Sói cào, Phù Thủy ném độc, Dân làng treo cổ, hoặc Thợ Săn bắn).
+  - Người tình còn lại không thiết sống nữa và tuẫn tình chết theo vì thất tình theo đúng lời thề *"Sống cùng sống, chết cùng chết"*.
+  - **Hiệu ứng Tim Vỡ Đôi (Shattered Heart):** Trái tim hồng tình yêu đập dồn dập thoi thóp rồi bị vết nứt thủy tinh (`glass_crack.png`) chớp đỏ xé toạc làm đôi, 2 nửa trái tim tách rời xoay nghiêng và rơi rụng xuống.
+  - **36 Mảnh vỡ tim & tia lửa nổ tung 360 độ:** Kèm cánh hoa hồng héo úa `🥀` và giọt lệ máu `💧` rơi lơ lửng từ trên cao.
+  - **Sợi dây liên kết tình ái đứt phụt:** Dải sáng kết nối giữa 2 người bị cắt đứt vụt tắt hoàn toàn.
+  - **Tương tác 2 Avatar:** Nạn nhân tử nạn đổ sụp xuống phủ lớp sương xám u ám và dấu `💀`, người yêu tuẫn tiết rung lắc dữ dội ôm ngực quặn thắt và gục ngã mang biểu tượng `💔`.
+  - **Âm thanh tổng hợp Web Audio API (`playHeartbreakSynth`):** Tiếng đập tim nặng nề, tiếng kính nứt toác sắc lạnh, chuỗi mảnh vụn thủy tinh rơi leng keng u sầu và hợp âm bi thương ngân dài.
+  - **Nút đóng tiện lợi:** Nút `✕ Đóng (${countdown}s)` nổi góc trên bên phải cho phép đóng ngay lập tức bất cứ lúc nào.
+- **Tích hợp vào Cài Đặt Phòng (`RoomSettings.js`):**
+  - Thêm nút `💔 Thử Hoạt Ảnh Người Yêu Chết (Tim Vỡ Tuẫn Tình)` trong nhóm *💘 Thử Hiệu Ứng Cupid & Cặp Đôi*.
+- **Tích hợp vào Trận Đấu Thực Tế (`GameScreen.js` & `App.js`):**
+  - Tự động phát tuần tự sau khi hoạt ảnh nạn nhân đầu tiên kết thúc trong các pha: Buổi sáng (`DAY_ANNOUNCE`), Biểu quyết treo cổ (`vote-result`), và Thợ Săn bắn (`hunter-shot-result`).
+
+### 🃏✨ Cắt Bộ Thẻ Bài Vai Trò, Hiệu Ứng Xào Bài Điện Ảnh & Lật Mở 3D Cùng Câu Cửa Miệng Kinh Điển
+- **Tạm khóa role Cupid & Rà soát tính hợp lý của hệ thống phân vai trước trận:**
+  - Tạm khóa Cupid khỏi pool roll ngẫu nhiên (cả client & server) tránh phát sinh lỗi khi cơ chế gameplay của Cupid chưa được tích hợp.
+  - Bổ sung kiểm soát số lượng vai trò trong Cài Đặt Phòng: Ngăn chặn cài đặt tổng vai trò chức năng vượt quá số lượng người chơi trong phòng.
+  - Ẩn danh hoàn toàn nhật ký phân vai trên server (chỉ in số lượng role phân bổ, tuyệt đối không in tên người chơi) nhằm bảo đảm công bằng, chống lộ danh tính kể cả khi chủ phòng mở xem màn hình console server.
+- **Cập nhật đường dẫn các thẻ bài theo tên file mới được tùy chỉnh:**
+  - `card_maSoi.png` (Ma Sói), `card_danLang.png` (Dân Làng), `card_thoSan.png` (Thợ Săn), `card_baoVe.png` (Bảo Vệ), `card_phuThuy.png` (Phù Thủy), `card_tienTri.png` (Tiên Tri), `card_nguoiThoiSao.png` (Người Thổi Sáo), `card_Cupid.png` (Cupid).
+  - Mặt sau độc quyền: `card_back.png`.
+- **Thay thế hoàn toàn hiệu ứng cũ khi vào trận đấu bằng hiệu ứng Xào Bài & Lật Mở 3D:**
+  - Thay thế `RoleCard` cũ trong `App.js` bằng `CardShuffleModal` khi vừa bắt đầu game (`game-started`).
+  - Xóa bỏ dòng chữ báo vai trò thừa ở phía dưới lá bài.
+  - Tích hợp đếm ngược (6s) cùng nút `⚔️ Sẵn Sàng Vào Trận` cho phép người chơi vào trận ngay hoặc chiêm ngưỡng lá bài của mình.
+- **Tích hợp vào Cài Đặt Phòng (`RoomSettings.js`):**
+  - Thêm nhóm dropdown `🃏✨ Thử Hiệu Ứng Xào Bài & Lật Mở Vai Trò`.
+  - Hỗ trợ rút ngẫu nhiên hoặc bấm thử bất kỳ lá bài nào trong 8 vai trò.
+
+### 🧪🐺 Tách Riêng Hoạt Ảnh Sói Giết & Phù Thủy Giết 2 Người Khác Nhau + Cho Phép Phù Thủy Dùng 2 Lọ Thuốc 1 Đêm
+- **Tách 2 hoạt ảnh riêng biệt khi Sói & Phù Thủy giết 2 người khác nhau:**
+  - Nếu Sói giết người A và Phù Thủy giết người B (A != B), hệ thống KHÔNG gộp chung thành một mạng hay phát hoạt ảnh chung `DualKillClashModal`.
+  - Thay vào đó, phát tuần tự 2 hoạt ảnh riêng biệt: Hoạt ảnh Sói cào người A chiếu trước hoàn chỉnh, kết thúc tự động chuyển tiếp sang Hoạt ảnh Phù Thủy ném độc người B.
+  - Phân định rõ nút thử nghiệm trong Cài Đặt Phòng: `🐺🧪 Thử Sói & Phù Thủy Cùng Giết`.
+- **Phù Thủy dùng 2 lọ thuốc 1 đêm & khắc phục lỗi ném độc không hiệu nghiệm:**
+  - Đảm bảo Phù Thủy được dùng cả bình Cứu và bình Độc trong cùng 1 đêm.
+  - Quyết định ném độc được server ghi nhận và bảo lưu chắc chắn, cho phép Phù Thủy tự do chọn và đổi mục tiêu ném độc trong suốt đêm.
+  - Bổ sung nút `✅ CHỐT MỤC TIÊU` trên banner ném độc.
+  - Điều kiện hiển thị "Hết thuốc" (out of potions) được dời sang xem xét khi Phù Thủy thức dậy ở đêm tiếp theo chứ không phải lúc vừa dùng xong thuốc, tránh bị khóa nhầm giao diện hoặc mất hiệu lực bình độc.
+
 ### 🏹 Lộ Diện Thợ Săn Khi Bị Treo Cổ & Sau Khi Sói Cào Tử Nạn
 - **Hoạt ảnh Treo Cổ Ban Ngày (`DaytimeHangingModal`):**
   - Giấu danh tính Thợ Săn ở giai đoạn đầu dưới dạng avatar người chơi bình thường và tag `"⚖️ PHÁN QUYẾT QUẢNG TRƯỜNG"`.

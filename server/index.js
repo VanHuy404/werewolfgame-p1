@@ -22,7 +22,7 @@ const {
   createRoom, joinRoom, leaveRoom, assignRoles,
   processNightActions, processDayVote, checkWinCondition,
   getPlayersData, getAlivePlayers, getRoom, getRoomByPlayerId,
-  validateSettings,
+  validateSettings, shuffleArray,
 } = require('./gameLogic');
 
 const { PHASES, TIMERS, ROLES, ROLE_NAMES, ROLE_EMOJIS } = require('./constants');
@@ -122,7 +122,145 @@ function startNightPhase(room) {
   room.nightActions.piedPiperTargets = [];
   room.nightActions.wasProtected = false;
 
+  // 💘 ĐÊM ĐẦU TIÊN: Kiểm tra xem có Cupid còn sống và chưa hành động không
+  const aliveCupids = [...room.players.values()].filter(
+    (p) => p.role === ROLES.CUPID && p.alive
+  );
+
+  if (room.round === 1 && aliveCupids.length > 0 && !room.cupidActed) {
+    startNightCupidPhase(room);
+    return;
+  }
+
   // Kiểm tra còn Bảo Vệ còn sống hay không
+  const aliveBodyguards = [...room.players.values()].filter(
+    (p) => p.role === ROLES.BODYGUARD && p.alive
+  );
+
+  if (aliveBodyguards.length > 0) {
+    startNightBodyguardPhase(room);
+  } else {
+    startNightWolfPhase(room);
+  }
+}
+
+/** 💘 Lượt Cupid ghép đôi trong đêm 1 (25s) */
+function startNightCupidPhase(room) {
+  room.phase = PHASES.NIGHT_CUPID;
+
+  room.players.forEach((player, playerId) => {
+    io.to(playerId).emit('phase-change', {
+      phase: PHASES.NIGHT_CUPID,
+      nightSubPhase: 'cupid',
+      round: room.round,
+      role: player.role,
+      alive: player.alive,
+      players: getPlayersData(room, playerId),
+    });
+  });
+
+  // Đếm ngược 25s cho Cupid
+  startPhaseTimer(room, TIMERS.NIGHT_CUPID || 25, () => {
+    finishCupidTurn(room);
+  });
+}
+
+/** Kết thúc lượt Cupid -> chuyển sang pha mở mắt nhận nhau (NIGHT_COUPLE_REVEAL) */
+function finishCupidTurn(room) {
+  if (room.timer) {
+    clearInterval(room.timer);
+    room.timer = null;
+  }
+
+  // YÊU CẦU: Cupid bắt buộc phải chọn, nếu không chọn hệ thống sẽ random tất cả trừ Cupid
+  if (!room.couple || room.couple.length < 2) {
+    const cupidPlayer = [...room.players.values()].find((p) => p.role === ROLES.CUPID);
+    const cupidId = cupidPlayer ? cupidPlayer.id : null;
+    const candidates = [...room.players.values()]
+      .filter((p) => p.alive && p.id !== cupidId)
+      .map((p) => p.id);
+
+    if (candidates.length >= 2) {
+      const shuffled = shuffleArray(candidates);
+      room.couple = [shuffled[0], shuffled[1]];
+    } else if (candidates.length === 1 && cupidId) {
+      room.couple = [candidates[0], cupidId];
+    }
+  }
+
+  room.cupidActed = true;
+
+  if (room.couple && room.couple.length === 2) {
+    startNightCoupleRevealPhase(room);
+  } else {
+    proceedAfterCupid(room);
+  }
+}
+
+/** 💘 Pha Cặp đôi hé mắt nhận nhau (6s) kèm hiệu ứng kết nối trái tim */
+function startNightCoupleRevealPhase(room) {
+  room.phase = PHASES.NIGHT_COUPLE_REVEAL;
+
+  const [id1, id2] = room.couple;
+  const p1 = room.players.get(id1);
+  const p2 = room.players.get(id2);
+  const cupid = [...room.players.values()].find((p) => p.role === ROLES.CUPID);
+
+  const coupleData = [
+    p1 ? { id: p1.id, name: p1.name, avatar: p1.avatar, avatarColor: p1.avatarColor, role: p1.role } : null,
+    p2 ? { id: p2.id, name: p2.name, avatar: p2.avatar, avatarColor: p2.avatarColor, role: p2.role } : null,
+  ].filter(Boolean);
+
+  const cupidData = cupid ? { id: cupid.id, name: cupid.name, avatar: cupid.avatar, avatarColor: cupid.avatarColor } : null;
+
+  // Gửi sự kiện cho toàn bộ người chơi kèm dữ liệu coupleData
+  io.to(room.code).emit('couple-formed', {
+    couple: coupleData,
+    cupid: cupidData,
+  });
+
+  room.players.forEach((player, playerId) => {
+    const isCoupleMember = room.couple.includes(playerId);
+    const isCupid = player.role === ROLES.CUPID;
+
+    if (isCoupleMember) {
+      const partner = playerId === id1 ? p2 : p1;
+      if (partner) {
+        io.to(playerId).emit('new-message', {
+          playerId: 'system',
+          playerName: '💘 Thần Tình Yêu',
+          avatar: '💘',
+          message: `💘 [TƠ HỒNG ĐỊNH MỆNH]: Bạn đã kết duyên cùng ${partner.name} (Vai trò: ${ROLE_EMOJIS[partner.role] || ''} ${ROLE_NAMES[partner.role] || partner.role})! Hai bạn nhìn thấy vai trò của nhau để tương trợ sinh tử!`,
+          timestamp: Date.now(),
+          isWolfChat: false,
+          isSystem: true,
+        });
+      }
+    }
+
+    io.to(playerId).emit('phase-change', {
+      phase: PHASES.NIGHT_COUPLE_REVEAL,
+      nightSubPhase: (isCoupleMember || isCupid) ? 'couple_reveal' : 'sleep',
+      round: room.round,
+      role: player.role,
+      alive: player.alive,
+      players: getPlayersData(room, playerId),
+      couple: coupleData,
+    });
+  });
+
+  startPhaseTimer(room, TIMERS.NIGHT_COUPLE_REVEAL || 6, () => {
+    proceedAfterCupid(room);
+  });
+}
+
+function proceedAfterCupid(room) {
+  if (room.timer) {
+    clearInterval(room.timer);
+    room.timer = null;
+  }
+
+  // Kiểm tra còn Bảo Vệ sống hay không
   const aliveBodyguards = [...room.players.values()].filter(
     (p) => p.role === ROLES.BODYGUARD && p.alive
   );
@@ -191,10 +329,14 @@ function startNightWolfPhase(room) {
       players: getPlayersData(room, playerId),
       teammates,
     });
+
+    if (player.role === ROLES.WOLF) {
+      io.to(playerId).emit('wolf-vote-update', { wolfVotes: {}, wolfConfirmed: [] });
+    }
   });
 
-  // Đếm ngược 1p30s (90 giây) cho Sói
-  startPhaseTimer(room, TIMERS.NIGHT_WOLF, () => {
+  // Đếm ngược cho Sói (mặc định 90s hoặc tùy chỉnh theo cài đặt phòng)
+  startPhaseTimer(room, room.settings?.nightWolfTime || TIMERS.NIGHT_WOLF, () => {
     finishWolfTurn(room);
   });
 }
@@ -263,6 +405,8 @@ function startNightWitchPhase(room, wolfVictimId) {
     if (!w.witchState) {
       w.witchState = { hasHeal: true, hasPoison: true };
     }
+    w.hasHealAtNightStart = !!w.witchState.hasHeal;
+    w.hasPoisonAtNightStart = !!w.witchState.hasPoison;
   });
 
   // Kiểm tra xem có phù thủy nào còn ít nhất 1 bình thuốc (cứu hoặc độc) không
@@ -314,6 +458,21 @@ function finishWitchTurn(room) {
     clearInterval(room.timer);
     room.timer = null;
   }
+
+  // Chốt cập nhật trừ bình thuốc khi kết thúc lượt Phù Thủy:
+  // - Nếu đêm nay Phù Thủy đã dùng bình Cứu -> trừ bình Cứu (hasHeal = false)
+  // - Nếu đêm nay Phù Thủy đã dùng bình Độc -> trừ bình Độc (hasPoison = false)
+  // Việc xem xét hết thuốc sẽ được áp dụng cho lần thức dậy tiếp theo của Phù Thủy!
+  room.players.forEach((p) => {
+    if (p.role === ROLES.WITCH && p.alive && p.witchState) {
+      if (room.nightActions.witchSavedThisNight) {
+        p.witchState.hasHeal = false;
+      }
+      if (room.nightActions.witchPoisonTarget) {
+        p.witchState.hasPoison = false;
+      }
+    }
+  });
 
   const aliveSeers = [...room.players.values()].filter(
     (p) => p.role === ROLES.SEER && p.alive
@@ -504,32 +663,62 @@ function startDayAnnounce(room, nightResult = {}) {
     poisonedPlayer.alive = false;
   }
 
+  // 💔 Kiểm tra Cặp Đôi chết theo nhau vì thất tình
+  let heartbrokenPlayer = null;
+  let heartbrokenPartnerId = null;
+  if (room.couple && room.couple.length === 2) {
+    const [c1Id, c2Id] = room.couple;
+    const c1Died = (deadPlayer && deadPlayer.id === c1Id) || (poisonedPlayer && poisonedPlayer.id === c1Id);
+    const c2Died = (deadPlayer && deadPlayer.id === c2Id) || (poisonedPlayer && poisonedPlayer.id === c2Id);
+
+    if (c1Died && !c2Died) {
+      const p2 = room.players.get(c2Id);
+      if (p2 && p2.alive) {
+        p2.alive = false;
+        heartbrokenPlayer = p2;
+        heartbrokenPartnerId = c1Id;
+      }
+    } else if (c2Died && !c1Died) {
+      const p1 = room.players.get(c1Id);
+      if (p1 && p1.alive) {
+        p1.alive = false;
+        heartbrokenPlayer = p1;
+        heartbrokenPartnerId = c2Id;
+      }
+    }
+  }
+
   // KHÔNG kiểm tra win condition ngay tại đây!
   // Phải để client phát hết tất cả các hoạt ảnh (Sói cào, Phù Thủy cứu, Bảo Vệ khiên, Phù Thủy ném độc, Xung đột)
   // để mọi người hiểu tại sao sói/dân chết trước khi hiển thị màn hình kết thúc chiến thắng!
 
-  io.to(room.code).emit('phase-change', {
-    phase: PHASES.DAY_ANNOUNCE,
-    round: room.round,
-    deadPlayer: deadPlayer
-      ? { id: deadPlayer.id, name: deadPlayer.name, avatar: deadPlayer.avatar, avatarColor: deadPlayer.avatarColor }
-      : null,
-    poisonedPlayer: poisonedPlayer
-      ? { id: poisonedPlayer.id, name: poisonedPlayer.name, avatar: poisonedPlayer.avatar, avatarColor: poisonedPlayer.avatarColor }
-      : null,
-    shieldClashPlayer: shieldClashPlayer
-      ? { id: shieldClashPlayer.id, name: shieldClashPlayer.name, avatar: shieldClashPlayer.avatar, avatarColor: shieldClashPlayer.avatarColor }
-      : null,
-    savedPlayer: savedPlayer
-      ? { id: savedPlayer.id, name: savedPlayer.name, avatar: savedPlayer.avatar, avatarColor: savedPlayer.avatarColor }
-      : null,
-    witchSavedPlayer: witchSavedPlayer
-      ? { id: witchSavedPlayer.id, name: witchSavedPlayer.name, avatar: witchSavedPlayer.avatar, avatarColor: witchSavedPlayer.avatarColor }
-      : null,
-    attackedPlayer: attackedPlayer
-      ? { id: attackedPlayer.id, name: attackedPlayer.name, avatar: attackedPlayer.avatar, avatarColor: attackedPlayer.avatarColor }
-      : null,
-    players: getPlayersData(room),
+  room.players.forEach((player, playerId) => {
+    io.to(playerId).emit('phase-change', {
+      phase: PHASES.DAY_ANNOUNCE,
+      round: room.round,
+      deadPlayer: deadPlayer
+        ? { id: deadPlayer.id, name: deadPlayer.name, avatar: deadPlayer.avatar, avatarColor: deadPlayer.avatarColor, role: deadPlayer.role }
+        : null,
+      poisonedPlayer: poisonedPlayer
+        ? { id: poisonedPlayer.id, name: poisonedPlayer.name, avatar: poisonedPlayer.avatar, avatarColor: poisonedPlayer.avatarColor, role: poisonedPlayer.role }
+        : null,
+      shieldClashPlayer: shieldClashPlayer
+        ? { id: shieldClashPlayer.id, name: shieldClashPlayer.name, avatar: shieldClashPlayer.avatar, avatarColor: shieldClashPlayer.avatarColor, role: shieldClashPlayer.role }
+        : null,
+      savedPlayer: savedPlayer
+        ? { id: savedPlayer.id, name: savedPlayer.name, avatar: savedPlayer.avatar, avatarColor: savedPlayer.avatarColor }
+        : null,
+      witchSavedPlayer: witchSavedPlayer
+        ? { id: witchSavedPlayer.id, name: witchSavedPlayer.name, avatar: witchSavedPlayer.avatar, avatarColor: witchSavedPlayer.avatarColor }
+        : null,
+      attackedPlayer: attackedPlayer
+        ? { id: attackedPlayer.id, name: attackedPlayer.name, avatar: attackedPlayer.avatar, avatarColor: attackedPlayer.avatarColor }
+        : null,
+      heartbrokenPlayer: heartbrokenPlayer
+        ? { id: heartbrokenPlayer.id, name: heartbrokenPlayer.name, avatar: heartbrokenPlayer.avatar, avatarColor: heartbrokenPlayer.avatarColor, role: heartbrokenPlayer.role, partnerId: heartbrokenPartnerId }
+        : null,
+      players: getPlayersData(room, playerId),
+    });
   });
 
   // Ghi rõ tên người chết, người được cứu và người bị trúng độc vào khung chat
@@ -557,11 +746,18 @@ function startDayAnnounce(room, nightResult = {}) {
   if (savedPlayer) {
     announceChat += `\n🛡️ [BẢO VỆ CỨU SỐNG]: ${savedPlayer.name} đã được Bảo Vệ che chở an toàn!`;
   }
+  if (heartbrokenPlayer) {
+    announceChat += `\n💔 [TÌNH YÊU VĨNH HẰNG]: Nhìn thấy người yêu qua đời, ${heartbrokenPlayer.name} không thiết tha sống nữa và đã chết theo vì quá đau buồn thất tình!`;
+  }
 
-  // Kiểm tra Thợ Săn bị Sói cắn tử nạn (và không bị Phù Thủy ném độc)
-  const wolfKilledHunter = (deadPlayer && deadPlayer.role === ROLES.HUNTER && (!poisonedPlayer || poisonedPlayer.id !== deadPlayer.id))
+  // Kiểm tra Thợ Săn bị Sói cắn tử nạn (và không bị Phù Thủy ném độc) hoặc chết theo người yêu (nếu setting bật)
+  const directWolfKilledHunter = (deadPlayer && deadPlayer.role === ROLES.HUNTER && (!poisonedPlayer || poisonedPlayer.id !== deadPlayer.id))
     ? deadPlayer
     : null;
+  const heartbrokenHunterNight = (room.settings.hunterShootOnHeartbreak !== false && heartbrokenPlayer && heartbrokenPlayer.role === ROLES.HUNTER)
+    ? heartbrokenPlayer
+    : null;
+  const wolfKilledHunter = directWolfKilledHunter || heartbrokenHunterNight;
 
   io.to(room.code).emit('new-message', {
     playerId: 'system',
@@ -573,11 +769,19 @@ function startDayAnnounce(room, nightResult = {}) {
     isSystem: true,
   });
 
-  // Kiểm tra Người Thổi Sáo chết trong đêm (do Sói cắn hoặc Phù Thủy ném độc)
-  const isPiedPiperDeadNight = (deadPlayer && deadPlayer.role === ROLES.PIED_PIPER) || (poisonedPlayer && poisonedPlayer.role === ROLES.PIED_PIPER);
+  // Kiểm tra Người Thổi Sáo chết trong đêm (do Sói cắn, Phù Thủy ném độc hoặc chết theo người yêu)
+  const isPiedPiperDeadNight =
+    (deadPlayer && deadPlayer.role === ROLES.PIED_PIPER) ||
+    (poisonedPlayer && poisonedPlayer.role === ROLES.PIED_PIPER) ||
+    (heartbrokenPlayer && heartbrokenPlayer.role === ROLES.PIED_PIPER);
   let purifiedPlayersNight = [];
   if (isPiedPiperDeadNight) {
-    const piedPiperVictim = (deadPlayer && deadPlayer.role === ROLES.PIED_PIPER) ? deadPlayer : poisonedPlayer;
+    const piedPiperVictim =
+      (deadPlayer && deadPlayer.role === ROLES.PIED_PIPER)
+        ? deadPlayer
+        : (poisonedPlayer && poisonedPlayer.role === ROLES.PIED_PIPER)
+        ? poisonedPlayer
+        : heartbrokenPlayer;
     if (room.charmedPlayers && room.charmedPlayers.size > 0) {
       purifiedPlayersNight = [...room.charmedPlayers]
         .map((id) => room.players.get(id))
@@ -593,7 +797,9 @@ function startDayAnnounce(room, nightResult = {}) {
     room.charmedPlayers = new Set();
     room.charmedHistory = {};
     room.players.forEach((p) => { p.charmed = false; });
-    room.players.forEach((p) => { p.charmed = false; });
+    room.players.forEach((_, pid) => {
+      io.to(pid).emit('players-update', { players: getPlayersData(room, pid) });
+    });
 
     io.to(room.code).emit('pied-piper-purified', {
       piedPiper: {
@@ -620,9 +826,19 @@ function startDayAnnounce(room, nightResult = {}) {
     }, 7500);
   }
 
-  // Nếu có nhiều hoạt ảnh tuần tự (vừa chết sói/cứu vừa chết độc/xung đột khiên) và thanh tẩy -> cho đủ thời gian thoải mái hiển thị (19s), hoặc 14s khi Thổi Sáo chết, ngược lại 8-13s
+  // Nếu có nhiều hoạt ảnh tuần tự (vừa chết sói/cứu vừa chết độc/xung đột khiên), người yêu tuẫn tình và thanh tẩy -> cho đủ thời gian thoải mái hiển thị
   const hasMultipleModals = (poisonedPlayer || shieldClashPlayer) && (deadPlayer || witchSavedPlayer || savedPlayer);
-  const announceTime = hasMultipleModals && isPiedPiperDeadNight ? 19 : (isPiedPiperDeadNight ? 14 : (hasMultipleModals ? 13 : (TIMERS.DAY_ANNOUNCE || 8)));
+  const hasHeartbreak = Boolean(heartbrokenPlayer);
+  let announceTime = TIMERS.DAY_ANNOUNCE || 8;
+  if (hasMultipleModals && isPiedPiperDeadNight) {
+    announceTime = hasHeartbreak ? 24 : 19;
+  } else if (isPiedPiperDeadNight) {
+    announceTime = hasHeartbreak ? 19 : 14;
+  } else if (hasMultipleModals) {
+    announceTime = hasHeartbreak ? 18 : 13;
+  } else if (hasHeartbreak) {
+    announceTime = 14;
+  }
 
   startPhaseTimer(room, announceTime, () => {
     // Nếu Thợ Săn bị Sói cắn chết -> Kích hoạt phát súng trăn trối báo thù trước khi vào thảo luận ngày!
@@ -695,15 +911,31 @@ function concludeDayVote(room) {
   const { eliminatedId, voteDetails } = processDayVote(room);
   const eliminated = eliminatedId ? room.players.get(eliminatedId) : null;
 
+  // 💔 Kiểm tra Cặp Đôi chết theo nhau khi bị treo cổ
+  let voteHeartbrokenPlayer = null;
+  if (eliminated && room.couple && room.couple.includes(eliminated.id)) {
+    const loverId = room.couple.find((id) => id !== eliminated.id);
+    const lover = room.players.get(loverId);
+    if (lover && lover.alive) {
+      lover.alive = false;
+      voteHeartbrokenPlayer = lover;
+    }
+  }
+
   // Tính số lượng Sói còn sống sau khi bỏ phiếu
   const remainingWolves = [...room.players.values()].filter(
     (p) => p.role === ROLES.WOLF && p.alive
   ).length;
 
-  // Kiểm tra nếu người bị treo cổ là Người Thổi Sáo -> Kích hoạt Thanh Tẩy Hoàng Kim
-  const isPiedPiperEliminated = eliminated && eliminated.role === ROLES.PIED_PIPER;
+  // Kiểm tra nếu người bị treo cổ HOẶC người yêu chết theo là Người Thổi Sáo -> Kích hoạt Thanh Tẩy Hoàng Kim
+  const isPiedPiperEliminated =
+    (eliminated && eliminated.role === ROLES.PIED_PIPER) ||
+    (voteHeartbrokenPlayer && voteHeartbrokenPlayer.role === ROLES.PIED_PIPER);
+  const piedPiperEliminatedPlayer =
+    eliminated && eliminated.role === ROLES.PIED_PIPER ? eliminated : voteHeartbrokenPlayer;
+
   let purifiedPlayers = [];
-  if (isPiedPiperEliminated) {
+  if (isPiedPiperEliminated && piedPiperEliminatedPlayer) {
     if (room.charmedPlayers && room.charmedPlayers.size > 0) {
       purifiedPlayers = [...room.charmedPlayers]
         .map((id) => room.players.get(id))
@@ -718,7 +950,6 @@ function concludeDayVote(room) {
     // Thanh tẩy sạch sẽ bùa mê tiếng sáo khi Người Thổi Sáo chết
     room.charmedPlayers = new Set();
     room.charmedHistory = {};
-    room.players.forEach((p) => { p.charmed = false; });
     room.players.forEach((p) => { p.charmed = false; });
   }
 
@@ -740,6 +971,18 @@ function concludeDayVote(room) {
     isSystem: true,
   });
 
+  if (voteHeartbrokenPlayer) {
+    io.to(room.code).emit('new-message', {
+      playerId: 'system',
+      playerName: '📢 Hệ Thống',
+      avatar: '💔',
+      message: `💔 [TÌNH YÊU VĨNH HẰNG]: Nhìn thấy người yêu ${eliminated ? eliminated.name : ''} bị đưa lên giàn treo cổ, ${voteHeartbrokenPlayer.name} không thiết tha sống nữa và đã tự vẫn chết theo!`,
+      timestamp: Date.now(),
+      isWolfChat: false,
+      isSystem: true,
+    });
+  }
+
   // Gửi kết quả biểu quyết kèm remainingWolves (không gửi charmedCount lên bảng chung để bảo vệ bí mật Phương án 1)
   io.to(room.code).emit('vote-result', {
     eliminated: eliminated
@@ -751,20 +994,42 @@ function concludeDayVote(room) {
           role: eliminated.role,
         }
       : null,
+    heartbrokenPlayer: voteHeartbrokenPlayer
+      ? {
+          id: voteHeartbrokenPlayer.id,
+          name: voteHeartbrokenPlayer.name,
+          avatar: voteHeartbrokenPlayer.avatar,
+          avatarColor: voteHeartbrokenPlayer.avatarColor,
+          role: voteHeartbrokenPlayer.role,
+        }
+      : null,
+    piedPiperVictim: piedPiperEliminatedPlayer
+      ? {
+          id: piedPiperEliminatedPlayer.id,
+          name: piedPiperEliminatedPlayer.name,
+          avatar: piedPiperEliminatedPlayer.avatar,
+          avatarColor: piedPiperEliminatedPlayer.avatarColor,
+        }
+      : null,
     votes: voteDetails,
     remainingWolves,
-    isPiedPiperDead: isPiedPiperEliminated,
+    isPiedPiperDead: Boolean(isPiedPiperEliminated),
     purifiedPlayers,
     players: getPlayersData(room),
   });
 
-  if (isPiedPiperEliminated) {
+  // Cập nhật danh sách người chơi riêng biệt cho từng người để không mất dữ liệu role của người yêu / đồng đội Sói
+  room.players.forEach((p, pid) => {
+    io.to(pid).emit('players-update', { players: getPlayersData(room, pid) });
+  });
+
+  if (isPiedPiperEliminated && piedPiperEliminatedPlayer) {
     io.to(room.code).emit('pied-piper-purified', {
       piedPiper: {
-        id: eliminated.id,
-        name: eliminated.name,
-        avatar: eliminated.avatar,
-        avatarColor: eliminated.avatarColor,
+        id: piedPiperEliminatedPlayer.id,
+        name: piedPiperEliminatedPlayer.name,
+        avatar: piedPiperEliminatedPlayer.avatar,
+        avatarColor: piedPiperEliminatedPlayer.avatarColor,
       },
       purifiedPlayers,
       cause: 'vote',
@@ -784,17 +1049,33 @@ function concludeDayVote(room) {
     }, 7500);
   }
 
-  // Nếu người bị treo cổ là Thợ Săn -> Kích hoạt phát súng trăn trối sau khi chiếu xong hoạt ảnh treo cổ (4.0s)
-  if (eliminated && eliminated.role === ROLES.HUNTER) {
+  const hasVoteHeartbreak = Boolean(voteHeartbrokenPlayer);
+
+  // Kiểm tra Thợ Săn bị treo cổ HOẶC Thợ Săn chết theo người yêu (khi bật setting hunterShootOnHeartbreak)
+  const hunterAfterVote =
+    eliminated && eliminated.role === ROLES.HUNTER
+      ? eliminated
+      : room.settings.hunterShootOnHeartbreak !== false &&
+        voteHeartbrokenPlayer &&
+        voteHeartbrokenPlayer.role === ROLES.HUNTER
+      ? voteHeartbrokenPlayer
+      : null;
+
+  if (hunterAfterVote) {
+    // Nếu có hoạt ảnh cặp đôi chết theo (6s) hoặc Thổi Sáo thanh tẩy, chờ hết chuỗi hoạt ảnh rồi mới tới lượt Thợ Săn nổ súng!
+    const hunterVoteDelay = hasVoteHeartbreak
+      ? (isPiedPiperEliminated ? 18000 : 11000)
+      : (isPiedPiperEliminated ? 12000 : 4500);
     setTimeout(() => {
-      startHunterShotPhase(room, eliminated, 'vote');
-    }, 4000);
+      startHunterShotPhase(room, hunterAfterVote, 'vote');
+    }, hunterVoteDelay);
     return;
   }
 
-  // Thời gian chờ chuyển pha: Nếu người bị treo cổ là Người Thổi Sáo thì chờ 12.5s
-  // (3.8s bảng số sói + 3.35s hoạt ảnh Thổi Sáo chết + 3.5s thanh tẩy hoàng kim trên màn hình chính + 1.85s đệm vào đêm), ngược lại 5.0s
-  const voteTransitionDelay = isPiedPiperEliminated ? 12500 : 5000;
+  // Thời gian chờ chuyển pha: Đảm bảo đủ thời gian cho bảng số Sói hiện ra sau hoạt ảnh cặp đôi (3.5s đọc bảng)
+  const voteTransitionDelay = isPiedPiperEliminated
+    ? (hasVoteHeartbreak ? 21500 : 15500)
+    : (hasVoteHeartbreak ? 14500 : 8500);
 
   // Kiểm tra win condition sau vote
   const winCheck = checkWinCondition(room);
@@ -821,17 +1102,19 @@ function startHunterShotPhase(room, hunterPlayer, cause) {
     hasShot: false,
   };
 
-  io.to(room.code).emit('phase-change', {
-    phase: PHASES.HUNTER_SHOT,
-    round: room.round,
-    hunter: {
-      id: hunterPlayer.id,
-      name: hunterPlayer.name,
-      avatar: hunterPlayer.avatar,
-      avatarColor: hunterPlayer.avatarColor,
-    },
-    cause,
-    players: getPlayersData(room),
+  room.players.forEach((p, playerId) => {
+    io.to(playerId).emit('phase-change', {
+      phase: PHASES.HUNTER_SHOT,
+      round: room.round,
+      hunter: {
+        id: hunterPlayer.id,
+        name: hunterPlayer.name,
+        avatar: hunterPlayer.avatar,
+        avatarColor: hunterPlayer.avatarColor,
+      },
+      cause,
+      players: getPlayersData(room, playerId),
+    });
   });
 
   io.to(room.code).emit('new-message', {
@@ -899,10 +1182,26 @@ function processHunterShot(room, hunterPlayer, targetPlayer, passed, cause) {
   // Thợ Săn bắn trúng mục tiêu
   targetPlayer.alive = false;
 
-  // Kiểm tra nếu mục tiêu bị bắn hạ là Người Thổi Sáo -> Kích hoạt Thanh Tẩy Hoàng Kim
-  const isPiedPiperShot = targetPlayer && targetPlayer.role === ROLES.PIED_PIPER;
+  // 💔 Nếu mục tiêu của Thợ Săn thuộc Cặp Đôi, người yêu chết theo vì thất tình
+  let hunterHeartbrokenPlayer = null;
+  if (room.couple && room.couple.includes(targetPlayer.id)) {
+    const loverId = room.couple.find((id) => id !== targetPlayer.id);
+    const lover = room.players.get(loverId);
+    if (lover && lover.alive) {
+      lover.alive = false;
+      hunterHeartbrokenPlayer = lover;
+    }
+  }
+
+  // Kiểm tra nếu mục tiêu bị bắn hạ HOẶC người yêu chết theo là Người Thổi Sáo -> Kích hoạt Thanh Tẩy Hoàng Kim
+  const isPiedPiperShot =
+    (targetPlayer && targetPlayer.role === ROLES.PIED_PIPER) ||
+    (hunterHeartbrokenPlayer && hunterHeartbrokenPlayer.role === ROLES.PIED_PIPER);
+  const piedPiperShotPlayer =
+    targetPlayer && targetPlayer.role === ROLES.PIED_PIPER ? targetPlayer : hunterHeartbrokenPlayer;
+
   let purifiedPlayersHunter = [];
-  if (isPiedPiperShot) {
+  if (isPiedPiperShot && piedPiperShotPlayer) {
     if (room.charmedPlayers && room.charmedPlayers.size > 0) {
       purifiedPlayersHunter = [...room.charmedPlayers]
         .map((id) => room.players.get(id))
@@ -918,20 +1217,19 @@ function processHunterShot(room, hunterPlayer, targetPlayer, passed, cause) {
     room.charmedHistory = {};
     room.players.forEach((p) => { p.charmed = false; });
 
-    setTimeout(() => {
-      io.to(room.code).emit('pied-piper-purified', {
-        piedPiper: {
-          id: targetPlayer.id,
-          name: targetPlayer.name,
-          avatar: targetPlayer.avatar,
-          avatarColor: targetPlayer.avatarColor,
-        },
-        purifiedPlayers: purifiedPlayersHunter,
-        cause: 'hunter_shot',
-      });
-    }, 4500);
+    io.to(room.code).emit('pied-piper-purified', {
+      piedPiper: {
+        id: piedPiperShotPlayer.id,
+        name: piedPiperShotPlayer.name,
+        avatar: piedPiperShotPlayer.avatar,
+        avatarColor: piedPiperShotPlayer.avatarColor,
+      },
+      purifiedPlayers: purifiedPlayersHunter,
+      cause: 'hunter_shot',
+    });
 
-    // Chờ cả modal Thợ Săn nổ súng (4.5s) và modal Thổi Sáo chết (3.35s) đóng hết -> t = 8.0s mới gửi tin nhắn chat thanh tẩy!
+    // Chờ cả modal Thợ Săn nổ súng (4.5s), modal Tim Vỡ (nếu có: 6s) và modal Thổi Sáo chết (3.35s) đóng hết mới gửi tin nhắn chat thanh tẩy!
+    const chatPurifyDelay = hunterHeartbrokenPlayer ? 14000 : 8000;
     setTimeout(() => {
       io.to(room.code).emit('new-message', {
         playerId: 'system',
@@ -942,7 +1240,7 @@ function processHunterShot(room, hunterPlayer, targetPlayer, passed, cause) {
         isWolfChat: false,
         isSystem: true,
       });
-    }, 8000);
+    }, chatPurifyDelay);
   }
 
   io.to(room.code).emit('hunter-shot-result', {
@@ -955,9 +1253,34 @@ function processHunterShot(room, hunterPlayer, targetPlayer, passed, cause) {
       role: targetPlayer.role,
       isWolf: targetPlayer.role === ROLES.WOLF,
     },
+    heartbrokenPlayer: hunterHeartbrokenPlayer
+      ? {
+          id: hunterHeartbrokenPlayer.id,
+          name: hunterHeartbrokenPlayer.name,
+          avatar: hunterHeartbrokenPlayer.avatar,
+          avatarColor: hunterHeartbrokenPlayer.avatarColor,
+          role: hunterHeartbrokenPlayer.role,
+        }
+      : null,
     passed: false,
     players: getPlayersData(room),
   });
+
+  room.players.forEach((p, pid) => {
+    io.to(pid).emit('players-update', { players: getPlayersData(room, pid) });
+  });
+
+  if (hunterHeartbrokenPlayer) {
+    io.to(room.code).emit('new-message', {
+      playerId: 'system',
+      playerName: '📢 Hệ Thống',
+      avatar: '💔',
+      message: `💔 [TÌNH YÊU VĨNH HẰNG]: Nhìn thấy người yêu ${targetPlayer.name} trúng đạn ngã xuống, ${hunterHeartbrokenPlayer.name} không thiết tha sống nữa và đã tự vẫn chết theo!`,
+      timestamp: Date.now(),
+      isWolfChat: false,
+      isSystem: true,
+    });
+  }
 
   io.to(room.code).emit('new-message', {
     playerId: 'system',
@@ -969,8 +1292,11 @@ function processHunterShot(room, hunterPlayer, targetPlayer, passed, cause) {
     isSystem: true,
   });
 
-  // Chờ hiển thị hoạt ảnh tuần tự (Nếu bắn trúng Người Thổi Sáo thì chờ thêm thời gian Thổi Sáo chết + thanh tẩy: 13s, ngược lại 6.5s)
-  const hunterDelay = isPiedPiperShot ? 13000 : 6500;
+  // Chờ hiển thị hoạt ảnh tuần tự (Nếu bắn trúng Người Thổi Sáo thì chờ thêm thời gian Thổi Sáo chết + thanh tẩy: 13s / 18s nếu kèm người yêu chết; nếu trúng người có người yêu tuẫn tình: 12.5s, ngược lại 6.5s)
+  const hasHunterHeartbreak = Boolean(hunterHeartbrokenPlayer);
+  const hunterDelay = isPiedPiperShot
+    ? (hasHunterHeartbreak ? 18000 : 13000)
+    : (hasHunterHeartbreak ? 12500 : 6500);
   setTimeout(() => {
     const winCheck = checkWinCondition(room);
     if (winCheck.gameOver) {
@@ -1003,11 +1329,22 @@ function endGame(room, winCheck) {
     avatarColor: p.avatarColor,
   }));
 
+  const couplePlayers = room.couple
+    ? room.couple.map((id) => room.players.get(id)).filter(Boolean).map((p) => ({
+        id: p.id,
+        name: p.name,
+        role: p.role,
+        avatar: p.avatar,
+        avatarColor: p.avatarColor,
+      }))
+    : [];
+
   io.to(room.code).emit('phase-change', {
     phase: PHASES.GAME_OVER,
     winner: winCheck.winner,
     message: winCheck.message,
     players: allPlayers,
+    couple: couplePlayers,
   });
 }
 
@@ -1130,10 +1467,13 @@ io.on('connection', (socket) => {
       numWitches: settings.numWitches !== undefined ? settings.numWitches : (room.settings.numWitches !== undefined ? room.settings.numWitches : 1),
       numHunters: settings.numHunters !== undefined ? settings.numHunters : (room.settings.numHunters !== undefined ? room.settings.numHunters : 1),
       numPiedPipers: settings.numPiedPipers !== undefined ? settings.numPiedPipers : (room.settings.numPiedPipers !== undefined ? room.settings.numPiedPipers : 0),
+      numCupids: settings.numCupids !== undefined ? settings.numCupids : (room.settings.numCupids !== undefined ? room.settings.numCupids : 0),
       piedPiperCharmCount: settings.piedPiperCharmCount !== undefined ? settings.piedPiperCharmCount : (room.settings.piedPiperCharmCount || 2),
       piedPiperRevealDawn: settings.piedPiperRevealDawn !== undefined ? settings.piedPiperRevealDawn : (room.settings.piedPiperRevealDawn !== false),
+      hunterShootOnHeartbreak: settings.hunterShootOnHeartbreak !== undefined ? settings.hunterShootOnHeartbreak : (room.settings.hunterShootOnHeartbreak !== false),
       dayDiscussionTime: settings.dayDiscussionTime !== undefined ? settings.dayDiscussionTime : (room.settings.dayDiscussionTime || 60),
       dayVoteTime: settings.dayVoteTime !== undefined ? settings.dayVoteTime : (room.settings.dayVoteTime || 25),
+      nightWolfTime: settings.nightWolfTime !== undefined ? settings.nightWolfTime : (room.settings.nightWolfTime || 90),
     };
 
     io.to(room.code).emit('settings-updated', { settings: room.settings });
@@ -1165,15 +1505,17 @@ io.on('connection', (socket) => {
     }
 
     const remainingNonWolves = playerCount - room.settings.numWolves;
-    const totalSpecial = (room.settings.numSeers || 0) + (room.settings.numBodyguards || 0) + (room.settings.numWitches || 0) + (room.settings.numHunters || 0) + (room.settings.numPiedPipers || 0);
+    const totalSpecial = (room.settings.numSeers || 0) + (room.settings.numBodyguards || 0) + (room.settings.numWitches || 0) + (room.settings.numHunters || 0) + (room.settings.numPiedPipers || 0) + (room.settings.numCupids || 0);
     if (totalSpecial > remainingNonWolves) {
       if (room.settings.numPiedPipers > 1) room.settings.numPiedPipers = 1;
+      if (room.settings.numCupids > 1) room.settings.numCupids = 1;
       if (room.settings.numHunters > 1) room.settings.numHunters = 1;
       if (room.settings.numWitches > 1) room.settings.numWitches = 1;
       if (room.settings.numBodyguards > 1) room.settings.numBodyguards = 1;
       if (room.settings.numSeers > 1) room.settings.numSeers = 1;
-      while ((room.settings.numSeers || 0) + (room.settings.numBodyguards || 0) + (room.settings.numWitches || 0) + (room.settings.numHunters || 0) + (room.settings.numPiedPipers || 0) > remainingNonWolves) {
+      while ((room.settings.numSeers || 0) + (room.settings.numBodyguards || 0) + (room.settings.numWitches || 0) + (room.settings.numHunters || 0) + (room.settings.numPiedPipers || 0) + (room.settings.numCupids || 0) > remainingNonWolves) {
         if (room.settings.numHunters > 0) room.settings.numHunters--;
+        else if (room.settings.numCupids > 0) room.settings.numCupids--;
         else if (room.settings.numBodyguards > 0) room.settings.numBodyguards--;
         else if (room.settings.numWitches > 0) room.settings.numWitches--;
         else if (room.settings.numPiedPipers > 0) room.settings.numPiedPipers--;
@@ -1189,9 +1531,17 @@ io.on('connection', (socket) => {
     room.seerHistory = {};
     room.charmedPlayers = new Set();
     room.charmedHistory = {};
-    room.players.forEach((p) => { p.charmed = false; });
+    room.players.forEach((p) => {
+      p.charmed = false;
+    });
 
-    console.log(`🎮 Phòng ${room.code} bắt đầu game! (${playerCount} người chơi)`);
+    // Log ẩn danh số lượng vai trò (KHÔNG in tên người chơi để chống lộ role cho chủ phòng/người chạy server)
+    const roleCounts = {};
+    [...room.players.values()].forEach((p) => {
+      roleCounts[p.role] = (roleCounts[p.role] || 0) + 1;
+    });
+    const countsStr = Object.entries(roleCounts).map(([r, c]) => `${c} ${r}`).join(', ');
+    console.log(`🎮 Phòng ${room.code} bắt đầu game! (${playerCount} người chơi: ${countsStr})`);
 
     // Gửi role cho từng người chơi
     room.players.forEach((player, playerId) => {
@@ -1269,6 +1619,23 @@ io.on('connection', (socket) => {
     const player = room.players.get(socket.id);
     if (!player || player.role !== ROLES.WOLF || !player.alive) return;
 
+    const aliveWolves = [...room.players.values()].filter(
+      (p) => p.role === ROLES.WOLF && p.alive
+    );
+
+    // Nếu Sói bấm lại vào mục tiêu đang chọn để hủy chọn (targetId === null)
+    if (targetId === null || targetId === undefined) {
+      room.nightActions.wolfVotes.delete(socket.id);
+      const wolfVotes = {};
+      room.nightActions.wolfVotes.forEach((tid, wid) => {
+        wolfVotes[wid] = tid;
+      });
+      aliveWolves.forEach((wolf) => {
+        io.to(wolf.id).emit('wolf-vote-update', { wolfVotes, wolfConfirmed: [] });
+      });
+      return;
+    }
+
     const target = room.players.get(targetId);
     if (!target || !target.alive || target.role === ROLES.WOLF) return;
 
@@ -1279,9 +1646,6 @@ io.on('connection', (socket) => {
       room.nightActions.wolfVotes.set(socket.id, targetId);
     }
 
-    const aliveWolves = [...room.players.values()].filter(
-      (p) => p.role === ROLES.WOLF && p.alive
-    );
     const wolfVotes = {};
     room.nightActions.wolfVotes.forEach((tid, wid) => {
       wolfVotes[wid] = tid;
@@ -1314,22 +1678,33 @@ io.on('connection', (socket) => {
       player.witchState = { hasHeal: true, hasPoison: true };
     }
 
-    if (save === true && player.witchState.hasHeal) {
-      player.witchState.hasHeal = false;
+    const canUseHealTonight = player.hasHealAtNightStart !== undefined ? player.hasHealAtNightStart : player.witchState.hasHeal;
+    const hasEffectiveVictim = Boolean(
+      room.nightActions.wolfTarget &&
+        room.nightActions.bodyguardTarget !== room.nightActions.wolfTarget
+    );
+
+    if (save === true && canUseHealTonight && hasEffectiveVictim) {
       room.nightActions.witchSavedThisNight = true;
-      console.log(`🧪 Phù Thủy ${player.name} đã dùng bình Cứu hồi sinh con mồi.`);
+      console.log(`🧪 Phù Thủy đã dùng bình Cứu hồi sinh con mồi.`);
     } else if (save === false) {
-      console.log(`❌ Phù Thủy ${player.name} chọn BỎ MẶC con mồi.`);
+      room.nightActions.witchSavedThisNight = false;
+      console.log(`❌ Phù Thủy chọn BỎ MẶC con mồi.`);
     }
 
+    const canUsePoisonTonight = player.hasPoisonAtNightStart !== undefined ? player.hasPoisonAtNightStart : player.witchState.hasPoison;
     socket.emit('witch-state-update', {
-      witchState: { ...player.witchState },
+      witchState: {
+        hasHeal: canUseHealTonight && !room.nightActions.witchSavedThisNight,
+        hasPoison: canUsePoisonTonight,
+      },
+      savedThisNight: room.nightActions.witchSavedThisNight,
     });
 
     // YÊU CẦU: Phù Thủy có thể dùng cả 2 lọ thuốc trong 1 đêm!
-    // Nếu Phù Thủy KHÔNG CÒN BÌNH ĐỘC -> tự động đếm lùi 5s chuyển pha
+    // Nếu Phù Thủy KHÔNG CÒN BÌNH ĐỘC từ trước -> tự động đếm lùi 5s chuyển pha
     // Nếu VẪN CÒN BÌNH ĐỘC -> Không rút 5s ngay mà để Phù Thủy tiếp tục lựa chọn dùng bình độc thứ 2!
-    if (!player.witchState.hasPoison) {
+    if (!canUsePoisonTonight) {
       startPhaseTimer(room, 5, () => {
         finishWitchTurn(room);
       });
@@ -1349,28 +1724,38 @@ io.on('connection', (socket) => {
       player.witchState = { hasHeal: true, hasPoison: true };
     }
 
-    // Xử lý Cứu:
-    if (save === true && player.witchState.hasHeal) {
-      player.witchState.hasHeal = false;
+    const canUseHealTonight = player.hasHealAtNightStart !== undefined ? player.hasHealAtNightStart : player.witchState.hasHeal;
+    const canUsePoisonTonight = player.hasPoisonAtNightStart !== undefined ? player.hasPoisonAtNightStart : player.witchState.hasPoison;
+    const hasEffectiveVictim = Boolean(
+      room.nightActions.wolfTarget &&
+        room.nightActions.bodyguardTarget !== room.nightActions.wolfTarget
+    );
+
+    // Xử lý Cứu (chỉ trừ bình cứu khi thực sự có nạn nhân bị cắn đêm nay):
+    if (save === true && canUseHealTonight && hasEffectiveVictim) {
       room.nightActions.witchSavedThisNight = true;
-      console.log(`🧪 Phù Thủy ${player.name} đã dùng bình Cứu trong đêm.`);
+      console.log(`🧪 Phù Thủy đã dùng bình Cứu trong đêm.`);
     }
 
     // Xử lý Độc (Phù Thủy KHÔNG THỂ bỏ độc chính mình, hỗ trợ chọn/đổi mục tiêu hoặc bỏ qua):
-    if (poisonTargetId && poisonTargetId !== socket.id) {
+    if (poisonTargetId && poisonTargetId !== socket.id && canUsePoisonTonight) {
       const target = room.players.get(poisonTargetId);
       if (target && target.alive) {
-        player.witchState.hasPoison = false;
         room.nightActions.witchPoisonTarget = poisonTargetId;
-        console.log(`☠️ Phù Thủy ${player.name} đã dùng bình Độc nhắm vào ${target.name}.`);
+        console.log(`☠️ Phù Thủy đã dùng bình Độc trong đêm.`);
       }
     } else if (poisonTargetId === null) {
       room.nightActions.witchPoisonTarget = null;
-      console.log(`❌ Phù Thủy ${player.name} chọn không dùng bình Độc đêm nay.`);
+      console.log(`❌ Phù Thủy chọn không dùng bình Độc đêm nay.`);
     }
 
     socket.emit('witch-state-update', {
-      witchState: { ...player.witchState },
+      witchState: {
+        hasHeal: canUseHealTonight && !room.nightActions.witchSavedThisNight,
+        hasPoison: canUsePoisonTonight,
+      },
+      poisonTargetId: room.nightActions.witchPoisonTarget,
+      savedThisNight: room.nightActions.witchSavedThisNight,
     });
 
     // Rút thời gian xuống 5s như Bảo Vệ để nếu không đổi thì tự động chuyển pha
@@ -1592,8 +1977,52 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ---------- THẦN TÌNH YÊU CUPID GHÉP ĐÔI ----------
+  socket.on('cupid-choose-couple', (data = {}) => {
+    try {
+      const room = getRoom(socket.roomCode);
+      if (!room || room.phase !== PHASES.NIGHT_CUPID || room.cupidActed) return;
+
+      const player = room.players.get(socket.id);
+      if (!player || player.role !== ROLES.CUPID || !player.alive) return;
+
+      const rawTargets = data.targets || data.targetIds || [];
+      if (!Array.isArray(rawTargets) || rawTargets.length < 2) return;
+
+      // Cupid bắt buộc chọn 2 người khác nhau, không được chọn chính Cupid
+      const validTargets = rawTargets.filter((tId) => {
+        const target = room.players.get(tId);
+        return target && target.alive && target.id !== socket.id;
+      });
+
+      if (validTargets.length < 2) return;
+
+      const target1 = validTargets[0];
+      const target2 = validTargets[1];
+      if (target1 === target2) return;
+
+      room.couple = [target1, target2];
+      room.cupidActed = true;
+
+      socket.emit('cupid-chosen-success', { couple: [target1, target2] });
+
+      // Rút ngắn timer xuống 2s để chuyển nhanh sang màn hình hé lộ Cặp Đôi
+      if (room.timer) {
+        clearInterval(room.timer);
+        room.timer = null;
+      }
+      room.timeLeft = 2;
+      io.to(room.code).emit('timer-update', { timeLeft: 2 });
+      setTimeout(() => {
+        finishCupidTurn(room);
+      }, 2000);
+    } catch (err) {
+      console.error('Error in cupid-choose-couple:', err);
+    }
+  });
+
   // ---------- CHAT ----------
-  socket.on('send-message', ({ message, isWolfChat }) => {
+  socket.on('send-message', ({ message, isWolfChat, isCoupleChat }) => {
     const room = getRoom(socket.roomCode);
     if (!room) return;
 
@@ -1605,6 +2034,35 @@ io.on('connection', (socket) => {
 
     // Người chết không được chat (trừ khi đang ở lobby hoặc game over)
     if (room.phase !== PHASES.WAITING && room.phase !== PHASES.GAME_OVER && !player.alive) {
+      return;
+    }
+
+    // 💘 CHAT RIÊNG CỦA CẶP ĐÔI (Hoạt động mọi buổi sáng)
+    if (isCoupleChat) {
+      if (!room.couple || !room.couple.includes(socket.id)) {
+        socket.emit('error-msg', { message: 'Bạn không thuộc Cặp Đôi uyên ương!' });
+        return;
+      }
+
+      // Kiểm tra ban ngày (hoạt động mọi buổi sáng)
+      const isNightTime = room.phase === PHASES.NIGHT_CUPID || room.phase === PHASES.NIGHT_COUPLE_REVEAL || room.phase === PHASES.NIGHT_BODYGUARD || room.phase === PHASES.NIGHT_WOLF || room.phase === PHASES.NIGHT_WITCH || room.phase === PHASES.NIGHT_SEER || room.phase === PHASES.NIGHT_PIED_PIPER || room.phase === PHASES.NIGHT_CHARMED_REVEAL || room.phase === PHASES.NIGHT;
+      if (isNightTime && room.phase !== PHASES.WAITING && room.phase !== PHASES.GAME_OVER) {
+        socket.emit('error-msg', { message: '🌙 Ban đêm làng đang ngủ, tâm sự Cặp Đôi sẽ mở vào buổi sáng!' });
+        return;
+      }
+
+      // Gửi riêng cho 2 người trong cặp đôi
+      room.couple.forEach((loverId) => {
+        io.to(loverId).emit('new-message', {
+          playerId: socket.id,
+          playerName: player.name,
+          avatar: player.avatar,
+          message: trimmed,
+          timestamp: Date.now(),
+          isCoupleChat: true,
+          isWolfChat: false,
+        });
+      });
       return;
     }
 
@@ -1633,7 +2091,7 @@ io.on('connection', (socket) => {
     }
 
     // Ban đêm: dân làng đang ngủ, không được chat công khai
-    const isNightTime = room.phase === PHASES.NIGHT_BODYGUARD || room.phase === PHASES.NIGHT_WOLF || room.phase === PHASES.NIGHT_WITCH || room.phase === PHASES.NIGHT_SEER || room.phase === PHASES.NIGHT_PIED_PIPER || room.phase === PHASES.NIGHT_CHARMED_REVEAL || room.phase === PHASES.NIGHT;
+    const isNightTime = room.phase === PHASES.NIGHT_CUPID || room.phase === PHASES.NIGHT_COUPLE_REVEAL || room.phase === PHASES.NIGHT_BODYGUARD || room.phase === PHASES.NIGHT_WOLF || room.phase === PHASES.NIGHT_WITCH || room.phase === PHASES.NIGHT_SEER || room.phase === PHASES.NIGHT_PIED_PIPER || room.phase === PHASES.NIGHT_CHARMED_REVEAL || room.phase === PHASES.NIGHT;
     if (isNightTime) {
       return;
     }

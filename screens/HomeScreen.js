@@ -38,7 +38,16 @@ export default function HomeScreen({ socket, onRoomCreated, onRoomJoined, error 
   const [localError, setLocalError] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showAvatarPickerModal, setShowAvatarPickerModal] = useState(false);
-  const [settings, setSettings] = useState({ maxPlayers: 6, numWolves: 2, numSeers: 1, numBodyguards: 1 });
+  const [settings, setSettings] = useState({
+    maxPlayers: 6,
+    numWolves: 2,
+    numSeers: 1,
+    numBodyguards: 1,
+    numWitches: 1,
+    numHunters: 1,
+    numPiedPipers: 1,
+    numCupids: 1,
+  });
   const [customAvatar, setCustomAvatarState] = useState(() => getSessionItem(STORAGE_KEYS.PLAYER_AVATAR, null));
 
   // Tự động lưu tên vào session khi thay đổi

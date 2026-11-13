@@ -20,6 +20,10 @@ import PiedPiperVictoryModal from './PiedPiperVictoryModal';
 import PiedPiperPurifiedModal from './PiedPiperPurifiedModal';
 import DualKillClashModal from './DualKillClashModal';
 import DaytimeHangingModal from './DaytimeHangingModal';
+import CoupleRevealModal from './CoupleRevealModal';
+import CupidVictoryModal from './CupidVictoryModal';
+import CoupleHeartbreakModal from './CoupleHeartbreakModal';
+import CardShuffleModal from './CardShuffleModal';
 
 /**
  * @param {Object} props
@@ -50,10 +54,13 @@ export default function RoomSettings({
   const [numWitches, setNumWitches] = useState(1);
   const [numHunters, setNumHunters] = useState(1);
   const [numPiedPipers, setNumPiedPipers] = useState(1);
+  const [numCupids, setNumCupids] = useState(1);
   const [piedPiperCharmCount, setPiedPiperCharmCount] = useState(2);
   const [piedPiperRevealDawn, setPiedPiperRevealDawn] = useState(true);
+  const [hunterShootOnHeartbreak, setHunterShootOnHeartbreak] = useState(true);
   const [dayDiscussionTime, setDayDiscussionTime] = useState(60);
   const [dayVoteTime, setDayVoteTime] = useState(25);
+  const [nightWolfTime, setNightWolfTime] = useState(90);
 
   // Thử nghiệm hiệu ứng Tiên Tri Soi (Dành riêng cho Chủ Phòng)
   const [seerDemoVisible, setSeerDemoVisible] = useState(false);
@@ -96,6 +103,16 @@ export default function RoomSettings({
   const [daytimeHangingDemoVisible, setDaytimeHangingDemoVisible] = useState(false);
   const [daytimeHangingDemoRole, setDaytimeHangingDemoRole] = useState('villager');
 
+  // Thử nghiệm hiệu ứng Cupid & Cặp Đôi (Dành riêng cho Chủ Phòng)
+  const [coupleRevealDemoVisible, setCoupleRevealDemoVisible] = useState(false);
+  const [cupidVictoryDemoVisible, setCupidVictoryDemoVisible] = useState(false);
+  const [coupleHeartbreakDemoVisible, setCoupleHeartbreakDemoVisible] = useState(false);
+  const [coupleDemoVariant, setCoupleDemoVariant] = useState('normal'); // 'normal' | 'wolf' | 'pied_piper'
+
+  // Thử nghiệm hiệu ứng Xào Bài & Rút Bài Khởi Đầu (Dành riêng cho Chủ Phòng)
+  const [cardShuffleDemoVisible, setCardShuffleDemoVisible] = useState(false);
+  const [cardShuffleDemoRole, setCardShuffleDemoRole] = useState('cupid');
+
   // Trạng thái đóng/mở dropdown các nhóm hiệu ứng điện ảnh
   const [openSections, setOpenSections] = useState({
     seer: false,
@@ -106,6 +123,8 @@ export default function RoomSettings({
     hunter: false,
     piper: false,
     hanging: false,
+    cupid: false,
+    cardShuffle: false,
   });
 
   const toggleSection = (key) => {
@@ -129,6 +148,23 @@ export default function RoomSettings({
       avatar: fallbackAvatar,
       avatarColor: fallbackColor,
     };
+  };
+
+  // Helper lấy cặp đôi demo hiệu ứng: Hỗ trợ thường (Dân-Dân), có Sói (🐺), hoặc có Phe Thứ 3 (🎶)
+  const getDemoCouple = (variant = coupleDemoVariant) => {
+    const role1 = 'seer';
+    const role2 = variant === 'wolf' ? 'wolf' : variant === 'pied_piper' ? 'pied_piper' : 'bodyguard';
+    if (players && players.length >= 2) {
+      return [
+        { id: players[0].id || 'p1', name: players[0].name || 'Người Yêu 1', avatar: players[0].avatar || '🐱', avatarColor: players[0].avatarColor || '#F472B6', role: role1 },
+        { id: players[1].id || 'p2', name: players[1].name || 'Người Yêu 2', avatar: players[1].avatar || '🐰', avatarColor: players[1].avatarColor || '#FB7185', role: role2 },
+      ];
+    }
+    const host = (players && players.find((p) => p.id === myId)) || (players && players[0]);
+    return [
+      { id: host?.id || 'p1', name: host?.name || 'Người Yêu 1', avatar: host?.avatar || '🐱', avatarColor: host?.avatarColor || '#F472B6', role: role1 },
+      { id: 'p2', name: variant === 'wolf' ? 'Người Yêu (Sói)' : variant === 'pied_piper' ? 'Người Yêu (Thổi Sáo)' : 'Người Yêu 2', avatar: '🐰', avatarColor: '#FB7185', role: role2 },
+    ];
   };
 
   const handleTestSeerEffect = (alignment) => {
@@ -228,21 +264,28 @@ export default function RoomSettings({
       setNumWitches(initialSettings.numWitches !== undefined ? Math.min(1, initialSettings.numWitches) : 1);
       setNumHunters(initialSettings.numHunters !== undefined ? Math.min(1, initialSettings.numHunters) : 1);
       setNumPiedPipers(initialSettings.numPiedPipers !== undefined ? Math.min(1, initialSettings.numPiedPipers) : 1);
+      setNumCupids(initialSettings.numCupids !== undefined ? Math.min(1, initialSettings.numCupids) : 1);
       setPiedPiperCharmCount(initialSettings.piedPiperCharmCount || 2);
       setPiedPiperRevealDawn(initialSettings.piedPiperRevealDawn !== false);
+      setHunterShootOnHeartbreak(initialSettings.hunterShootOnHeartbreak !== false);
       setDayDiscussionTime(initialSettings.dayDiscussionTime || 60);
       setDayVoteTime(initialSettings.dayVoteTime || 25);
+      setNightWolfTime(initialSettings.nightWolfTime || 90);
     }
   }, [initialSettings, visible]);
 
   // Tính số Dân Làng dựa trên số lượng người tham gia thực tế
-  const numVillagers = Math.max(0, currentPlayerCount - numWolves - numSeers - numBodyguards - numWitches - numHunters - numPiedPipers);
+  const totalAssignedRoles = numWolves + numSeers + numBodyguards + numWitches + numHunters + numPiedPipers + numCupids;
+  const rawVillagers = currentPlayerCount - totalAssignedRoles;
+  const numVillagers = Math.max(0, rawVillagers);
 
   // === VALIDATION ===
-  // Sói phải nhỏ hơn tổng dân khi đã có từ 4 người chơi trở lên
+  // 1. Tổng số vai trò không được vượt quá số người trong phòng (khi >= 4 người)
+  const isCountValid = currentPlayerCount < 4 || rawVillagers >= 0;
+  // 2. Sói phải nhỏ hơn tổng dân khi đã có từ 4 người chơi trở lên
   const totalGood = numSeers + numBodyguards + numWitches + numHunters + numVillagers;
-  const isWolfValid = currentPlayerCount < 4 || numWolves < totalGood;
-  const isValid = numWolves >= 0 && numSeers >= 0 && numBodyguards >= 0 && numWitches >= 0 && numHunters >= 0 && numPiedPipers >= 0;
+  const isWolfValid = currentPlayerCount < 4 || (numWolves > 0 && numWolves < totalGood);
+  const isValid = isCountValid && isWolfValid && numWolves >= 1 && numSeers >= 0 && numBodyguards >= 0 && numWitches >= 0 && numHunters >= 0 && numPiedPipers >= 0 && numCupids >= 0;
 
   // Hàm thay đổi số an toàn (giới hạn min và max)
   const adjustValue = (setter, current, delta, min = 0, max = Infinity) => {
@@ -261,10 +304,13 @@ export default function RoomSettings({
       numWitches,
       numHunters,
       numPiedPipers,
+      numCupids,
       piedPiperCharmCount,
       piedPiperRevealDawn,
+      hunterShootOnHeartbreak,
       dayDiscussionTime,
       dayVoteTime,
+      nightWolfTime,
     });
   };
 
@@ -425,33 +471,43 @@ export default function RoomSettings({
               </View>
             )}
 
-            {/* Thời gian thảo luận */}
+            {/* Số Thần Tình Yêu Cupid */}
             <SettingRow
-              emoji="🗣️"
-              label="Thời gian bàn luận"
-              value={dayDiscussionTime}
-              suffix="s"
-              onDecrease={() => setDayDiscussionTime(Math.max(30, dayDiscussionTime - 15))}
-              onIncrease={() => setDayDiscussionTime(Math.min(300, dayDiscussionTime + 15))}
-              min={30}
-              max={300}
-              color={COLORS.primary}
+              emoji="💘"
+              label="Số Cupid"
+              value={numCupids}
+              onDecrease={() => adjustValue(setNumCupids, numCupids, -1, 0, 1)}
+              onIncrease={() => adjustValue(setNumCupids, numCupids, 1, 0, 1)}
+              min={0}
+              max={1}
+              color="#EC4899"
               readOnly={readOnly}
             />
 
-            {/* Thời gian bỏ phiếu */}
-            <SettingRow
-              emoji="⚖️"
-              label="Thời gian vote"
-              value={dayVoteTime}
-              suffix="s"
-              onDecrease={() => setDayVoteTime(Math.max(15, dayVoteTime - 5))}
-              onIncrease={() => setDayVoteTime(Math.min(180, dayVoteTime + 5))}
-              min={15}
-              max={180}
-              color={COLORS.secondary}
-              readOnly={readOnly}
-            />
+            {/* Tùy chỉnh phụ khi có Cupid: Thợ Săn chết theo người yêu có được bắn không */}
+            {numCupids > 0 && (
+              <View style={[styles.subOptionsContainer, { borderColor: '#EC4899', backgroundColor: 'rgba(236, 72, 153, 0.08)' }]}>
+                <View style={styles.subOptionRow}>
+                  <Text style={styles.subOptionLabel}>🏹💔 Thợ Săn chết theo người yêu được bắn:</Text>
+                  <View style={styles.subOptionToggleGroup}>
+                    <TouchableOpacity
+                      style={[styles.subOptionBtn, hunterShootOnHeartbreak && styles.subOptionBtnActive]}
+                      onPress={() => !readOnly && setHunterShootOnHeartbreak(true)}
+                      disabled={readOnly}
+                    >
+                      <Text style={[styles.subOptionBtnText, hunterShootOnHeartbreak && styles.subOptionBtnTextActive]}>BẬT 🟢</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.subOptionBtn, !hunterShootOnHeartbreak && styles.subOptionBtnActive]}
+                      onPress={() => !readOnly && setHunterShootOnHeartbreak(false)}
+                      disabled={readOnly}
+                    >
+                      <Text style={[styles.subOptionBtnText, !hunterShootOnHeartbreak && styles.subOptionBtnTextActive]}>TẮT 🔴</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
 
             {/* Số Dân Làng (tính theo số người tham gia thực tế) */}
             <View style={[styles.settingRow, styles.autoRow]}>
@@ -464,16 +520,25 @@ export default function RoomSettings({
               </View>
               <View style={[
                 styles.autoValue,
-                { backgroundColor: COLORS.villager + '20' },
+                { backgroundColor: rawVillagers < 0 ? 'rgba(239, 68, 68, 0.2)' : COLORS.villager + '20' },
               ]}>
                 <Text style={[
                   styles.autoValueText,
-                  { color: COLORS.villager },
+                  { color: rawVillagers < 0 ? '#EF4444' : COLORS.villager },
                 ]}>
                   {numVillagers}
                 </Text>
               </View>
             </View>
+
+            {/* Cảnh báo khi vượt quá vai trò đặt ngay bên dưới hàng số dân */}
+            {rawVillagers < 0 && (
+              <View style={styles.villagerWarningNotice}>
+                <Text style={styles.villagerWarningNoticeText}>
+                  ⚠️ Đang phân bổ thừa {Math.abs(rawVillagers)} vai trò chức năng so với số người trong phòng ({currentPlayerCount} người)!
+                </Text>
+              </View>
+            )}
 
             {/* Tổng kết vai trò */}
             <View style={styles.summaryBox}>
@@ -485,10 +550,73 @@ export default function RoomSettings({
                 <SummaryItem emoji="🧙‍♀️" label="P.Thủy" count={numWitches} color={COLORS.witch} />
                 <SummaryItem emoji="🏹" label="T.Săn" count={numHunters} color={COLORS.hunter} />
                 {numPiedPipers > 0 && <SummaryItem emoji="🎶" label="T.Sáo" count={numPiedPipers} color="#C084FC" />}
+                {numCupids > 0 && <SummaryItem emoji="💘" label="Cupid" count={numCupids} color="#EC4899" />}
                 <SummaryItem emoji="🧑‍🌾" label="Dân" count={numVillagers} color={COLORS.villager} />
                 <SummaryItem emoji="👥" label="Tổng" count={currentPlayerCount} color={COLORS.primary} />
               </View>
             </View>
+
+            {/* ================= PHẦN CÀI ĐẶT THỜI GIAN PHÒNG ================= */}
+            <View style={styles.timeSectionBox}>
+              <View style={styles.timeSectionHeader}>
+                <Text style={styles.timeSectionHeaderEmoji}>⏱️</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.timeSectionHeaderTitle}>CÀI ĐẶT THỜI GIAN PHÒNG</Text>
+                  <Text style={styles.timeSectionHeaderSub}>Điều chỉnh thời lượng các pha trong trận đấu</Text>
+                </View>
+              </View>
+
+              {/* Thời gian thảo luận */}
+              <SettingRow
+                emoji="🗣️"
+                label="Thời gian bàn luận"
+                value={dayDiscussionTime}
+                suffix="s"
+                onDecrease={() => setDayDiscussionTime(Math.max(30, dayDiscussionTime - 15))}
+                onIncrease={() => setDayDiscussionTime(Math.min(300, dayDiscussionTime + 15))}
+                min={30}
+                max={300}
+                color={COLORS.primary}
+                readOnly={readOnly}
+              />
+
+              {/* Thời gian bỏ phiếu */}
+              <SettingRow
+                emoji="⚖️"
+                label="Thời gian vote"
+                value={dayVoteTime}
+                suffix="s"
+                onDecrease={() => setDayVoteTime(Math.max(15, dayVoteTime - 5))}
+                onIncrease={() => setDayVoteTime(Math.min(180, dayVoteTime + 5))}
+                min={15}
+                max={180}
+                color={COLORS.secondary}
+                readOnly={readOnly}
+              />
+
+              {/* Thời gian ban đêm Ma Sói */}
+              <SettingRow
+                emoji="🌙"
+                label="Thời gian đêm Sói"
+                value={nightWolfTime}
+                suffix="s"
+                onDecrease={() => setNightWolfTime(Math.max(30, nightWolfTime - 15))}
+                onIncrease={() => setNightWolfTime(Math.min(180, nightWolfTime + 15))}
+                min={30}
+                max={180}
+                color={COLORS.wolf}
+                readOnly={readOnly}
+              />
+            </View>
+
+            {/* Hiển thị cảnh báo nếu tổng vai trò chức năng vượt quá số người trong phòng */}
+            {!isCountValid && (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>
+                  ⚠️ Tổng số vai trò ({totalAssignedRoles}) vượt quá số người trong phòng ({currentPlayerCount})! Hãy giảm bớt vai trò chức năng.
+                </Text>
+              </View>
+            )}
 
             {/* Hiển thị lưu ý nếu số Sói quá nhiều */}
             {!isWolfValid && numWolves > 0 && (
@@ -725,6 +853,157 @@ export default function RoomSettings({
                     <Text style={styles.hunterDemoBtnText}>🏹⚖️ Thử Treo Cổ Thợ Săn</Text>
                   </TouchableOpacity>
                 </AccordionDemoBox>
+
+                {/* 9. 💘 NHÓM THẦN TÌNH YÊU CUPID & CẶP ĐÔI */}
+                <AccordionDemoBox
+                  isOpen={openSections.cupid}
+                  onToggle={() => toggleSection('cupid')}
+                  title="💘 Thử Hiệu Ứng Cupid & Cặp Đôi"
+                  themeColor="#EC4899"
+                  bgColor="rgba(21, 18, 43, 0.95)"
+                >
+                  <TouchableOpacity
+                    style={[styles.hunterDemoBtn, { marginTop: 0, backgroundColor: 'rgba(236, 72, 153, 0.35)', borderColor: '#EC4899', borderWidth: 2 }]}
+                    onPress={() => {
+                      setCoupleDemoVariant('normal');
+                      setCoupleRevealDemoVisible(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.hunterDemoBtnText}>💘 Kết Nối Cặp Đôi Thường</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(220, 38, 38, 0.38)', borderColor: '#EF4444', borderWidth: 2 }]}
+                    onPress={() => {
+                      setCoupleDemoVariant('wolf');
+                      setCoupleRevealDemoVisible(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.hunterDemoBtnText}>🐺💘 Kết Nối Cặp Đôi Có Sói</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(147, 51, 234, 0.38)', borderColor: '#C084FC', borderWidth: 2 }]}
+                    onPress={() => {
+                      setCoupleDemoVariant('pied_piper');
+                      setCoupleRevealDemoVisible(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.hunterDemoBtnText}>🎶💘 Kết Nối Cặp Đôi Có Phe Thứ 3</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(244, 114, 182, 0.35)', borderColor: '#F472B6', borderWidth: 2 }]}
+                    onPress={() => setCupidVictoryDemoVisible(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.hunterDemoBtnText}>🏆💘 Thử Hoạt Ảnh Chiến Thắng Cupid</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(239, 68, 68, 0.32)', borderColor: '#EF4444', borderWidth: 2 }]}
+                    onPress={() => {
+                      setCoupleDemoVariant('normal');
+                      setCoupleHeartbreakDemoVisible(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.hunterDemoBtnText}>💔 Người Yêu Chết Theo</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(185, 28, 28, 0.42)', borderColor: '#F87171', borderWidth: 2 }]}
+                    onPress={() => {
+                      setCoupleDemoVariant('wolf');
+                      setCoupleHeartbreakDemoVisible(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.hunterDemoBtnText}>🐺💔 Người Yêu Chết Theo (Phe sói)</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(126, 34, 206, 0.42)', borderColor: '#D8B4FE', borderWidth: 2 }]}
+                    onPress={() => {
+                      setCoupleDemoVariant('pied_piper');
+                      setCoupleHeartbreakDemoVisible(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.hunterDemoBtnText}>🎶💔 Người Yêu Chết Theo (Thổi sáo)</Text>
+                  </TouchableOpacity>
+                </AccordionDemoBox>
+
+                {/* 10. 🃏 NHÓM XÀO BÀI & RÚT BÀI ĐIỆN ẢNH */}
+                <AccordionDemoBox
+                  isOpen={openSections.cardShuffle}
+                  onToggle={() => toggleSection('cardShuffle')}
+                  title="🃏 Thử Hoạt Ảnh Xào Bài & Rút Bài"
+                  themeColor="#60A5FA"
+                  bgColor="rgba(21, 18, 43, 0.95)"
+                >
+                  {/* Nút Xào Bài Ngẫu Nhiên */}
+                  <TouchableOpacity
+                    style={[styles.hunterDemoBtn, {
+                      marginTop: 0,
+                      marginBottom: 10,
+                      backgroundColor: 'rgba(96, 165, 250, 0.35)',
+                      borderColor: '#60A5FA',
+                      borderWidth: 2,
+                    }]}
+                    onPress={() => {
+                      setCardShuffleDemoRole('random');
+                      setCardShuffleDemoVisible(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.hunterDemoBtnText}>🎲🔀 Thử Xào Bài Ngẫu Nhiên (Random Role)</Text>
+                  </TouchableOpacity>
+
+                  <Text style={[styles.summaryTitle, { color: '#93C5FD', marginBottom: 8, fontSize: 12 }]}>
+                    Hoặc chọn vai trò cụ thể để xào bài & lật mở thẻ:
+                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {[
+                      { id: 'cupid', name: '💘 Cupid', color: '#EC4899', bg: 'rgba(236, 72, 153, 0.25)' },
+                      { id: 'wolf', name: '🐺 Ma Sói', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.25)' },
+                      { id: 'seer', name: '🔮 Tiên Tri', color: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.25)' },
+                      { id: 'bodyguard', name: '🛡️ Bảo Vệ', color: '#0EA5E9', bg: 'rgba(14, 165, 233, 0.25)' },
+                      { id: 'witch', name: '🧙‍♀️ Phù Thủy', color: '#10B981', bg: 'rgba(16, 185, 129, 0.25)' },
+                      { id: 'hunter', name: '🏹 Thợ Săn', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.25)' },
+                      { id: 'pied_piper', name: '🎶 Thổi Sáo', color: '#C084FC', bg: 'rgba(192, 132, 252, 0.25)' },
+                      { id: 'villager', name: '🧑‍🌾 Dân Làng', color: '#14B8A6', bg: 'rgba(20, 184, 166, 0.25)' },
+                    ].map((item) => (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={{
+                          width: '48%',
+                          flexGrow: 1,
+                          paddingVertical: 10,
+                          paddingHorizontal: 8,
+                          borderRadius: 8,
+                          backgroundColor: item.bg,
+                          borderColor: item.color,
+                          borderWidth: 1.5,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        onPress={() => {
+                          setCardShuffleDemoRole(item.id);
+                          setCardShuffleDemoVisible(true);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
+                          {item.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </AccordionDemoBox>
               </View>
             )}
           </ScrollView>
@@ -871,6 +1150,42 @@ export default function RoomSettings({
           }}
           duration={5}
           onClose={() => setDaytimeHangingDemoVisible(false)}
+        />
+
+        {/* Modal chạy thử Hoạt ảnh Kết Nối Trái Tim Cặp Đôi */}
+        <CoupleRevealModal
+          visible={coupleRevealDemoVisible}
+          couple={getDemoCouple()}
+          isMyCouple={true}
+          duration={6}
+          onClose={() => setCoupleRevealDemoVisible(false)}
+        />
+
+        {/* Modal chạy thử Hoạt ảnh Chiến Thắng Cupid (Victory) */}
+        <CupidVictoryModal
+          visible={cupidVictoryDemoVisible}
+          couple={getDemoCouple()}
+          duration={7}
+          onComplete={() => setCupidVictoryDemoVisible(false)}
+        />
+
+        {/* Modal chạy thử Hoạt ảnh Người Yêu Chết & Tim Vỡ */}
+        <CoupleHeartbreakModal
+          visible={coupleHeartbreakDemoVisible}
+          deadPlayer={getDemoCouple()[0]}
+          heartbrokenPlayer={getDemoCouple()[1]}
+          reason="bị sát hại dã man"
+          duration={6}
+          onClose={() => setCoupleHeartbreakDemoVisible(false)}
+        />
+
+        {/* Modal chạy thử Hoạt ảnh Xào Bài & Lật Mở Vai Trò */}
+        <CardShuffleModal
+          visible={cardShuffleDemoVisible}
+          initialRole={cardShuffleDemoRole}
+          isMatchIntro={false}
+          autoCloseSeconds={6}
+          onClose={() => setCardShuffleDemoVisible(false)}
         />
       </View>
     </Modal>
@@ -1116,6 +1431,55 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '900',
   },
+  villagerWarningNotice: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    marginTop: -2,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  villagerWarningNoticeText: {
+    color: '#FCA5A5',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  timeSectionBox: {
+    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 10,
+    marginBottom: 10,
+    borderWidth: 1.5,
+    borderColor: 'rgba(59, 130, 246, 0.28)',
+  },
+  timeSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(59, 130, 246, 0.2)',
+  },
+  timeSectionHeaderEmoji: {
+    fontSize: 22,
+  },
+  timeSectionHeaderTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#93C5FD',
+    letterSpacing: 0.5,
+  },
+  timeSectionHeaderSub: {
+    fontSize: 11,
+    color: '#BFDBFE',
+    marginTop: 1,
+  },
 
   // Summary
   summaryBox: {
@@ -1135,11 +1499,14 @@ const styles = StyleSheet.create({
   },
   summaryGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    rowGap: 12,
   },
   summaryItem: {
+    width: '20%',
     alignItems: 'center',
-    minWidth: 50,
+    marginBottom: 4,
   },
   summaryEmoji: {
     fontSize: 20,

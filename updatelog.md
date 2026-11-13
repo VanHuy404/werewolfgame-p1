@@ -2,6 +2,64 @@
 
 Chào mừng các dân làng và bầy sói! Dưới đây là thông tin chi tiết về các bản cập nhật mới nhất của **Ma Sói Online**, tập trung vào tính năng mới, cân bằng vai trò và tối ưu hóa trải nghiệm người chơi.
 
+
+## 🃏✨ Phiên Bản 2.6.0 - CẮT BỘ THẺ BÀI HUYỀN BÍ, HIỆU ỨNG XÀO BÀI ĐIỆN ẢNH & LẬT MỞ VAI TRÒ CÙNG CÂU CỬA MIỆNG KINH ĐIỂN
+*(Cập nhật ngày: 10/11/2026)*
+
+### ✂️ Bộ Thẻ Bài Vai Trò Được Cập Nhật Tên File Tương Thích & Mặt Sau Độc Quyền:
+- **Mặt Trước (8 Vai Trò):** Cập nhật đường dẫn chuẩn xác theo các file người dùng đã chỉnh sửa trong `assets/cards/`:
+  - `card_maSoi.png` (Ma Sói)
+  - `card_danLang.png` (Dân Làng)
+  - `card_thoSan.png` (Thợ Săn)
+  - `card_baoVe.png` (Bảo Vệ)
+  - `card_phuThuy.png` (Phù Thủy)
+  - `card_tienTri.png` (Tiên Tri)
+  - `card_nguoiThoiSao.png` (Người Thổi Sáo)
+  - `card_Cupid.png` (Cupid - Thần Tình Yêu)
+- **Mặt Sau Độc Quyền:** `card_back.png` (Mặt sau Đầu Sói ma mị).
+
+### 💘🚫 Tạm Khóa Role Cupid & Tối Ưu Hệ Thống Phân Vai Khớp 100% Cài Đặt Phòng:
+- **Tạm Khóa Cupid:** Loại bỏ hoàn toàn role Cupid khỏi danh sách random roll trong `CardShuffleModal.js` cũng như hệ thống phân vai server, đánh dấu nhãn `Cupid (Chưa mở)` nhằm bảo đảm an toàn cho đến khi hoàn thiện cơ chế ghép đôi ái tình.
+- **Rà Soát & Đồng Bộ Tuyệt Đối Cài Đặt Phòng:**
+  - Kiểm tra điều kiện `Tổng vai trò chức năng <= Số người trong phòng`: Ngăn chặn triệt để tình trạng thiết lập thừa vai trò khiến server từ chối cập nhật hoặc tự động giảm vai trò mà chủ phòng không hay biết.
+  - Hiển thị trực quan cảnh báo đỏ `-X (Thừa X vai trò)` ngay trên dòng Dân Làng nếu tổng vai trò chức năng vượt quá số người tham gia.
+  - Vô hiệu hóa nút Lưu khi cấu hình chưa hợp lệ, bảo đảm các vai trò người chơi nhận được trong trận đấu **luôn khớp chính xác 100%** với cấu hình chủ phòng đã chốt trước trận.
+  - **Bảo mật tuyệt đối danh tính (Chống lộ vai trò):** Toàn bộ log server chỉ hiển thị số lượng vai trò được chia (ví dụ: `4 người chơi: 1 wolf, 1 seer, 1 bodyguard, 1 villager`) và ẩn hoàn toàn tên người chơi, đảm bảo dù chủ phòng có mở console server cũng không thể biết ai nắm giữ vai trò gì!
+
+### 🔀🎬 Hiệu Ứng Xào Bài & Lật Mở 3D Khi Vào Trận Đấu (`CardShuffleModal.js`):
+- **Thay Thế Hoàn Toàn Hiệu Ứng Cũ:** Loại bỏ hoàn toàn popup `RoleCard` tĩnh cũ khi bắt đầu trận (`game-started`). Giờ đây khi vừa bắt đầu game, toàn bộ người chơi sẽ bước vào hoạt cảnh xào bài & rút bài định mệnh chân thực.
+- **Xóa Bỏ Dòng Chữ Báo Vai Trò Ở Dưới:** Đã xóa bỏ huy hiệu chữ báo vai trò thừa thãi ở dưới chân bài để toàn bộ sự tập trung thuộc về tác phẩm lá bài cổ điển, câu cửa miệng và chức năng.
+- **Quy Trình Vào Trận Điện Ảnh:**
+  - Giai đoạn 1: 5 lá bài úp trượt qua lại đan xen kèm âm thanh chẻ bài sột soạt Web Audio API.
+  - Giai đoạn 2: Lá bài định mệnh của người chơi trượt ra giữa bàn cờ và phóng to.
+  - Giai đoạn 3: Lật 3D 180° hé lộ danh tính, câu cửa miệng và chức năng trên cuộn giấy da cổ.
+  - Giai đoạn 4: Đếm ngược tự động vào đêm đầu tiên (6s) cùng nút bấm `⚔️ Sẵn Sàng Vào Trận` cho phép vào trận ngay nếu muốn.
+
+### 🧪⚙️ Tích Hợp Thử Nghiệm Trong Cài Đặt Phòng (`RoomSettings.js`):
+- Thêm nhóm dropdown mới: **🃏✨ Thử Hiệu Ứng Xào Bài & Lật Mở Vai Trò**
+- Cho phép Chủ phòng:
+  - Bấm nút `🔀🃏 Xào Bài & Rút Lá Bài Ngẫu Nhiên` để trải nghiệm cảm giác bốc bài hồi hộp.
+  - Hoặc bấm chọn trực tiếp bất kỳ vai trò nào trong 8 vai trò (Sói, Dân, Tiên Tri, Bảo Vệ, Phù Thủy, Thợ Săn, Thổi Sáo, Cupid) để kiểm tra hoạt ảnh và câu cửa miệng riêng của từng nhân vật.
+
+## 🧪🐺 Phiên Bản 2.5.9 - PHÙ THỦY DÙNG 2 LỌ THUỐC 1 ĐÊM HIỆU NGHIỆM, XEM XÉT HẾT THUỐC LẦN DẬY TIẾP THEO & PHÁT 2 HOẠT ẢNH RIÊNG BIỆT KHI SÓI & PHÙ THỦY GIẾT KHÁC NGƯỜI
+*(Cập nhật ngày: 10/11/2026)*
+
+### 🎬 Tách Hoạt Ảnh Riêng Biệt Khi Sói & Phù Thủy Giết 2 Người Khác Nhau:
+- **Không Gộp Chung 1 Mạng:** Khi Ma Sói cắn người A và Phù Thủy hạ độc người B trong cùng một đêm, hệ thống tách bạch hoàn toàn 2 mạng riêng biệt, không phát hoạt ảnh chung Dual Kill.
+- **Phát Tuần Tự 2 Hoạt Ảnh Điện Ảnh:** 
+  - Hoạt ảnh 1: Vuốt Sói cào xé người A (`WolfClawAttackModal`).
+  - Hoạt ảnh 2: Ngay sau khi hoạt ảnh Sói kết thúc, tự động chuyển tiếp sang bình độc Phù Thủy ném vỡ tung tóe người B (`WitchPoisonModal`).
+- **Thêm Nút Demo Trong Cài Đặt Phòng:**
+  - Nút 1: `🐺🧪 Thử Sói & Phù Thủy Cùng Giết` (Đòn trừng phạt kép khi cả 2 phe cùng nhắm 1 người).
+  
+### 🧙‍♀️🧪 Nâng Cấp Phù Thủy Dùng 2 Lọ Thuốc 1 Đêm & Logic Hết Thuốc Chuẩn Xác:
+- **Dùng Được 2 Bình Trong 1 Đêm:** Phù Thủy hoàn toàn có thể vừa cứu người bị cắn vừa ném độc vào kẻ khác trong cùng 1 đêm.
+- **Khắc Phục Triệt Để Lỗi Ném Độc Không Hiệu Nghiệm:** Server lưu giữ và bảo toàn mục tiêu ném độc, cho phép Phù Thủy bấm chọn hoặc đổi mục tiêu thoải mái trong đêm.
+- **Thêm Nút Chốt Mục Tiêu Ném Độc:** Bổ sung nút `✅ CHỐT MỤC TIÊU` giúp Phù Thủy an tâm đi ngủ ngay sau khi chọn mục tiêu.
+- **Xem Xét Hết Thuốc Lúc Phù Thủy Dậy Lần Tiếp Theo:** 
+  - Không khóa màn hình hay vội vàng hiển thị "Hết thuốc" ngay khi vừa bấm thuốc xong.
+  - Trạng thái hết thuốc chỉ được xem xét và hiển thị khi Phù Thủy thức dậy ở đêm tiếp theo.
+
 ## 🏹 Phiên Bản 2.5.8 - HIỆU ỨNG THỢ SĂN LỘ DIỆN KHI BỊ TREO CỔ & SAU KHI SÓI CÀO, ĐỒNG BỘ NỀN SẢNH CHỜ CHO CÀI ĐẶT PHÒNG
 *(Cập nhật ngày: 06/11/2026)*
 

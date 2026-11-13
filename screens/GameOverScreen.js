@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { COLORS, getRoleColor, getRoleName, getRoleEmoji } from '../utils/colors';
 import PiedPiperVictoryModal from '../components/PiedPiperVictoryModal';
+import CupidVictoryModal from '../components/CupidVictoryModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -36,10 +37,12 @@ export default function GameOverScreen({
   myRole,
   myId,
   hostId,
+  couple = [],
   onReturnToLobby,
   onLeaveGame,
 }) {
   const { width: windowWidth } = useWindowDimensions();
+  const isCoupleWin = winner === 'couple';
   const isPiedPiperWin = winner === 'pied_piper';
   const isVillagerWin = winner === 'village';
   const scaleAnim = useRef(new Animated.Value(0.7)).current;
@@ -51,6 +54,11 @@ export default function GameOverScreen({
     avatarColor: '#A855F7',
   };
   const [showVictoryCinematic, setShowVictoryCinematic] = useState(isPiedPiperWin);
+  const [showCupidVictoryCinematic, setShowCupidVictoryCinematic] = useState(isCoupleWin);
+
+  const couplePlayers = (couple && couple.length === 2)
+    ? couple
+    : players.filter((p) => p.inCouple);
 
   useEffect(() => {
     Animated.parallel([
@@ -73,6 +81,16 @@ export default function GameOverScreen({
       style={styles.bgImage}
       resizeMode="cover"
     >
+      {/* Hoạt ảnh chiến thắng điện ảnh riêng cho Cặp Đôi (Cupid Victory) */}
+      {isCoupleWin && (
+        <CupidVictoryModal
+          visible={showCupidVictoryCinematic}
+          couple={couplePlayers}
+          duration={7}
+          onComplete={() => setShowCupidVictoryCinematic(false)}
+        />
+      )}
+
       {/* Hoạt ảnh chiến thắng điện ảnh 5s riêng cho Người Thổi Sáo */}
       {isPiedPiperWin && (
         <PiedPiperVictoryModal
@@ -104,18 +122,35 @@ export default function GameOverScreen({
             <Animated.View
               style={[
                 styles.victoryBanner,
-                isPiedPiperWin ? styles.bannerPiedPiper : (isVillagerWin ? styles.bannerVillagers : styles.bannerWolves),
+                isCoupleWin
+                  ? { borderColor: '#EC4899', backgroundColor: 'rgba(157, 23, 77, 0.45)' }
+                  : (isPiedPiperWin ? styles.bannerPiedPiper : (isVillagerWin ? styles.bannerVillagers : styles.bannerWolves)),
                 { transform: [{ scale: scaleAnim }], opacity: opacityAnim },
               ]}
             >
-              <Text style={styles.victoryTrophy}>{isPiedPiperWin ? '🎶✨' : (isVillagerWin ? '🏆' : '🐺')}</Text>
-              <Text style={[styles.victoryTitle, { color: isPiedPiperWin ? '#C084FC' : (isVillagerWin ? '#34D399' : '#F87171') }]}>
-                {isPiedPiperWin ? 'PHE THỨ 3 (NGƯỜI THỔI SÁO) CHIẾN THẮNG!' : (isVillagerWin ? 'PHE DÂN LÀNG CHIẾN THẮNG!' : 'PHE MA SÓI CHIẾN THẮNG!')}
+              <Text style={styles.victoryTrophy}>{isCoupleWin ? '💘' : (isPiedPiperWin ? '🎶✨' : (isVillagerWin ? '🏆' : '🐺'))}</Text>
+              <Text style={[styles.victoryTitle, { color: isCoupleWin ? '#F472B6' : (isPiedPiperWin ? '#C084FC' : (isVillagerWin ? '#34D399' : '#F87171')) }]}>
+                {isCoupleWin
+                  ? 'PHE CẶP ĐÔI (UYÊN ƯƠNG) CHIẾN THẮNG!'
+                  : (isPiedPiperWin
+                  ? 'PHE THỨ 3 (NGƯỜI THỔI SÁO) CHIẾN THẮNG!'
+                  : (isVillagerWin ? 'PHE DÂN LÀNG CHIẾN THẮNG!' : 'PHE MA SÓI CHIẾN THẮNG!'))}
               </Text>
               <Text style={styles.victoryReason}>
-                {winMessage || (isPiedPiperWin ? 'Phe Thứ 3 toàn thắng! Toàn bộ người chơi còn sống đã bị mê hoặc bởi tiếng sáo!' : (isVillagerWin ? 'Toàn bộ Ma Sói trong làng đã bị tiêu diệt!' : 'Ma Sói đã áp đảo số lượng dân làng!'))}
+                {winMessage || (isCoupleWin ? 'Tình yêu chân chính đã vượt qua mọi hiểm nguy để giành chiến thắng!' : (isPiedPiperWin ? 'Phe Thứ 3 toàn thắng! Toàn bộ người chơi còn sống đã bị mê hoặc bởi tiếng sáo!' : (isVillagerWin ? 'Toàn bộ Ma Sói trong làng đã bị tiêu diệt!' : 'Ma Sói đã áp đảo số lượng dân làng!')))}
               </Text>
             </Animated.View>
+
+            {/* Nút xem lại hoạt ảnh chiến thắng Cặp Đôi */}
+            {isCoupleWin && (
+              <TouchableOpacity
+                style={[styles.replayCinematicBtn, { borderColor: '#F472B6', backgroundColor: 'rgba(236, 72, 153, 0.2)' }]}
+                onPress={() => setShowCupidVictoryCinematic(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.replayCinematicBtnText, { color: '#F472B6' }]}>💘 Xem Lại Hoạt Ảnh Chiến Thắng Cupid (7s)</Text>
+              </TouchableOpacity>
+            )}
 
             {/* Nút xem lại hoạt ảnh chiến thắng Người Thổi Sáo */}
             {isPiedPiperWin && (

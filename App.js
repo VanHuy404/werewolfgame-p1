@@ -15,7 +15,7 @@ import HomeScreen from './screens/HomeScreen';
 import LobbyScreen from './screens/LobbyScreen';
 import GameScreen from './screens/GameScreen';
 import GameOverScreen from './screens/GameOverScreen';
-import RoleCard from './components/RoleCard';
+import CardShuffleModal from './components/CardShuffleModal';
 import { getSessionItem, setSessionItem, removeSessionItem, STORAGE_KEYS } from './utils/storage';
 
 // Lớp bắt lỗi bảo vệ giao diện, ngăn crash sập WebSocket khi có lỗi component
@@ -82,6 +82,7 @@ export default function App() {
   const [attackedPlayer, setAttackedPlayer] = useState(null);
   const [wasProtected, setWasProtected] = useState(false);
   const [lastProtectedTarget, setLastProtectedTarget] = useState(null);
+  const [heartbrokenPlayer, setHeartbrokenPlayer] = useState(null);
   const [wolfVictim, setWolfVictim] = useState(null);
   const [witchState, setWitchState] = useState({ hasHeal: true, hasPoison: true });
   const [hunter, setHunter] = useState(null);
@@ -91,6 +92,7 @@ export default function App() {
   const [showRoleReveal, setShowRoleReveal] = useState(false);
   const [seerHistory, setSeerHistory] = useState({});
   const [charmedHistory, setCharmedHistory] = useState({});
+  const [couple, setCouple] = useState([]);
 
   // Khởi tạo Socket.io một lần duy nhất
   useEffect(() => {
@@ -248,11 +250,6 @@ export default function App() {
       setCharmedHistory({});
       setShowRoleReveal(true);
       setCurrentScreen('game');
-
-      // Tắt card reveal sau 4 giây
-      setTimeout(() => {
-        setShowRoleReveal(false);
-      }, 4000);
     });
 
     // Chuyển pha game
@@ -265,15 +262,22 @@ export default function App() {
       if (data.shieldClashPlayer !== undefined) setShieldClashPlayer(data.shieldClashPlayer);
       if (data.witchSavedPlayer !== undefined) setWitchSavedPlayer(data.witchSavedPlayer);
       if (data.attackedPlayer !== undefined) setAttackedPlayer(data.attackedPlayer);
+      if (data.heartbrokenPlayer !== undefined) setHeartbrokenPlayer(data.heartbrokenPlayer);
       if (data.wasProtected !== undefined) setWasProtected(data.wasProtected);
       if (data.lastProtectedTarget !== undefined) setLastProtectedTarget(data.lastProtectedTarget);
       if (data.wolfVictim !== undefined) setWolfVictim(data.wolfVictim);
       if (data.witchState !== undefined) setWitchState(data.witchState);
       if (data.hunter !== undefined) setHunter(data.hunter);
       if (data.charmedHistory !== undefined) setCharmedHistory(data.charmedHistory);
+      if (data.couple !== undefined) setCouple(data.couple);
       if (data.players) setPlayers(data.players);
       if (data.winner) setWinner(data.winner);
       if (data.message) setWinMessage(data.message);
+    });
+
+    // Cặp đôi được thần Cupid kết nối
+    s.on('couple-formed', ({ couple }) => {
+      if (couple) setCouple(couple);
     });
 
     // Đếm ngược thời gian
@@ -367,10 +371,10 @@ export default function App() {
     }
   };
 
-  // Gửi tin nhắn chat (hỗ trợ kênh riêng của Sói)
-  const handleSendMessage = (message, isWolfChat = false) => {
+  // Gửi tin nhắn chat (hỗ trợ kênh riêng của Sói & Cặp Đôi)
+  const handleSendMessage = (message, isWolfChat = false, isCoupleChat = false) => {
     if (socketRef.current) {
-      socketRef.current.emit('send-message', { message, isWolfChat });
+      socketRef.current.emit('send-message', { message, isWolfChat, isCoupleChat });
     }
   };
 
@@ -416,6 +420,7 @@ export default function App() {
           myRole={myRole}
           myId={myId}
           hostId={hostId}
+          couple={couple}
           onReturnToLobby={handleReturnToLobby}
           onLeaveGame={handleLeaveRoom}
         />
@@ -438,6 +443,7 @@ export default function App() {
             shieldClashPlayer={shieldClashPlayer}
             witchSavedPlayer={witchSavedPlayer}
             attackedPlayer={attackedPlayer}
+            heartbrokenPlayer={heartbrokenPlayer}
             wasProtected={wasProtected}
             lastProtectedTarget={lastProtectedTarget}
             wolfVictim={wolfVictim}
@@ -453,14 +459,18 @@ export default function App() {
             hostId={hostId}
             initialSeerHistory={seerHistory}
             initialCharmedHistory={charmedHistory}
+            couple={couple}
           />
         </ErrorBoundary>
       )}
 
-      {/* Thẻ hiển thị vai trò khi vừa vào trận */}
-      <RoleCard
-        role={myRole}
+      {/* Hiệu ứng xào bài và lật mở vai trò khi vừa vào trận */}
+      <CardShuffleModal
         visible={showRoleReveal}
+        initialRole={myRole}
+        isMatchIntro={true}
+        autoCloseSeconds={6}
+        onClose={() => setShowRoleReveal(false)}
       />
     </SafeAreaView>
   );

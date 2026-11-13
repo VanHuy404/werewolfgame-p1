@@ -56,6 +56,7 @@ function createRoom(hostId, hostName, settings = {}, customAvatar = null) {
   const numWitches = settings.numWitches !== undefined ? settings.numWitches : DEFAULT_SETTINGS.numWitches;
   const numHunters = settings.numHunters !== undefined ? settings.numHunters : DEFAULT_SETTINGS.numHunters;
   const numPiedPipers = settings.numPiedPipers !== undefined ? settings.numPiedPipers : DEFAULT_SETTINGS.numPiedPipers;
+  const numCupids = settings.numCupids !== undefined ? settings.numCupids : (DEFAULT_SETTINGS.numCupids !== undefined ? DEFAULT_SETTINGS.numCupids : 1);
 
   const roomSettings = {
     numWolves,
@@ -64,10 +65,13 @@ function createRoom(hostId, hostName, settings = {}, customAvatar = null) {
     numWitches,
     numHunters,
     numPiedPipers,
+    numCupids,
     piedPiperCharmCount: settings.piedPiperCharmCount !== undefined ? settings.piedPiperCharmCount : DEFAULT_SETTINGS.piedPiperCharmCount,
     piedPiperRevealDawn: settings.piedPiperRevealDawn !== undefined ? settings.piedPiperRevealDawn : DEFAULT_SETTINGS.piedPiperRevealDawn,
+    hunterShootOnHeartbreak: settings.hunterShootOnHeartbreak !== undefined ? settings.hunterShootOnHeartbreak : DEFAULT_SETTINGS.hunterShootOnHeartbreak,
     dayDiscussionTime: settings.dayDiscussionTime !== undefined ? settings.dayDiscussionTime : DEFAULT_SETTINGS.dayDiscussionTime,
     dayVoteTime: settings.dayVoteTime !== undefined ? settings.dayVoteTime : DEFAULT_SETTINGS.dayVoteTime,
+    nightWolfTime: settings.nightWolfTime !== undefined ? settings.nightWolfTime : DEFAULT_SETTINGS.nightWolfTime,
   };
 
   // Tạo cấu trúc phòng
@@ -78,6 +82,8 @@ function createRoom(hostId, hostName, settings = {}, customAvatar = null) {
     settings: roomSettings,
     players: new Map(),
     phase: PHASES.WAITING,
+    couple: null, // [id1, id2] - Cặp đôi trúng tên Cupid
+    cupidActed: false, // Cupid đã ghép đôi xong chưa (chỉ đêm 1)
     nightActions: {
       wolfVotes: new Map(),           // Map<wolfId, targetId>
       wolfConfirmed: new Set(),       // Set<wolfId> - đã bấm nút xác nhận
@@ -198,6 +204,7 @@ function assignRoles(room) {
     numWitches = 1,
     numHunters = 1,
     numPiedPipers = 1,
+    numCupids = 1,
   } = room.settings;
   let index = 0;
 
@@ -215,6 +222,12 @@ function assignRoles(room) {
   for (let i = 0; i < Math.min(1, numPiedPipers) && index < playerIds.length; i++, index++) {
     const piedPiperPlayer = room.players.get(playerIds[index]);
     piedPiperPlayer.role = ROLES.PIED_PIPER;
+  }
+
+  // Gán Thần Tình Yêu Cupid (0 - 1)
+  for (let i = 0; i < Math.min(1, numCupids) && index < playerIds.length; i++, index++) {
+    const cupidPlayer = room.players.get(playerIds[index]);
+    cupidPlayer.role = ROLES.CUPID;
   }
 
   // Gán Phù Thủy (0 - 1)
@@ -412,6 +425,41 @@ function getAlivePlayers(room) {
 function checkWinCondition(room) {
   const alive = getAlivePlayers(room);
 
+  // 💘 Kiểm tra điều kiện thắng của Phe Cặp Đôi (Uyên Ương)
+  if (room.couple && room.couple.length === 2) {
+    const [id1, id2] = room.couple;
+    const p1 = room.players.get(id1);
+    const p2 = room.players.get(id2);
+    const p1Alive = p1 && p1.alive;
+    const p2Alive = p2 && p2.alive;
+
+    if (p1Alive && p2Alive) {
+      // Điều kiện 1: Duy nhất 2 người trong Cặp Đôi sống sót trong cả làng
+      if (alive.length === 2) {
+        return {
+          gameOver: true,
+          winner: 'couple',
+          message: '💘 Phe Cặp Đôi (Uyên Ương) chiến thắng! Tình yêu chân chính đã vượt qua mọi hiểm nguy!',
+          couple: [p1, p2],
+        };
+      }
+
+      // Điều kiện 2: Người Thổi Sáo nằm trong Cặp Đôi và đã thôi miên toàn bộ những người ngoài còn sống
+      const hasPiedPiperInCouple = p1.role === ROLES.PIED_PIPER || p2.role === ROLES.PIED_PIPER;
+      if (hasPiedPiperInCouple && room.charmedPlayers) {
+        const outsidersAlive = alive.filter((p) => p.id !== id1 && p.id !== id2);
+        if (outsidersAlive.length > 0 && outsidersAlive.every((p) => room.charmedPlayers.has(p.id))) {
+          return {
+            gameOver: true,
+            winner: 'couple',
+            message: '💘 Phe Cặp Đôi chiến thắng! Người Thổi Sáo và Người Yêu đã cùng nhau mê hoặc toàn bộ ngôi làng!',
+            couple: [p1, p2],
+          };
+        }
+      }
+    }
+  }
+
   // 🎶 Kiểm tra điều kiện thắng của Phe Thứ 3 (Người Thổi Sáo)
   const piedPiper = alive.find((p) => p.role === ROLES.PIED_PIPER);
   if (piedPiper && room.charmedPlayers) {
@@ -458,8 +506,14 @@ function getPlayersData(room, forPlayerId = null) {
   const requestingPlayer = forPlayerId ? room.players.get(forPlayerId) : null;
   const isWolfViewer = requestingPlayer && requestingPlayer.role === ROLES.WOLF;
   const isPiedPiperViewer = requestingPlayer && requestingPlayer.role === ROLES.PIED_PIPER;
+  const isCupidViewer = requestingPlayer && requestingPlayer.role === ROLES.CUPID;
   const isCharmedViewer = Boolean(forPlayerId && ((room.charmedPlayers && room.charmedPlayers.has(forPlayerId)) || requestingPlayer?.charmed));
   const isCharmedRevealPhase = room.phase === PHASES.NIGHT_CHARMED_REVEAL;
+
+  const coupleIds = room.couple || [];
+  const isRequesterInCouple = Boolean(forPlayerId && coupleIds.includes(forPlayerId));
+  const partnerId = isRequesterInCouple ? coupleIds.find((id) => id !== forPlayerId) : null;
+  const partnerPlayer = partnerId ? room.players.get(partnerId) : null;
 
   // PHƯƠNG ÁN 1:
   // - Người Thổi Sáo luôn nhìn thấy ai đã bị mình thôi miên.
@@ -472,6 +526,18 @@ function getPlayersData(room, forPlayerId = null) {
     const isCharmed = Boolean((room.charmedPlayers && room.charmedPlayers.has(p.id)) || p.charmed);
     const showCharmed = (isPiedPiperViewer || canSeeCharmedInReveal || room.phase === PHASES.GAME_OVER) ? isCharmed : false;
 
+    // Hiển thị vai trò cho chính mình, đồng minh sói, người yêu (cặp đôi), hoặc khi game over
+    const isSelf = forPlayerId === p.id;
+    const isPartner = isRequesterInCouple && p.id === partnerId;
+    const isWolfTeammate = isWolfViewer && p.role === ROLES.WOLF;
+    const showRole = isSelf || isPartner || isWolfTeammate || room.phase === PHASES.GAME_OVER;
+
+    // Hiển thị trạng thái Cặp Đôi cho bản thân, người yêu, Cupid hoặc khi game over
+    const isPlayerInCouple = coupleIds.includes(p.id);
+    const showCouple = (isRequesterInCouple && isPlayerInCouple) ||
+      (isCupidViewer && isPlayerInCouple) ||
+      (room.phase === PHASES.GAME_OVER && isPlayerInCouple);
+
     return {
       id: p.id,
       name: p.name,
@@ -479,10 +545,14 @@ function getPlayersData(room, forPlayerId = null) {
       avatar: p.avatar,
       avatarColor: p.avatarColor,
       connected: p.connected,
-      // Hiện role cho chính mình, hoặc đồng minh sói nếu mình là sói, hoặc khi game over
-      role: (forPlayerId === p.id || (isWolfViewer && p.role === ROLES.WOLF) || room.phase === PHASES.GAME_OVER) ? p.role : null,
+      role: showRole ? p.role : null,
       charmed: showCharmed,
       isSelfCharmed: isCharmedViewer,
+      inCouple: showCouple,
+      isLover: isPartner,
+      partnerId: isSelf && partnerId ? partnerId : null,
+      partnerName: isSelf && partnerPlayer ? partnerPlayer.name : null,
+      partnerRole: isSelf && partnerPlayer ? partnerPlayer.role : null,
     };
   });
 }
@@ -504,9 +574,9 @@ function getRoomByPlayerId(playerId) {
 
 /** Validate settings phòng (tính theo số người tham gia) */
 function validateSettings(settings, currentParticipants = 0) {
-  const { numWolves, numSeers, numBodyguards = 0, numWitches = 0, numHunters = 0, numPiedPipers = 0, dayDiscussionTime, dayVoteTime } = settings;
+  const { numWolves, numSeers, numBodyguards = 0, numWitches = 0, numHunters = 0, numPiedPipers = 0, numCupids = 0, dayDiscussionTime, dayVoteTime } = settings;
   
-  if (numWolves < 0 || numSeers < 0 || numBodyguards < 0 || numWitches < 0 || numHunters < 0 || numPiedPipers < 0) {
+  if (numWolves < 0 || numSeers < 0 || numBodyguards < 0 || numWitches < 0 || numHunters < 0 || numPiedPipers < 0 || numCupids < 0) {
     return { valid: false, error: 'Số vai trò không được âm!' };
   }
   if (dayDiscussionTime !== undefined && (dayDiscussionTime < 10 || dayDiscussionTime > 300)) {
@@ -517,7 +587,7 @@ function validateSettings(settings, currentParticipants = 0) {
   }
   
   if (currentParticipants >= 4) {
-    const numVillagers = currentParticipants - numWolves - numSeers - numBodyguards - numWitches - numHunters - numPiedPipers;
+    const numVillagers = currentParticipants - numWolves - numSeers - numBodyguards - numWitches - numHunters - numPiedPipers - numCupids;
     if (numVillagers < 0) {
       return { valid: false, error: 'Tổng số vai trò chức năng vượt quá số người tham gia!' };
     }
@@ -544,4 +614,5 @@ module.exports = {
   getRoom,
   getRoomByPlayerId,
   validateSettings,
+  shuffleArray,
 };

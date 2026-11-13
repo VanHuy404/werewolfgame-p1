@@ -40,6 +40,10 @@ export const COLORS = {
   hunterBg: '#FEF3C7',
   piedPiper: '#C084FC',
   piedPiperBg: '#F3E8FF',
+  cupid: '#EC4899',
+  cupidBg: '#FDF2F8',
+  couple: '#F43F5E',
+  coupleBg: '#FFE4E6',
   villager: '#10B981',
   villagerBg: '#D1FAE5',
 
@@ -75,6 +79,8 @@ export function getRoleColor(role) {
     case 'witch': return COLORS.witch;
     case 'hunter': return COLORS.hunter;
     case 'pied_piper': return COLORS.piedPiper;
+    case 'cupid': return COLORS.cupid;
+    case 'couple': return COLORS.couple;
     case 'villager': return COLORS.villager;
     default: return COLORS.gray;
   }
@@ -89,6 +95,8 @@ export function getRoleName(role) {
     case 'witch': return 'Phù Thủy';
     case 'hunter': return 'Thợ Săn';
     case 'pied_piper': return 'Người Thổi Sáo';
+    case 'cupid': return 'Cupid';
+    case 'couple': return 'Cặp Đôi';
     case 'villager': return 'Dân Làng';
     default: return '???';
   }
@@ -103,6 +111,8 @@ export function getRoleEmoji(role) {
     case 'witch': return '🧙‍♀️';
     case 'hunter': return '🏹';
     case 'pied_piper': return '🎶';
+    case 'cupid': return '💘';
+    case 'couple': return '💑';
     case 'villager': return '🧑‍🌾';
     default: return '❓';
   }
