@@ -38,6 +38,7 @@ export default function GameOverScreen({
   myId,
   hostId,
   couple = [],
+  matchHistory = [],
   onReturnToLobby,
   onLeaveGame,
 }) {
@@ -169,9 +170,20 @@ export default function GameOverScreen({
                 <Text style={styles.revealHeaderEmoji}>📜</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.revealHeaderTitle} numberOfLines={1}>DANH TÍNH THẬT SỰ CỦA NGƯỜI CHƠI</Text>
-                  <Text style={styles.revealHeaderSub} numberOfLines={1}>Trượt ngang ➡️ để xem toàn bộ bí mật vai trò</Text>
+                  <Text style={styles.revealHeaderSub} numberOfLines={1}>Trượt ngang ➡️ để xem toàn bộ bí mật vai trò, Cặp Đôi & Bùa Mê</Text>
                 </View>
               </View>
+
+              {/* Tóm tắt Cặp Đôi Uyên Ương nếu ván đấu có ghép đôi */}
+              {couplePlayers && couplePlayers.length === 2 && (
+                <View style={styles.coupleSummaryBanner}>
+                  <Text style={styles.coupleSummaryEmoji}>💘</Text>
+                  <Text style={styles.coupleSummaryText} numberOfLines={2}>
+                    <Text style={{ fontWeight: '900', color: '#F472B6' }}>Cặp Đôi Uyên Ương: </Text>
+                    {couplePlayers[0].name} ({getRoleEmoji(couplePlayers[0].role)} {getRoleName(couplePlayers[0].role)}) ❤️ {couplePlayers[1].name} ({getRoleEmoji(couplePlayers[1].role)} {getRoleName(couplePlayers[1].role)})
+                  </Text>
+                </View>
+              )}
 
               <ScrollView
                 horizontal
@@ -182,6 +194,13 @@ export default function GameOverScreen({
                   const isAlive = p.alive !== false;
                   const roleColor = getRoleColor(p.role);
                   const isMe = p.id === myId;
+                  const isPlayerInCouple = Boolean(
+                    p.inCouple || (couplePlayers && couplePlayers.some((cp) => cp.id === p.id))
+                  );
+                  const otherLover = isPlayerInCouple
+                    ? (p.partnerName || couplePlayers.find((cp) => cp.id !== p.id)?.name || null)
+                    : null;
+                  const isPlayerCharmed = Boolean(p.charmed);
 
                   return (
                     <View
@@ -189,12 +208,17 @@ export default function GameOverScreen({
                       style={[
                         styles.playerRevealTile,
                         isMe && styles.playerRevealTileMe,
+                        isPlayerInCouple && styles.playerRevealTileCouple,
                         !isAlive && styles.playerRevealTileDead,
                       ]}
                     >
                       {/* Avatar */}
                       <View style={styles.avatarWrapper}>
-                        <View style={[styles.avatarCircle, { backgroundColor: p.avatarColor || '#4C1D95', overflow: 'hidden' }]}>
+                        <View style={[
+                          styles.avatarCircle,
+                          { backgroundColor: p.avatarColor || '#4C1D95', overflow: 'hidden' },
+                          isPlayerInCouple && { borderColor: '#EC4899', borderWidth: 2.5 },
+                        ]}>
                           {typeof p.avatar === 'string' && (p.avatar.startsWith('data:') || p.avatar.startsWith('http') || p.avatar.startsWith('blob:') || p.avatar.length > 25) ? (
                             <Image
                               source={{ uri: p.avatar }}
@@ -208,6 +232,11 @@ export default function GameOverScreen({
                         {isMe && (
                           <View style={styles.meBadge}>
                             <Text style={styles.meBadgeText}>Bạn</Text>
+                          </View>
+                        )}
+                        {isPlayerInCouple && (
+                          <View style={styles.coupleAvatarFloatingHeart}>
+                            <Text style={{ fontSize: 11 }}>💘</Text>
                           </View>
                         )}
                       </View>
@@ -226,11 +255,76 @@ export default function GameOverScreen({
                           {getRoleEmoji(p.role)} {getRoleName(p.role)}
                         </Text>
                       </View>
+
+                      {/* Huy hiệu Cặp Đôi Uyên Ương */}
+                      {isPlayerInCouple && (
+                        <View style={styles.loverRevealTag}>
+                          <Text style={styles.loverRevealTagText} numberOfLines={1} ellipsizeMode="tail">
+                            💘 {otherLover ? `Yêu ${otherLover}` : 'Cặp Đôi'}
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Huy hiệu Bị Thôi Miên */}
+                      {isPlayerCharmed && (
+                        <View style={styles.charmedRevealTag}>
+                          <Text style={styles.charmedRevealTagText} numberOfLines={1}>
+                            🎶 Bị Thôi Miên
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   );
                 })}
               </ScrollView>
             </View>
+
+            {/* Card Biên Niên Sử Ván Đấu (Match Timeline) */}
+            {Array.isArray(matchHistory) && matchHistory.length > 0 && (
+              <View style={styles.timelineCard}>
+                <View style={styles.revealHeader}>
+                  <Text style={styles.revealHeaderEmoji}>⏳</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.revealHeaderTitle} numberOfLines={1}>BIÊN NIÊN SỬ VÁN ĐẤU</Text>
+                    <Text style={styles.revealHeaderSub} numberOfLines={1}>Tóm tắt toàn bộ hành động bí mật từng Đêm & Ngày</Text>
+                  </View>
+                </View>
+
+                <View style={styles.timelineList}>
+                  {matchHistory.map((item, idx) => {
+                    const isNightEvent = item.phaseType === 'night';
+                    const isDayEvent = item.phaseType === 'day';
+                    return (
+                      <View
+                        key={`log-${idx}`}
+                        style={[
+                          styles.timelineItem,
+                          isNightEvent && styles.timelineItemNight,
+                          isDayEvent && styles.timelineItemDay,
+                        ]}
+                      >
+                        <View style={styles.timelineIconCircle}>
+                          <Text style={styles.timelineIconText}>{item.icon || '📜'}</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          {Boolean(item.title) && (
+                            <Text
+                              style={[
+                                styles.timelineItemTitle,
+                                isNightEvent ? { color: '#C4B5FD' } : isDayEvent ? { color: '#FCD34D' } : { color: '#94A3B8' },
+                              ]}
+                            >
+                              {item.title}
+                            </Text>
+                          )}
+                          <Text style={styles.timelineItemText}>{item.text}</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
 
             {/* Nút hành động */}
             <View style={[styles.actionButtonsRow, windowWidth < 420 && styles.actionButtonsRowMobile]}>
@@ -441,9 +535,129 @@ const styles = StyleSheet.create({
     borderColor: '#7C3AED',
     backgroundColor: 'rgba(124, 58, 237, 0.25)',
   },
+  playerRevealTileCouple: {
+    borderColor: '#EC4899',
+    backgroundColor: 'rgba(131, 24, 67, 0.28)',
+  },
   playerRevealTileDead: {
     opacity: 0.75,
     backgroundColor: 'rgba(15, 12, 30, 0.8)',
+  },
+  coupleSummaryBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(236, 72, 153, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(244, 114, 182, 0.45)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+    gap: 8,
+  },
+  coupleSummaryEmoji: {
+    fontSize: 18,
+  },
+  coupleSummaryText: {
+    flex: 1,
+    fontSize: 12.5,
+    color: '#FCE7F3',
+    fontWeight: '700',
+  },
+  coupleAvatarFloatingHeart: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: 'rgba(131, 24, 67, 0.9)',
+    borderRadius: 10,
+    paddingHorizontal: 3,
+    paddingVertical: 1,
+    borderWidth: 1,
+    borderColor: '#F472B6',
+  },
+  loverRevealTag: {
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    backgroundColor: 'rgba(236, 72, 153, 0.22)',
+    borderWidth: 1,
+    borderColor: '#F472B6',
+    alignItems: 'center',
+    width: '100%',
+  },
+  loverRevealTagText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#F9A8D4',
+  },
+  charmedRevealTag: {
+    marginTop: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    backgroundColor: 'rgba(168, 85, 247, 0.22)',
+    borderWidth: 1,
+    borderColor: '#C084FC',
+    alignItems: 'center',
+    width: '100%',
+  },
+  charmedRevealTagText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#E9D5FF',
+  },
+  timelineCard: {
+    backgroundColor: 'rgba(21, 18, 43, 0.92)',
+    borderRadius: 22,
+    padding: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    marginBottom: 24,
+  },
+  timelineList: {
+    gap: 10,
+  },
+  timelineItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(30, 41, 59, 0.65)',
+    borderRadius: 14,
+    padding: 12,
+    borderLeftWidth: 3.5,
+    borderLeftColor: '#64748B',
+    gap: 10,
+  },
+  timelineItemNight: {
+    backgroundColor: 'rgba(30, 27, 75, 0.68)',
+    borderLeftColor: '#8B5CF6',
+  },
+  timelineItemDay: {
+    backgroundColor: 'rgba(69, 26, 3, 0.42)',
+    borderLeftColor: '#F59E0B',
+  },
+  timelineIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timelineIconText: {
+    fontSize: 16,
+  },
+  timelineItemTitle: {
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+    marginBottom: 2,
+  },
+  timelineItemText: {
+    fontSize: 12.5,
+    color: '#E2E8F0',
+    fontWeight: '600',
+    lineHeight: 18,
   },
   avatarWrapper: {
     position: 'relative',

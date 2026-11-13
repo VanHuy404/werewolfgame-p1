@@ -93,19 +93,27 @@ export default function GameScreen({
   // Trạng thái bật/tắt Chat dạng Slidebar (Mặc định ở trạng thái OFF, không auto bật)
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadSecretChannel, setUnreadSecretChannel] = useState(null); // 'couple' | 'wolf' | null
   const prevMsgLengthRef = useRef(messages.length);
 
   useEffect(() => {
     if (isChatOpen) {
       setUnreadCount(0);
+      setUnreadSecretChannel(null);
     } else {
       const diff = messages.length - prevMsgLengthRef.current;
       if (diff > 0) {
+        const newMsgs = messages.slice(prevMsgLengthRef.current);
         setUnreadCount((prev) => prev + diff);
+        newMsgs.forEach((m) => {
+          if (m.playerId === myId) return;
+          if (m.isCoupleChat) setUnreadSecretChannel('couple');
+          else if (m.isWolfChat) setUnreadSecretChannel((prev) => (prev === 'couple' ? 'couple' : 'wolf'));
+        });
       }
     }
     prevMsgLengthRef.current = messages.length;
-  }, [messages.length, isChatOpen]);
+  }, [messages.length, isChatOpen, myId]);
 
   // Chiều rộng khả dụng của khu vực đấu trường
   const arenaWidth = isMobile || !isChatOpen ? windowWidth : windowWidth - 340;
@@ -1065,13 +1073,17 @@ export default function GameScreen({
     }
   }, [isNightBodyguard, myRole]);
 
-  // Nhịp đập đồng hồ khi thời gian < 5s
+  // Nhịp tim đập đỏ (Lub-Dub Heartbeat Pulse) khi thời gian <= 5s
   useEffect(() => {
     if (timeLeft <= 5 && timeLeft > 0) {
       Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.25, duration: 200, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1.28, duration: 140, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1.05, duration: 110, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1.22, duration: 130, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1.0, duration: 220, useNativeDriver: true }),
       ]).start();
+    } else {
+      pulseAnim.setValue(1);
     }
   }, [timeLeft]);
 
@@ -1337,8 +1349,23 @@ export default function GameScreen({
             <View style={styles.phaseInfo}>
               <Text style={[styles.phaseTitle, isMobile && styles.phaseTitleMobile]} numberOfLines={1}>{getPhaseTitle()}</Text>
               {phase !== PHASES.GAME_OVER && (
-                <Animated.View style={[styles.timerBadge, isMobile && styles.timerBadgeMobile, { transform: [{ scale: pulseAnim }] }]}>
-                  <Text style={[styles.timerText, isMobile && { fontSize: 11 }]}>⏳ {timeLeft}s</Text>
+                <Animated.View
+                  style={[
+                    styles.timerBadge,
+                    isMobile && styles.timerBadgeMobile,
+                    timeLeft > 0 && timeLeft <= 5 && styles.timerBadgeDanger,
+                    { transform: [{ scale: pulseAnim }] },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.timerText,
+                      isMobile && { fontSize: 11 },
+                      timeLeft > 0 && timeLeft <= 5 && styles.timerTextDanger,
+                    ]}
+                  >
+                    {timeLeft > 0 && timeLeft <= 5 ? '💓' : '⏳'} {timeLeft}s
+                  </Text>
                 </Animated.View>
               )}
             </View>
@@ -2327,7 +2354,7 @@ export default function GameScreen({
                 activeOpacity={1}
                 onPress={() => setIsChatOpen(false)}
               />
-              <View style={[styles.chatMobileDrawerContent, { width: Math.min(windowWidth * 0.78, 280) }]}>
+              <View style={[styles.chatMobileDrawerContent, { width: Math.min(windowWidth * 0.88, 360) }]}>
                 <ChatBox
                   messages={messages}
                   onSend={onSendMessage}
@@ -2705,23 +2732,47 @@ export default function GameScreen({
           </Modal>
 
           {/* NÚT BẬT SLIDEBAR CHAT (DẠNG NỔI KHI CHAT ĐANG ĐÓNG - CẢ PC VÀ MOBILE) */}
-          {!isChatOpen && (
-            <TouchableOpacity
-              style={styles.floatingChatSlideToggle}
-              onPress={() => setIsChatOpen(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.floatingChatIcon}>💬</Text>
-              <Text style={styles.floatingChatLabel}>Chat</Text>
-              {unreadCount > 0 && (
-                <View style={styles.chatFabBadge}>
-                  <Text style={styles.chatFabBadgeText}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          )}
+          {!isChatOpen && (() => {
+            const hasBottomActionBar = Boolean(
+              (isNightCupid && myRole === 'cupid' && amAlive) ||
+              (isNightBodyguard && myRole === 'bodyguard' && amAlive) ||
+              (isNightWolf && myRole === 'wolf' && amAlive) ||
+              (isNightWitch && myRole === 'witch' && amAlive) ||
+              (isNightSeer && myRole === 'seer' && amAlive) ||
+              (isNightPiedPiper && myRole === 'pied_piper' && amAlive) ||
+              phase === PHASES.DAY_VOTE ||
+              isHunterShot
+            );
+            return (
+              <TouchableOpacity
+                style={[
+                  styles.floatingChatSlideToggle,
+                  isMobile && hasBottomActionBar && { bottom: 148, right: 12 },
+                  unreadSecretChannel === 'couple' && { borderColor: '#F472B6', borderWidth: 2 },
+                  unreadSecretChannel === 'wolf' && { borderColor: '#EF4444', borderWidth: 2 },
+                ]}
+                onPress={() => setIsChatOpen(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.floatingChatIcon}>
+                  {unreadSecretChannel === 'couple' ? '💘' : unreadSecretChannel === 'wolf' ? '🐺' : '💬'}
+                </Text>
+                <Text style={styles.floatingChatLabel}>Chat</Text>
+                {unreadCount > 0 && (
+                  <View
+                    style={[
+                      styles.chatFabBadge,
+                      unreadSecretChannel === 'couple' && { backgroundColor: '#EC4899' },
+                    ]}
+                  >
+                    <Text style={styles.chatFabBadgeText}>
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })()}
 
           {/* ================= THÔNG BÁO SỐ LƯỢNG SÓI CÒN LẠI SAU KHI HẾT GIỜ TREO CỔ ================= */}
           {remainingWolvesOverlay !== null && (() => {
@@ -2849,10 +2900,23 @@ const styles = StyleSheet.create({
     borderColor: '#EF4444',
     marginTop: 3,
   },
+  timerBadgeDanger: {
+    backgroundColor: 'rgba(220, 38, 38, 0.85)',
+    borderColor: '#FCA5A5',
+    borderWidth: 1.5,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 10,
+    elevation: 8,
+  },
   timerText: {
     fontSize: 13,
     fontWeight: '900',
     color: '#FCA5A5',
+  },
+  timerTextDanger: {
+    color: '#FFFFFF',
   },
   headerRightActions: {
     flexDirection: 'row',

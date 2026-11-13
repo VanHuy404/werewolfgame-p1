@@ -19,6 +19,7 @@ import {
   TouchableOpacity,
   Image,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import PlayerAvatar from './PlayerAvatar';
 import { getRoleName, getRoleEmoji } from '../utils/colors';
@@ -146,6 +147,8 @@ export default function CoupleHeartbreakModal({
   duration = 6,
   onClose = () => {},
 }) {
+  const { width: windowWidth } = useWindowDimensions();
+  const isCompactMobile = windowWidth < 420;
   const [countdown, setCountdown] = useState(duration);
 
   // Animations
@@ -461,17 +464,23 @@ export default function CoupleHeartbreakModal({
         </View>
 
         {/* KHUNG NỘI DUNG CHÍNH */}
-        <Animated.View style={[styles.mainContainer, { opacity: backdropAnim }]}>
+        <Animated.View
+          style={[
+            styles.mainContainer,
+            isCompactMobile && { padding: 14, maxWidth: windowWidth - 20 },
+            { opacity: backdropAnim },
+          ]}
+        >
           {/* Header Báo Tử Cặp Đôi */}
-          <View style={styles.headerBlock}>
-            <Text style={styles.headerEmojiRow}>
+          <View style={[styles.headerBlock, isCompactMobile && { marginBottom: 10 }]}>
+            <Text style={[styles.headerEmojiRow, isCompactMobile && { fontSize: 22 }]}>
               {specialRevealed && hasWolfInCouple
                 ? '🐺 💔 🥀'
                 : specialRevealed && hasPiperInCouple
                 ? '🎶 💔 🥀'
                 : '💔 🥀 🖤'}
             </Text>
-            <Text style={styles.headerTitle}>
+            <Text style={[styles.headerTitle, isCompactMobile && { fontSize: 15 }]}>
               {specialRevealed && hasWolfInCouple
                 ? 'TÌNH YÊU CẤM KỴ TAN VỠ • SÓI LỘ DIỆN!'
                 : specialRevealed && hasPiperInCouple
@@ -480,7 +489,7 @@ export default function CoupleHeartbreakModal({
             </Text>
             <View style={{ minHeight: 24, justifyContent: 'center', alignItems: 'center', marginTop: 4 }}>
               {capVisible ? (
-                <Text style={[styles.headerSub, styles.headerSubApology]}>
+                <Text style={[styles.headerSub, styles.headerSubApology, isCompactMobile && { fontSize: 12 }]}>
                   {typedText}
                 </Text>
               ) : (
@@ -492,7 +501,7 @@ export default function CoupleHeartbreakModal({
           </View>
 
           {/* SÂN KHẤU TIM VỠ VÀ 2 AVATAR */}
-          <View style={styles.stageBox}>
+          <View style={[styles.stageBox, isCompactMobile && { paddingVertical: 6 }]}>
             {/* 1. NẠN NHÂN TỬ NẠN (DEAD LOVER) - BÊN TRÁI */}
             <Animated.View
               style={[
@@ -595,6 +604,7 @@ export default function CoupleHeartbreakModal({
                 <Animated.View
                   style={[
                     styles.roleSubBadge,
+                    isCompactMobile && { paddingHorizontal: 5, paddingVertical: 1.5 },
                     isVictimWolf && styles.roleSubBadgeWolf,
                     isVictimPiper && styles.roleSubBadgePiper,
                     (isVictimWolf || isVictimPiper) && {
@@ -610,7 +620,7 @@ export default function CoupleHeartbreakModal({
                     },
                   ]}
                 >
-                  <Text style={styles.roleSubBadgeText}>
+                  <Text style={[styles.roleSubBadgeText, isCompactMobile && { fontSize: 8.5 }]} numberOfLines={1}>
                     {getRoleEmoji(victim.role)} {getRoleName(victim.role).toUpperCase()}
                   </Text>
                 </Animated.View>
@@ -619,21 +629,25 @@ export default function CoupleHeartbreakModal({
               <Animated.View
                 style={[
                   styles.deadBadge,
+                  isCompactMobile && { paddingHorizontal: 6, paddingVertical: 2 },
                   {
                     borderColor: victimBorderColor,
                   },
                 ]}
               >
-                <Text style={styles.deadBadgeText}>Nạn Nhân Tử Nạn</Text>
+                <Text style={[styles.deadBadgeText, isCompactMobile && { fontSize: 9.5 }]} numberOfLines={1}>
+                  {isCompactMobile ? 'Tử Nạn 💀' : 'Nạn Nhân Tử Nạn'}
+                </Text>
               </Animated.View>
             </Animated.View>
 
             {/* 2. KHU VỰC TRÁI TIM NỨT VỠ VÀ CÁC MẢNH VỤN - Ở CHÍNH GIỮA */}
-            <View style={styles.centerHeartStage}>
+            <View style={[styles.centerHeartStage, isCompactMobile && { width: 82, height: 96 }]}>
               {/* Sợi dây tình yêu bị đứt phụt */}
               <Animated.View
                 style={[
                   styles.loveBeamLine,
+                  isCompactMobile && { width: 88 },
                   {
                     opacity: beamBreakAnim,
                     transform: [{ scaleX: beamBreakAnim }],
@@ -855,6 +869,7 @@ export default function CoupleHeartbreakModal({
                 <Animated.View
                   style={[
                     styles.roleSubBadge,
+                    isCompactMobile && { paddingHorizontal: 5, paddingVertical: 1.5 },
                     isHeartbrokenWolf && styles.roleSubBadgeWolf,
                     isHeartbrokenPiper && styles.roleSubBadgePiper,
                     (isHeartbrokenWolf || isHeartbrokenPiper) && {
@@ -870,7 +885,7 @@ export default function CoupleHeartbreakModal({
                     },
                   ]}
                 >
-                  <Text style={styles.roleSubBadgeText}>
+                  <Text style={[styles.roleSubBadgeText, isCompactMobile && { fontSize: 8.5 }]} numberOfLines={1}>
                     {getRoleEmoji(heartbroken.role)} {getRoleName(heartbroken.role).toUpperCase()}
                   </Text>
                 </Animated.View>
@@ -879,13 +894,16 @@ export default function CoupleHeartbreakModal({
               <Animated.View
                 style={[
                   styles.heartbrokenBadge,
+                  isCompactMobile && { paddingHorizontal: 6, paddingVertical: 2 },
                   {
                     borderColor: heartbrokenBorderColor,
                     opacity: heartbrokenGrayAnim,
                   },
                 ]}
               >
-                <Text style={styles.heartbrokenBadgeText}>Người Tình Chết Theo 💔</Text>
+                <Text style={[styles.heartbrokenBadgeText, isCompactMobile && { fontSize: 9.5 }]} numberOfLines={1}>
+                  {isCompactMobile ? 'Chết Theo 💔' : 'Người Tình Chết Theo 💔'}
+                </Text>
               </Animated.View>
             </Animated.View>
           </View>
@@ -894,6 +912,7 @@ export default function CoupleHeartbreakModal({
           <Animated.View
             style={[
               styles.narrativeBox,
+              isCompactMobile && { padding: 10, marginTop: 10 },
               {
                 opacity: capFadeAnim,
                 transform: [
@@ -907,9 +926,9 @@ export default function CoupleHeartbreakModal({
               },
             ]}
           >
-            <View style={styles.narrativeTitleRow}>
+            <View style={[styles.narrativeTitleRow, isCompactMobile && { width: '96%' }]}>
               <View style={styles.narrativeLine} />
-              <Text style={styles.narrativeTitle}>
+              <Text style={[styles.narrativeTitle, isCompactMobile && { fontSize: 10 }]} numberOfLines={1}>
                 {hasWolfInCouple
                   ? '🐺 BEAUTY AND THE BEAST'
                   : hasPiperInCouple
@@ -919,7 +938,7 @@ export default function CoupleHeartbreakModal({
               <View style={styles.narrativeLine} />
             </View>
 
-            <Text style={styles.narrativeQuote}>
+            <Text style={[styles.narrativeQuote, isCompactMobile && { fontSize: 13 }]}>
               {typedText}
             </Text>
 

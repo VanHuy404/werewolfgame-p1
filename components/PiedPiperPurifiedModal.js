@@ -22,6 +22,7 @@ import {
   Platform,
   Easing,
   TouchableOpacity,
+  useWindowDimensions,
 } from 'react-native';
 
 const fluteImg = require('../assets/flute.png');
@@ -277,6 +278,8 @@ export default function PiedPiperPurifiedModal({
   timeLeft: propTimeLeft,
   onClose,
 }) {
+  const { width: windowWidth } = useWindowDimensions();
+  const isCompactMobile = windowWidth < 400;
   const [isVideoPlaying, setIsVideoPlaying] = useState(Platform.OS === 'web');
   const videoRef = useRef(null);
 
@@ -607,7 +610,7 @@ export default function PiedPiperPurifiedModal({
               🎶
             </Animated.Text>
 
-            <Text style={styles.floatingChantText}>
+            <Text style={[styles.floatingChantText, isCompactMobile && { fontSize: 15.5 }]}>
               {typedText}
             </Text>
 
@@ -631,9 +634,9 @@ export default function PiedPiperPurifiedModal({
               },
             ]}
           >
-            <View style={styles.curseLiftedBadge}>
+            <View style={[styles.curseLiftedBadge, isCompactMobile && { paddingHorizontal: 12 }]}>
               <Text style={styles.sparkleIcon}>✨</Text>
-              <Text style={styles.piperCurseLiftedLine}>
+              <Text style={[styles.piperCurseLiftedLine, isCompactMobile && { fontSize: 13 }]}>
                 Lời nguyền tiếng sáo đã bị hóa giải
               </Text>
               <Text style={styles.sparkleIcon}>✨</Text>
@@ -647,6 +650,7 @@ export default function PiedPiperPurifiedModal({
             styles.stageCenter,
             {
               transform: [
+                { scale: isCompactMobile ? 0.84 : 1 },
                 { translateX: shakeAnim },
                 { translateY: fluteFloatAnim },
               ],

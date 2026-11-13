@@ -97,6 +97,22 @@ function startPhaseTimer(room, duration, onComplete) {
   }, 1000);
 }
 
+// ==================== GHI LỊCH SỬ TRẬN ĐẤU ====================
+function addMatchLog(room, entry) {
+  if (!room) return;
+  if (!Array.isArray(room.matchHistory)) {
+    room.matchHistory = [];
+  }
+  room.matchHistory.push({
+    round: entry.round || room.round || 1,
+    phaseType: entry.phaseType || 'night', // 'night' | 'day' | 'system'
+    icon: entry.icon || '📜',
+    title: entry.title || '',
+    text: entry.text || '',
+    timestamp: Date.now(),
+  });
+}
+
 // ==================== CHUYỂN PHA GAME ====================
 
 /** Bắt đầu chuỗi Ban Đêm: Lượt 1 - Bảo Vệ thức dậy (nếu có), sau đó đến Sói, Phù Thủy, rồi Tiên Tri */
@@ -107,9 +123,12 @@ function startNightPhase(room) {
   // Reset sạch sẽ các trạng thái của đêm trước
   room.deadThisNight = null;
   room.poisonedThisNight = null;
+  room.shieldClashThisNight = null;
   room.attackedThisNight = null;
   room.savedThisNight = null;
   room.witchSavedThisNight = null;
+  room.charmedThisNightNames = [];
+  room.seerCheckedThisNight = null;
 
   room.nightActions.wolfVotes.clear();
   if (room.nightActions.wolfConfirmed) {
@@ -212,6 +231,16 @@ function startNightCoupleRevealPhase(room) {
   ].filter(Boolean);
 
   const cupidData = cupid ? { id: cupid.id, name: cupid.name, avatar: cupid.avatar, avatarColor: cupid.avatarColor } : null;
+
+  if (p1 && p2) {
+    addMatchLog(room, {
+      round: room.round,
+      phaseType: 'night',
+      icon: '💘',
+      title: `Đêm ${room.round} • Tơ Hồng Định Mệnh`,
+      text: `Cupid${cupid ? ` (${cupid.name})` : ''} đã ghép đôi ${p1.name} (${ROLE_EMOJIS[p1.role] || ''} ${ROLE_NAMES[p1.role] || p1.role}) và ${p2.name} (${ROLE_EMOJIS[p2.role] || ''} ${ROLE_NAMES[p2.role] || p2.role}).`,
+    });
+  }
 
   // Gửi sự kiện cho toàn bộ người chơi kèm dữ liệu coupleData
   io.to(room.code).emit('couple-formed', {
@@ -557,14 +586,17 @@ function finishPiedPiperPhase(room) {
     if (!room.charmedPlayers) room.charmedPlayers = new Set();
     if (!room.charmedHistory) room.charmedHistory = {};
 
+    const charmedNames = [];
     room.nightActions.piedPiperTargets.forEach((targetId) => {
       room.charmedPlayers.add(targetId);
       room.charmedHistory[targetId] = true;
       const targetPlayer = room.players.get(targetId);
       if (targetPlayer) {
         targetPlayer.charmed = true;
+        charmedNames.push(targetPlayer.name);
       }
     });
+    room.charmedThisNightNames = charmedNames;
 
     // Cập nhật cho Người Thổi Sáo
     const piedPiper = [...room.players.values()].find((p) => p.role === ROLES.PIED_PIPER && p.alive);
@@ -749,6 +781,73 @@ function startDayAnnounce(room, nightResult = {}) {
   if (heartbrokenPlayer) {
     announceChat += `\n💔 [TÌNH YÊU VĨNH HẰNG]: Nhìn thấy người yêu qua đời, ${heartbrokenPlayer.name} không thiết tha sống nữa và đã chết theo vì quá đau buồn thất tình!`;
   }
+
+  // 📜 Ghi nhận diễn biến Đêm & Bình Minh vào Lịch Sử Trận Đấu (Match Timeline)
+  const nightProtectedId = room.nightActions ? room.nightActions.lastProtectedTarget : null;
+  const nightProtectedPlayer = nightProtectedId ? room.players.get(nightProtectedId) : null;
+  if (nightProtectedPlayer) {
+    addMatchLog(room, {
+      round: room.round,
+      phaseType: 'night',
+      icon: '🛡️',
+      title: `Đêm ${room.round} • Bảo Vệ Hộ Vệ`,
+      text: `Bảo Vệ đã dựng khiên che chở cho ${nightProtectedPlayer.name}.`,
+    });
+  }
+  if (attackedPlayer) {
+    addMatchLog(room, {
+      round: room.round,
+      phaseType: 'night',
+      icon: '🐺',
+      title: `Đêm ${room.round} • Bầy Sói Săn Mồi`,
+      text: `Bầy Sói đã chọn tấn công ${attackedPlayer.name} (${ROLE_EMOJIS[attackedPlayer.role] || ''} ${ROLE_NAMES[attackedPlayer.role] || attackedPlayer.role}).`,
+    });
+  }
+  if (witchSavedPlayer) {
+    addMatchLog(room, {
+      round: room.round,
+      phaseType: 'night',
+      icon: '🧪',
+      title: `Đêm ${room.round} • Thần Dược Cứu Mạng`,
+      text: `Phù Thủy đã dùng Bình Cứu hồi sinh ${witchSavedPlayer.name}.`,
+    });
+  }
+  if (poisonedPlayer) {
+    addMatchLog(room, {
+      round: room.round,
+      phaseType: 'night',
+      icon: '☠️',
+      title: `Đêm ${room.round} • Độc Dược Tử Thần`,
+      text: `Phù Thủy đã ném Bình Độc sát hại ${poisonedPlayer.name} (${ROLE_EMOJIS[poisonedPlayer.role] || ''} ${ROLE_NAMES[poisonedPlayer.role] || poisonedPlayer.role}).`,
+    });
+  }
+  if (room.seerCheckedThisNight) {
+    addMatchLog(room, {
+      round: room.round,
+      phaseType: 'night',
+      icon: '🔮',
+      title: `Đêm ${room.round} • Tiên Tri Soi Thấu`,
+      text: `Tiên Tri đã soi ${room.seerCheckedThisNight.targetName} → Kết quả: Phe ${room.seerCheckedThisNight.alignmentName}.`,
+    });
+  }
+  if (Array.isArray(room.charmedThisNightNames) && room.charmedThisNightNames.length > 0) {
+    addMatchLog(room, {
+      round: room.round,
+      phaseType: 'night',
+      icon: '🎶',
+      title: `Đêm ${room.round} • Tiếng Sáo Mê Hoặc`,
+      text: `Người Thổi Sáo đã thôi miên: ${room.charmedThisNightNames.join(', ')}.`,
+    });
+  }
+
+  // Tổng kết Bình Minh
+  addMatchLog(room, {
+    round: room.round,
+    phaseType: 'day',
+    icon: deadPlayer || poisonedPlayer ? '💀' : '☀️',
+    title: `Bình minh Ngày ${room.round}`,
+    text: announceChat.replace(/\n/g, ' | '),
+  });
 
   // Kiểm tra Thợ Săn bị Sói cắn tử nạn (và không bị Phù Thủy ném độc) hoặc chết theo người yêu (nếu setting bật)
   const directWolfKilledHunter = (deadPlayer && deadPlayer.role === ROLES.HUNTER && (!poisonedPlayer || poisonedPlayer.id !== deadPlayer.id))
@@ -983,6 +1082,17 @@ function concludeDayVote(room) {
     });
   }
 
+  // 📜 Ghi nhận diễn biến Biểu Quyết Treo Cổ vào Lịch Sử Trận Đấu
+  addMatchLog(room, {
+    round: room.round,
+    phaseType: 'day',
+    icon: eliminated ? '⚖️' : '🕊️',
+    title: `Biểu quyết Ngày ${room.round}`,
+    text: eliminated
+      ? `Dân làng treo cổ ${eliminated.name} (${ROLE_EMOJIS[eliminated.role] || ''} ${ROLE_NAMES[eliminated.role] || eliminated.role}).${voteHeartbrokenPlayer ? ` 💔 ${voteHeartbrokenPlayer.name} (${ROLE_EMOJIS[voteHeartbrokenPlayer.role] || ''} ${ROLE_NAMES[voteHeartbrokenPlayer.role] || voteHeartbrokenPlayer.role}) tự vẫn chết theo người yêu!` : ''}`
+      : `Hòa phiếu hoặc đa số bỏ phiếu trắng — Không ai bị treo cổ.`,
+  });
+
   // Gửi kết quả biểu quyết kèm remainingWolves (không gửi charmedCount lên bảng chung để bảo vệ bí mật Phương án 1)
   io.to(room.code).emit('vote-result', {
     eliminated: eliminated
@@ -1164,6 +1274,14 @@ function processHunterShot(room, hunterPlayer, targetPlayer, passed, cause) {
       isSystem: true,
     });
 
+    addMatchLog(room, {
+      round: room.round,
+      phaseType: 'day',
+      icon: '🏹',
+      title: `Vòng ${room.round} • Phát Súng Trăn Trối`,
+      text: `Thợ Săn ${hunterPlayer.name} quyết định bắn chỉ thiên, không kéo theo ai xuống mồ.`,
+    });
+
     setTimeout(() => {
       const winCheck = checkWinCondition(room);
       if (winCheck.gameOver) {
@@ -1292,6 +1410,14 @@ function processHunterShot(room, hunterPlayer, targetPlayer, passed, cause) {
     isSystem: true,
   });
 
+  addMatchLog(room, {
+    round: room.round,
+    phaseType: 'day',
+    icon: '💥',
+    title: `Vòng ${room.round} • Phát Súng Báo Thù`,
+    text: `Thợ Săn ${hunterPlayer.name} nổ súng bắn hạ ${targetPlayer.name} (${ROLE_EMOJIS[targetPlayer.role] || ''} ${ROLE_NAMES[targetPlayer.role] || targetPlayer.role}).${hunterHeartbrokenPlayer ? ` 💔 ${hunterHeartbrokenPlayer.name} (${ROLE_EMOJIS[hunterHeartbrokenPlayer.role] || ''} ${ROLE_NAMES[hunterHeartbrokenPlayer.role] || hunterHeartbrokenPlayer.role}) tự vẫn chết theo người yêu!` : ''}`,
+  });
+
   // Chờ hiển thị hoạt ảnh tuần tự (Nếu bắn trúng Người Thổi Sáo thì chờ thêm thời gian Thổi Sáo chết + thanh tẩy: 13s / 18s nếu kèm người yêu chết; nếu trúng người có người yêu tuẫn tình: 12.5s, ngược lại 6.5s)
   const hasHunterHeartbreak = Boolean(hunterHeartbrokenPlayer);
   const hunterDelay = isPiedPiperShot
@@ -1319,25 +1445,38 @@ function endGame(room, winCheck) {
     room.timer = null;
   }
 
-  // Reveal toàn bộ vai trò
-  const allPlayers = [...room.players.values()].map((p) => ({
-    id: p.id,
-    name: p.name,
-    role: p.role,
-    alive: p.alive,
-    avatar: p.avatar,
-    avatarColor: p.avatarColor,
-  }));
+  const coupleIds = Array.isArray(room.couple) ? room.couple : [];
 
-  const couplePlayers = room.couple
-    ? room.couple.map((id) => room.players.get(id)).filter(Boolean).map((p) => ({
-        id: p.id,
-        name: p.name,
-        role: p.role,
-        avatar: p.avatar,
-        avatarColor: p.avatarColor,
-      }))
-    : [];
+  // Reveal toàn bộ vai trò + trạng thái Cặp Đôi & Bị Thôi Miên
+  const allPlayers = [...room.players.values()].map((p) => {
+    const inCouple = coupleIds.includes(p.id);
+    const partnerId = inCouple ? coupleIds.find((id) => id !== p.id) : null;
+    const partner = partnerId ? room.players.get(partnerId) : null;
+    const isCharmed = Boolean((room.charmedPlayers && room.charmedPlayers.has(p.id)) || p.charmed);
+    return {
+      id: p.id,
+      name: p.name,
+      role: p.role,
+      alive: p.alive,
+      avatar: p.avatar,
+      avatarColor: p.avatarColor,
+      inCouple,
+      partnerId: partnerId || null,
+      partnerName: partner ? partner.name : null,
+      charmed: isCharmed,
+    };
+  });
+
+  const couplePlayers = coupleIds
+    .map((id) => room.players.get(id))
+    .filter(Boolean)
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      role: p.role,
+      avatar: p.avatar,
+      avatarColor: p.avatarColor,
+    }));
 
   io.to(room.code).emit('phase-change', {
     phase: PHASES.GAME_OVER,
@@ -1345,22 +1484,124 @@ function endGame(room, winCheck) {
     message: winCheck.message,
     players: allPlayers,
     couple: couplePlayers,
+    matchHistory: room.matchHistory || [],
   });
 }
 
 /**
- * Xử lý khi có người out game giữa trận (rời phòng / mất kết nối)
- * YÊU CẦU: Nếu số Sói >= Dân hoặc hết Sói -> dừng ván NGAY LẬP TỨC và hiện màn hình kết thúc
+ * Xử lý khi có người out game giữa trận (rời phòng / mất kết nối quá hạn)
+ * YÊU CẦU:
+ * - Nếu 1 người trong Cặp Đôi rời trận -> người yêu còn lại tự vẫn chết theo (tuẫn tình)
+ * - Nếu Người Thổi Sáo rời trận (hoặc chết theo người yêu) -> thanh tẩy toàn bộ bùa mê
+ * - Nếu số Sói >= Dân hoặc hết Sói -> dừng ván NGAY LẬP TỨC và hiện màn hình kết thúc
  */
-function handleMidGameExit(room, playerId) {
+function handleMidGameExit(room, playerId, exitingPlayerSnapshot = null) {
   if (room.phase === PHASES.WAITING || room.phase === PHASES.GAME_OVER) return;
 
-  // Bỏ phiếu cắn / bỏ phiếu ngày của người đã rời không còn hiệu lực
+  const exitingPlayer = room.players.get(playerId) || exitingPlayerSnapshot;
+  const exitingName = exitingPlayer ? exitingPlayer.name : 'Một người chơi';
+  const exitingRole = exitingPlayer ? exitingPlayer.role : null;
+
+  // Bỏ phiếu cắn / bỏ phiếu ngày của người đã rời (hoặc nhắm vào người đã rời) không còn hiệu lực
   if (room.nightActions) {
-    if (room.nightActions.wolfVotes) room.nightActions.wolfVotes.delete(playerId);
+    if (room.nightActions.wolfVotes) {
+      room.nightActions.wolfVotes.delete(playerId);
+      for (const [wid, tid] of room.nightActions.wolfVotes.entries()) {
+        if (tid === playerId) room.nightActions.wolfVotes.delete(wid);
+      }
+    }
     if (room.nightActions.wolfConfirmed) room.nightActions.wolfConfirmed.delete(playerId);
+    if (room.nightActions.bodyguardTarget === playerId) room.nightActions.bodyguardTarget = null;
+    if (room.nightActions.witchPoisonTarget === playerId) room.nightActions.witchPoisonTarget = null;
+    if (Array.isArray(room.nightActions.piedPiperTargets)) {
+      room.nightActions.piedPiperTargets = room.nightActions.piedPiperTargets.filter((id) => id !== playerId);
+    }
   }
-  if (room.dayVotes) room.dayVotes.delete(playerId);
+  if (room.dayVotes) {
+    room.dayVotes.delete(playerId);
+    for (const [vid, tid] of room.dayVotes.entries()) {
+      if (tid === playerId) room.dayVotes.delete(vid);
+    }
+  }
+  if (room.charmedPlayers) {
+    room.charmedPlayers.delete(playerId);
+  }
+
+  // 💔 Kiểm tra nếu người rời trận thuộc Cặp Đôi -> người yêu còn lại chết theo vì thất tình
+  let exitHeartbrokenPlayer = null;
+  if (Array.isArray(room.couple) && room.couple.includes(playerId)) {
+    const partnerId = room.couple.find((id) => id !== playerId);
+    const partner = partnerId ? room.players.get(partnerId) : null;
+    if (partner && partner.alive) {
+      partner.alive = false;
+      exitHeartbrokenPlayer = partner;
+      if (room.charmedPlayers) room.charmedPlayers.delete(partner.id);
+
+      io.to(room.code).emit('new-message', {
+        playerId: 'system',
+        playerName: '📢 Hệ Thống',
+        avatar: '💔',
+        message: `💔 [TÌNH YÊU VĨNH HẰNG]: Vì người yêu ${exitingName} đã rời bỏ cuộc chơi, ${partner.name} đau đớn tột cùng và tự vẫn chết theo!`,
+        timestamp: Date.now(),
+        isWolfChat: false,
+        isSystem: true,
+      });
+    }
+  }
+
+  // ✨ Kiểm tra nếu người rời trận HOẶC người yêu chết theo là Người Thổi Sáo -> Thanh tẩy toàn bộ bùa mê
+  const isPiedPiperExited =
+    exitingRole === ROLES.PIED_PIPER ||
+    (exitHeartbrokenPlayer && exitHeartbrokenPlayer.role === ROLES.PIED_PIPER);
+  const piedPiperExitPlayer =
+    exitingRole === ROLES.PIED_PIPER ? exitingPlayer : exitHeartbrokenPlayer;
+
+  if (isPiedPiperExited && room.charmedPlayers && room.charmedPlayers.size > 0) {
+    const purifiedPlayersExit = [...room.charmedPlayers]
+      .map((id) => room.players.get(id))
+      .filter(Boolean)
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        avatar: p.avatar,
+        avatarColor: p.avatarColor,
+      }));
+
+    room.charmedPlayers = new Set();
+    room.charmedHistory = {};
+    room.players.forEach((p) => { p.charmed = false; });
+
+    if (piedPiperExitPlayer) {
+      io.to(room.code).emit('pied-piper-purified', {
+        piedPiper: {
+          id: piedPiperExitPlayer.id || playerId,
+          name: piedPiperExitPlayer.name || 'Người Thổi Sáo',
+          avatar: piedPiperExitPlayer.avatar || '🎶',
+          avatarColor: piedPiperExitPlayer.avatarColor || '#A855F7',
+        },
+        purifiedPlayers: purifiedPlayersExit,
+        cause: 'exit',
+      });
+    }
+
+    io.to(room.code).emit('new-message', {
+      playerId: 'system',
+      playerName: '📢 Hệ Thống',
+      avatar: '✨',
+      message: '✨ [THANH TẨY HOÀNG KIM]: Người Thổi Sáo đã ngã xuống / rời trận — Toàn bộ bùa mê tiếng sáo đã được xóa bỏ!',
+      timestamp: Date.now(),
+      isWolfChat: false,
+      isSystem: true,
+    });
+  }
+
+  addMatchLog(room, {
+    round: room.round || 1,
+    phaseType: 'system',
+    icon: '🚪',
+    title: `Vòng ${room.round || 1} • Người Chơi Rời Trận`,
+    text: `${exitingName}${exitingRole ? ` (${ROLE_EMOJIS[exitingRole] || ''} ${ROLE_NAMES[exitingRole] || exitingRole})` : ''} đã rời trận.${exitHeartbrokenPlayer ? ` 💔 ${exitHeartbrokenPlayer.name} tự vẫn chết theo người yêu!` : ''}`,
+  });
 
   const winCheck = checkWinCondition(room);
   if (winCheck.gameOver) {
@@ -1370,7 +1611,7 @@ function handleMidGameExit(room, playerId) {
 
   // Gửi danh sách người chơi riêng cho từng người (giữ đúng quyền xem vai trò)
   room.players.forEach((p, pid) => {
-    io.to(pid).emit('players-update', { players: getPlayersData(room, pid) });
+    io.to(pid).emit('players-update', { players: getPlayersData(room, pid), hostId: room.hostId });
   });
 }
 
@@ -1528,10 +1769,16 @@ io.on('connection', (socket) => {
 
     // Phân vai ngẫu nhiên
     assignRoles(room);
+    room.round = 0;
+    room.couple = null;
+    room.cupidActed = false;
+    room.hunterShotContext = null;
+    room.matchHistory = [];
     room.seerHistory = {};
     room.charmedPlayers = new Set();
     room.charmedHistory = {};
     room.players.forEach((p) => {
+      p.alive = true;
       p.charmed = false;
     });
 
@@ -1786,6 +2033,11 @@ io.on('connection', (socket) => {
     if (!room.seerHistory) room.seerHistory = {};
     room.seerHistory[targetId] = {
       alignment: isEvil ? 'evil' : 'good',
+      alignmentName: isEvil ? 'ÁC' : 'THIỆN',
+    };
+    room.seerCheckedThisNight = {
+      targetId,
+      targetName: target.name,
       alignmentName: isEvil ? 'ÁC' : 'THIỆN',
     };
 
@@ -2251,6 +2503,14 @@ io.on('connection', (socket) => {
       }
 
       if (existingPlayer) {
+        if (matchedPlayerId && pendingDisconnects.has(matchedPlayerId)) {
+          clearTimeout(pendingDisconnects.get(matchedPlayerId).timer);
+          pendingDisconnects.delete(matchedPlayerId);
+        }
+
+        const oldIds = [oldPlayerId, matchedPlayerId, existingPlayer.id].filter(Boolean);
+        const replaceOldId = (id) => (id && oldIds.includes(id) ? socket.id : id);
+
         // Kiểm tra quyền Chủ Phòng: theo socket id cũ, matched id cũ, hoặc tên chủ phòng
         const isHost = (oldPlayerId && room.hostId === oldPlayerId) ||
                        (matchedPlayerId && room.hostId === matchedPlayerId) ||
@@ -2266,38 +2526,122 @@ io.on('connection', (socket) => {
           room.hostPlayerName = existingPlayer.name;
         }
 
+        // 💘 Khôi phục liên kết Cặp Đôi (Cupid) sang socket.id mới
+        if (Array.isArray(room.couple) && room.couple.length > 0) {
+          room.couple = room.couple.map(replaceOldId);
+        }
+
+        // 🏹 Khôi phục ngữ cảnh Thợ Săn bắn trăn trối nếu Thợ Săn ấn F5 đúng lúc đang nhắm bắn
+        if (room.hunterShotContext && oldIds.includes(room.hunterShotContext.hunterId)) {
+          room.hunterShotContext.hunterId = socket.id;
+        }
+
+        // 🌙 Khôi phục các ID tham chiếu trong hành động đêm và bỏ phiếu ngày
+        room.deadThisNight = replaceOldId(room.deadThisNight);
+        room.poisonedThisNight = replaceOldId(room.poisonedThisNight);
+        room.shieldClashThisNight = replaceOldId(room.shieldClashThisNight);
+        room.attackedThisNight = replaceOldId(room.attackedThisNight);
+        room.savedThisNight = replaceOldId(room.savedThisNight);
+        room.witchSavedThisNight = replaceOldId(room.witchSavedThisNight);
+
+        if (room.nightActions) {
+          room.nightActions.bodyguardTarget = replaceOldId(room.nightActions.bodyguardTarget);
+          room.nightActions.lastProtectedTarget = replaceOldId(room.nightActions.lastProtectedTarget);
+          room.nightActions.wolfTarget = replaceOldId(room.nightActions.wolfTarget);
+          room.nightActions.witchPoisonTarget = replaceOldId(room.nightActions.witchPoisonTarget);
+          if (Array.isArray(room.nightActions.piedPiperTargets)) {
+            room.nightActions.piedPiperTargets = room.nightActions.piedPiperTargets.map(replaceOldId);
+          }
+          if (room.nightActions.seerCheck) {
+            room.nightActions.seerCheck = {
+              seerId: replaceOldId(room.nightActions.seerCheck.seerId),
+              targetId: replaceOldId(room.nightActions.seerCheck.targetId),
+            };
+          }
+          if (room.nightActions.wolfVotes instanceof Map) {
+            const updatedWolfVotes = new Map();
+            room.nightActions.wolfVotes.forEach((tid, wid) => {
+              updatedWolfVotes.set(replaceOldId(wid), replaceOldId(tid));
+            });
+            room.nightActions.wolfVotes = updatedWolfVotes;
+          }
+          if (room.nightActions.wolfConfirmed instanceof Set) {
+            const updatedConfirmed = new Set();
+            room.nightActions.wolfConfirmed.forEach((wid) => {
+              updatedConfirmed.add(replaceOldId(wid));
+            });
+            room.nightActions.wolfConfirmed = updatedConfirmed;
+          }
+        }
+
+        if (room.dayVotes instanceof Map) {
+          const updatedDayVotes = new Map();
+          room.dayVotes.forEach((tid, vid) => {
+            updatedDayVotes.set(replaceOldId(vid), tid === 'skip' ? 'skip' : replaceOldId(tid));
+          });
+          room.dayVotes = updatedDayVotes;
+        }
+
+        // Cập nhật seerHistory nếu mục tiêu đã soi tải lại trang
+        if (room.seerHistory) {
+          oldIds.forEach((oldId) => {
+            if (oldId !== socket.id && room.seerHistory[oldId]) {
+              room.seerHistory[socket.id] = room.seerHistory[oldId];
+              delete room.seerHistory[oldId];
+            }
+          });
+        }
+
         // Khôi phục trạng thái bị Thôi Miên
         const wasCharmed = Boolean(
           existingPlayer.charmed ||
-          (room.charmedPlayers && (
-            (oldPlayerId && room.charmedPlayers.has(oldPlayerId)) ||
-            (matchedPlayerId && room.charmedPlayers.has(matchedPlayerId)) ||
-            (existingPlayer.id && room.charmedPlayers.has(existingPlayer.id))
-          ))
+          (room.charmedPlayers && oldIds.some((id) => room.charmedPlayers.has(id)))
         );
 
         if (wasCharmed) {
           if (!room.charmedPlayers) room.charmedPlayers = new Set();
-          if (oldPlayerId) room.charmedPlayers.delete(oldPlayerId);
-          if (matchedPlayerId) room.charmedPlayers.delete(matchedPlayerId);
+          oldIds.forEach((id) => room.charmedPlayers.delete(id));
           room.charmedPlayers.add(socket.id);
           existingPlayer.charmed = true;
         }
 
         // Cập nhật charmedHistory nếu nạn nhân có trong history của Người Thổi Sáo
         if (room.charmedHistory) {
-          if (oldPlayerId && room.charmedHistory[oldPlayerId]) {
-            room.charmedHistory[socket.id] = room.charmedHistory[oldPlayerId];
-            delete room.charmedHistory[oldPlayerId];
-          }
-          if (matchedPlayerId && room.charmedHistory[matchedPlayerId]) {
-            room.charmedHistory[socket.id] = room.charmedHistory[matchedPlayerId];
-            delete room.charmedHistory[matchedPlayerId];
-          }
+          oldIds.forEach((oldId) => {
+            if (oldId !== socket.id && room.charmedHistory[oldId]) {
+              room.charmedHistory[socket.id] = room.charmedHistory[oldId];
+              delete room.charmedHistory[oldId];
+            }
+          });
         }
 
         // Nếu người reconnect chính là Người Thổi Sáo -> khôi phục charmedHistory cho họ
         const piperHistory = existingPlayer.role === ROLES.PIED_PIPER ? (room.charmedHistory || {}) : {};
+
+        // Khôi phục dữ liệu Cặp Đôi (cho thành viên Cặp Đôi, Cupid hoặc khi kết thúc trận)
+        const canSeeCouple =
+          (Array.isArray(room.couple) && room.couple.includes(socket.id)) ||
+          existingPlayer.role === ROLES.CUPID ||
+          room.phase === PHASES.GAME_OVER;
+        const coupleData = (canSeeCouple && Array.isArray(room.couple))
+          ? room.couple
+              .map((id) => room.players.get(id))
+              .filter(Boolean)
+              .map((p) => ({
+                id: p.id,
+                name: p.name,
+                avatar: p.avatar,
+                avatarColor: p.avatarColor,
+                role: p.role,
+              }))
+          : [];
+
+        // Nếu người reconnect thuộc Cặp Đôi, đồng bộ lại couple-formed cho đối phương để cập nhật socket.id mới
+        if (Array.isArray(room.couple) && room.couple.includes(socket.id)) {
+          room.couple.forEach((loverId) => {
+            io.to(loverId).emit('couple-formed', { couple: coupleData });
+          });
+        }
 
         // Khôi phục màn hình game cho người chơi
         socket.emit('reconnected-in-game', {
@@ -2310,17 +2654,29 @@ io.on('connection', (socket) => {
           round: room.round,
           timeLeft: room.timeLeft,
           deadPlayer: room.deadThisNight ? room.players.get(room.deadThisNight) : null,
+          poisonedPlayer: room.poisonedThisNight ? room.players.get(room.poisonedThisNight) : null,
+          shieldClashPlayer: room.shieldClashThisNight ? room.players.get(room.shieldClashThisNight) : null,
+          witchSavedPlayer: room.witchSavedThisNight ? room.players.get(room.witchSavedThisNight) : null,
           savedPlayer: (room.nightActions && room.nightActions.wasProtected && room.savedThisNight) ? room.players.get(room.savedThisNight) : null,
           wasProtected: Boolean(room.nightActions && room.nightActions.wasProtected),
           lastProtectedTarget: room.nightActions ? room.nightActions.lastProtectedTarget : null,
+          witchState: existingPlayer.role === ROLES.WITCH ? (existingPlayer.witchState || { hasHeal: true, hasPoison: true }) : undefined,
+          hunter: (room.phase === PHASES.HUNTER_SHOT && room.hunterShotContext)
+            ? room.players.get(room.hunterShotContext.hunterId) || null
+            : null,
           seerHistory: existingPlayer.role === ROLES.SEER ? (room.seerHistory || {}) : {},
           charmedHistory: piperHistory,
           charmCountRequired: existingPlayer.role === ROLES.PIED_PIPER ? (room.settings.piedPiperCharmCount || 2) : 2,
+          couple: coupleData,
+          matchHistory: room.matchHistory || [],
         });
 
-        io.to(room.code).emit('players-update', {
-          players: getPlayersData(room),
-          hostId: room.hostId,
+        // Gửi players-update riêng cho từng người chơi để bảo toàn hiển thị Role của Người Yêu & Đồng Đội Sói!
+        room.players.forEach((_, pid) => {
+          io.to(pid).emit('players-update', {
+            players: getPlayersData(room, pid),
+            hostId: room.hostId,
+          });
         });
       } else {
         socket.emit('reconnect-failed', { message: 'Không thể khôi phục phiên trận đấu!' });
@@ -2391,6 +2747,8 @@ io.on('connection', (socket) => {
     }
 
     const wasInGame = room.phase !== PHASES.WAITING && room.phase !== PHASES.GAME_OVER;
+    const exitingPlayer = room.players.get(socket.id);
+    const exitingPlayerSnapshot = exitingPlayer ? { ...exitingPlayer } : null;
 
     socket.leave(room.code);
     const updatedRoom = leaveRoom(room.code, socket.id);
@@ -2399,7 +2757,7 @@ io.on('connection', (socket) => {
     if (updatedRoom) {
       if (wasInGame) {
         io.to(room.code).emit('player-left', { hostId: updatedRoom.hostId });
-        handleMidGameExit(updatedRoom, socket.id);
+        handleMidGameExit(updatedRoom, socket.id, exitingPlayerSnapshot);
       } else {
         io.to(room.code).emit('player-left', {
           players: getPlayersData(updatedRoom),
@@ -2425,13 +2783,21 @@ io.on('connection', (socket) => {
     // Reset trạng thái phòng về WAITING
     room.phase = PHASES.WAITING;
     room.round = 0;
+    room.couple = null;
+    room.cupidActed = false;
+    room.hunterShotContext = null;
     room.deadThisNight = null;
+    room.poisonedThisNight = null;
+    room.shieldClashThisNight = null;
     room.attackedThisNight = null;
     room.savedThisNight = null;
+    room.witchSavedThisNight = null;
     room.seerHistory = {};
     room.charmedPlayers = new Set();
     room.charmedHistory = {};
-    room.players.forEach((p) => { p.charmed = false; });
+    room.matchHistory = [];
+    room.charmedThisNightNames = [];
+    room.seerCheckedThisNight = null;
     room.messages = [];
     room.nightActions = {
       wolfVotes: new Map(),
@@ -2439,6 +2805,8 @@ io.on('connection', (socket) => {
       seerCheck: null,
       bodyguardTarget: null,
       lastProtectedTarget: null,
+      witchSavedThisNight: false,
+      witchPoisonTarget: null,
       piedPiperTargets: [],
       wasProtected: false,
     };
@@ -2448,6 +2816,8 @@ io.on('connection', (socket) => {
     room.players.forEach((p) => {
       p.alive = true;
       p.role = null;
+      p.charmed = false;
+      p.witchState = { hasHeal: true, hasPoison: true };
     });
 
     console.log(`🔄 Phòng ${room.code} đã trở về phòng chờ (Lobby)!`);

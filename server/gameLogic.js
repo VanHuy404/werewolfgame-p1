@@ -103,6 +103,7 @@ function createRoom(hostId, hostName, settings = {}, customAvatar = null) {
     seerHistory: {},         // { [targetId]: { alignment, alignmentName } } - Lịch sử soi của Tiên Tri
     charmedPlayers: new Set(), // Set<playerId> - Danh sách người chơi bị Người Thổi Sáo mê hoặc
     charmedHistory: {},      // { [targetId]: true } - Lịch sử mê hoặc của Người Thổi Sáo
+    matchHistory: [],        // Lịch sử diễn biến từng Đêm / Ngày trong trận đấu
     messages: [],
     round: 0,
     timer: null,
@@ -537,6 +538,8 @@ function getPlayersData(room, forPlayerId = null) {
     const showCouple = (isRequesterInCouple && isPlayerInCouple) ||
       (isCupidViewer && isPlayerInCouple) ||
       (room.phase === PHASES.GAME_OVER && isPlayerInCouple);
+    const otherLoverId = isPlayerInCouple ? coupleIds.find((id) => id !== p.id) : null;
+    const otherLoverPlayer = otherLoverId ? room.players.get(otherLoverId) : null;
 
     return {
       id: p.id,
@@ -550,8 +553,8 @@ function getPlayersData(room, forPlayerId = null) {
       isSelfCharmed: isCharmedViewer,
       inCouple: showCouple,
       isLover: isPartner,
-      partnerId: isSelf && partnerId ? partnerId : null,
-      partnerName: isSelf && partnerPlayer ? partnerPlayer.name : null,
+      partnerId: (isSelf && partnerId) ? partnerId : (showCouple ? otherLoverId : null),
+      partnerName: (isSelf && partnerPlayer) ? partnerPlayer.name : (showCouple && otherLoverPlayer ? otherLoverPlayer.name : null),
       partnerRole: isSelf && partnerPlayer ? partnerPlayer.role : null,
     };
   });

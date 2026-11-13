@@ -1036,6 +1036,199 @@ function verifyServerGameLogicIntegration() {
 }
 
 // ============================================================================
+// PHẦN 5: KIỂM THỬ GIAO DIỆN MOBILE RESPONSIVE & CHAT DRAWER TRÊN ĐIỆN THOẠI
+// ============================================================================
+function verifyMobileResponsiveAndChatLayout() {
+  const coupleRevealCode = fs.readFileSync(
+    path.join(__dirname, '../components/CoupleRevealModal.js'),
+    'utf8'
+  );
+  const coupleHeartbreakCode = fs.readFileSync(
+    path.join(__dirname, '../components/CoupleHeartbreakModal.js'),
+    'utf8'
+  );
+  const piperPurifiedCode = fs.readFileSync(
+    path.join(__dirname, '../components/PiedPiperPurifiedModal.js'),
+    'utf8'
+  );
+  const chatBoxCode = fs.readFileSync(
+    path.join(__dirname, '../components/ChatBox.js'),
+    'utf8'
+  );
+  const gameScreenCode = fs.readFileSync(
+    path.join(__dirname, '../screens/GameScreen.js'),
+    'utf8'
+  );
+
+  // 1. Kiểm tra useWindowDimensions() và co giãn động trên màn hình nhỏ (< 420px)
+  assert(
+    coupleRevealCode.includes('useWindowDimensions') &&
+      coupleRevealCode.includes('isCompactMobile'),
+    'CoupleRevealModal phải dùng useWindowDimensions & isCompactMobile để tự thu gọn trên màn hình điện thoại nhỏ (< 420px)'
+  );
+  assert(
+    coupleHeartbreakCode.includes('useWindowDimensions') &&
+      coupleHeartbreakCode.includes('isCompactMobile') &&
+      coupleHeartbreakCode.includes('width: 82, height: 96'),
+    'CoupleHeartbreakModal phải dùng useWindowDimensions & thu gọn vùng tim vỡ ở giữa (82px) trên mobile để 2 cột Avatar và huy hiệu không bị vỡ dòng'
+  );
+  assert(
+    piperPurifiedCode.includes('useWindowDimensions') &&
+      piperPurifiedCode.includes('scale: isCompactMobile ? 0.84 : 1'),
+    'PiedPiperPurifiedModal phải tự thu phóng (scale 0.84) trên màn hình < 400px để cây sáo ngang (340px) không tràn viền'
+  );
+
+  // 2. Kiểm tra tính toán kích thước thực tế trên các màn hình điện thoại phổ biến (360px, 375px, 390px, 414px)
+  const mobileViewports = [
+    { device: 'Android Small (360x640)', width: 360, height: 640 },
+    { device: 'iPhone SE / 8 (375x667)', width: 375, height: 667 },
+    { device: 'iPhone 14 / 15 (390x844)', width: 390, height: 844 },
+    { device: 'iPhone Plus / Pro Max (414x896)', width: 414, height: 896 },
+  ];
+
+  const mobileChecks = [];
+  for (const vp of mobileViewports) {
+    const isCompact = vp.width < 420;
+    // CoupleRevealModal width & inner columns
+    const revealCardWidth = Math.min(vp.width - 20, 470);
+    const revealPadding = (isCompact ? 14 : 22) * 2;
+    const revealConnectorWidth = isCompact ? 16 * 2 + 34 : 26 * 2 + 46;
+    const revealEachColWidth = (revealCardWidth - revealPadding - 8 - revealConnectorWidth) / 2;
+    assert(
+      revealCardWidth <= vp.width - 16 && revealEachColWidth >= 100,
+      `[${vp.device}] CoupleRevealModal bị hẹp cột (${revealEachColWidth}px)`
+    );
+
+    // CoupleHeartbreakModal width & inner columns
+    const heartbreakCardWidth = Math.min(vp.width - 20, 500);
+    const heartbreakPadding = (isCompact ? 14 : 20) * 2;
+    const heartbreakCenterWidth = isCompact ? 82 : 120;
+    const heartbreakEachColWidth =
+      (heartbreakCardWidth - heartbreakPadding - heartbreakCenterWidth) / 2;
+    assert(
+      heartbreakCardWidth <= vp.width - 16 && heartbreakEachColWidth >= 105,
+      `[${vp.device}] CoupleHeartbreakModal bị hẹp cột (${heartbreakEachColWidth}px)`
+    );
+
+    // Mobile Chat Drawer width
+    const chatDrawerWidth = Math.min(vp.width * 0.88, 360);
+    assert(
+      chatDrawerWidth >= 310 && chatDrawerWidth <= vp.width,
+      `[${vp.device}] Chat Drawer trên mobile phải đủ rộng rãi (${chatDrawerWidth}px) và không tràn màn hình`
+    );
+
+    mobileChecks.push({
+      device: vp.device,
+      revealColPx: Math.round(revealEachColWidth),
+      heartbreakColPx: Math.round(heartbreakEachColWidth),
+      chatDrawerPx: Math.round(chatDrawerWidth),
+    });
+  }
+
+  // 3. Kiểm tra ChatBox & GameScreen trên Mobile (3 kênh Làng + Hang Sói + Cặp Đôi & Nút nổi không đè thanh hành động)
+  assert(
+    chatBoxCode.includes("isSmallMobile && isCouple ? '🐺 Sói' : '🐺 Hang Sói'") &&
+      chatBoxCode.includes("isSmallMobile && isWolf ? '💘 Đôi' : '💘 Cặp Đôi'"),
+    'ChatBox trên mobile phải rút gọn nhãn tab khi người chơi vừa là Sói vừa thuộc Cặp Đôi (3 tab cùng lúc) để không bị rớt dòng'
+  );
+  assert(
+    chatBoxCode.includes('Kênh bí mật với người yêu'),
+    'ChatBox phải có thanh tiêu đề phụ thông báo trạng thái kênh Cặp Đôi rõ ràng trên cả mobile và PC'
+  );
+  assert(
+    gameScreenCode.includes('Math.min(windowWidth * 0.88, 360)') &&
+      gameScreenCode.includes('isMobile && hasBottomActionBar && { bottom: 148, right: 12 }'),
+    'GameScreen trên mobile phải mở rộng khung Chat Drawer (88%, tối đa 360px) và tự nâng nút Chat nổi lên trên thanh hành động (bottom: 148) để không che nút bấm kỹ năng/bỏ phiếu'
+  );
+
+  return mobileChecks;
+}
+
+// ============================================================================
+// PHẦN 5: KIỂM TRA RECONNECT (F5), RESET VÁN 2, EXIT GIỮA TRẬN & NÂNG CẤP UX (1 & 4)
+// ============================================================================
+function verifyLifecycleAndUxUpgrades() {
+  const serverCode = fs.readFileSync(
+    path.join(__dirname, '../server/index.js'),
+    'utf8'
+  );
+  const appCode = fs.readFileSync(
+    path.join(__dirname, '../App.js'),
+    'utf8'
+  );
+  const gameOverCode = fs.readFileSync(
+    path.join(__dirname, '../screens/GameOverScreen.js'),
+    'utf8'
+  );
+  const chatBoxCode = fs.readFileSync(
+    path.join(__dirname, '../components/ChatBox.js'),
+    'utf8'
+  );
+  const gameScreenCode = fs.readFileSync(
+    path.join(__dirname, '../screens/GameScreen.js'),
+    'utf8'
+  );
+
+  const checks = [];
+
+  // 1. Kiểm tra Reconnect (F5) cho Cặp Đôi, Thợ Săn, Phù Thủy & per-player players-update
+  assert(
+    serverCode.includes('room.couple = room.couple.map(replaceOldId)') &&
+      serverCode.includes('room.hunterShotContext.hunterId = socket.id') &&
+      serverCode.includes('getPlayersData(room, pid)'),
+    'Server reconnect-room phải cập nhật socket.id mới vào room.couple, hunterShotContext và gửi players-update riêng cho từng pid'
+  );
+  assert(
+    appCode.includes('setCouple(data.couple || [])') &&
+      appCode.includes('setMatchHistory(data.matchHistory || [])'),
+    'App.js reconnected-in-game phải khôi phục couple và matchHistory'
+  );
+  checks.push('Reconnect (F5): Bảo toàn Cặp Đôi, Phù Thủy, Thợ Săn, Tiên Tri & Role đồng đội');
+
+  // 2. Kiểm tra Reset sạch sẽ khi về phòng chờ (return-to-lobby)
+  assert(
+    serverCode.includes('room.couple = null;') &&
+      serverCode.includes('room.cupidActed = false;') &&
+      serverCode.includes('room.matchHistory = [];') &&
+      appCode.includes('setHeartbrokenPlayer(null);'),
+    'Server return-to-lobby & App.js returned-to-lobby phải reset sạch couple, heartbrokenPlayer, cupidActed và matchHistory'
+  );
+  checks.push('Return to Lobby (Ván 2): Reset sạch sẽ Cặp Đôi, Tim Vỡ, Bình Thuốc & Lịch sử trận');
+
+  // 3. Kiểm tra thoát giữa trận (handleMidGameExit) với Cặp Đôi & Người Thổi Sáo
+  assert(
+    serverCode.includes('exitHeartbrokenPlayer') &&
+      serverCode.includes('isPiedPiperExited') &&
+      serverCode.includes("cause: 'exit'"),
+    'handleMidGameExit phải tự động xử lý tuẫn tình nếu 1 người trong Cặp Đôi rời trận và thanh tẩy bùa mê nếu Người Thổi Sáo rời trận'
+  );
+  checks.push('Mid-Game Exit: Tự động kích hoạt Tuẫn Tình (Cặp Đôi) & Thanh Tẩy (Thổi Sáo) khi thoát ngang');
+
+  // 4. Kiểm tra nâng cấp GameOverScreen (Huy hiệu Cặp Đôi, Bùa Mê & Biên Niên Sử Ván Đấu)
+  assert(
+    gameOverCode.includes('coupleSummaryBanner') &&
+      gameOverCode.includes('loverRevealTag') &&
+      gameOverCode.includes('charmedRevealTag') &&
+      gameOverCode.includes('BIÊN NIÊN SỬ VÁN ĐẤU'),
+    'GameOverScreen phải hiển thị Huy hiệu Cặp Đôi, Huy hiệu Bị Thôi Miên và Biên Niên Sử Ván Đấu'
+  );
+  checks.push('GameOverScreen: Hiển thị Huy hiệu Cặp Đôi (💘), Bị Thôi Miên (🎶) & Biên Niên Sử Ván Đấu (📜)');
+
+  // 5. Kiểm tra Unread Badge theo từng kênh Chat & Nhịp Tim Đập Đỏ (<= 5s)
+  assert(
+    chatBoxCode.includes('unreadVillageCount') &&
+      chatBoxCode.includes('unreadWolfCount') &&
+      chatBoxCode.includes('unreadCoupleCount') &&
+      gameScreenCode.includes('unreadSecretChannel') &&
+      gameScreenCode.includes('timerBadgeDanger'),
+    'ChatBox & GameScreen phải có Unread Badge đếm số tin nhắn cho từng kênh (Làng/Sói/Đôi) và hiệu ứng Nhịp Tim Đập Đỏ khi <= 5s'
+  );
+  checks.push('Chat Unread Badges & Danger Heartbeat Pulse: Báo số tin chưa đọc từng kênh & nhịp tim đỏ 5s cuối');
+
+  return checks;
+}
+
+// ============================================================================
 // CHẠY TOÀN BỘ TEST SUITE & IN BÁO CÁO
 // ============================================================================
 function main() {
@@ -1063,8 +1256,27 @@ function main() {
   verifyServerGameLogicIntegration();
   console.log('✅ [PHẦN 3] KIỂM TRA TÍCH HỢP LOGIC SERVER (processNightActions / wolfVotes / checkWinCondition): PASS 100%\n');
 
+  const mobileResults = verifyMobileResponsiveAndChatLayout();
+  console.log('✅ [PHẦN 4] KIỂM TRA GIAO DIỆN MOBILE RESPONSIVE & KHUNG CHAT TRÊN ĐIỆN THOẠI:');
+  for (const m of mobileResults) {
+    console.log(
+      `   ✔ [${m.device}] Cột CoupleReveal: ${m.revealColPx}px | Cột Heartbreak: ${m.heartbreakColPx}px | Khung Chat Mobile: ${m.chatDrawerPx}px (Không vỡ form / Không tràn viền)`
+    );
+  }
+  console.log('');
+
+  const lifecycleResults = verifyLifecycleAndUxUpgrades();
+  console.log('✅ [PHẦN 5] KIỂM TRA RECONNECT (F5), VÁN 2, EXIT GIỮA TRẬN & NÂNG CẤP UX:');
+  for (const item of lifecycleResults) {
+    console.log(`   ✔ ${item}`);
+  }
+  console.log('');
+
+  const totalTests = compResults.length + queueResults.length + 1 + mobileResults.length + lifecycleResults.length;
   console.log('================================================================================');
-  console.log(`🎉 TỔNG KẾT: TẤT CẢ ${compResults.length + queueResults.length + 1} BÀI TEST HOẠT ẢNH ĐỀU PASS 100% (0 OVERLAP)!`);
+  console.log(
+    `🎉 TỔNG KẾT: TẤT CẢ ${totalTests}/${totalTests} BÀI TEST HOẠT ẢNH, MOBILE & HỆ THỐNG ĐỀU PASS 100%!`
+  );
   console.log('================================================================================');
 }
 

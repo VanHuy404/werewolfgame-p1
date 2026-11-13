@@ -18,6 +18,7 @@ import {
   TouchableOpacity,
   Platform,
   Image,
+  useWindowDimensions,
 } from 'react-native';
 import PlayerAvatar from './PlayerAvatar';
 import { getRoleName, getRoleEmoji } from '../utils/colors';
@@ -116,6 +117,8 @@ export default function CoupleRevealModal({
   duration = 6,
   onClose = () => {},
 }) {
+  const { width: windowWidth } = useWindowDimensions();
+  const isCompactMobile = windowWidth < 420;
   const [countdown, setCountdown] = useState(duration);
   const [isTransformed, setIsTransformed] = useState(false);
 
@@ -403,6 +406,10 @@ export default function CoupleRevealModal({
         <Animated.View
           style={[
             styles.container,
+            {
+              width: Math.min(windowWidth - 20, 470),
+              padding: isCompactMobile ? 14 : 22,
+            },
             isTransformed && hasWolfInCouple && styles.containerWolfTheme,
             isTransformed && !hasWolfInCouple && hasPiedPiperInCouple && styles.containerPiperTheme,
             {
@@ -417,6 +424,7 @@ export default function CoupleRevealModal({
             <Text
               style={[
                 styles.bannerTitle,
+                isCompactMobile && { fontSize: 15 },
                 isTransformed && hasWolfInCouple && styles.bannerTitleWolf,
                 isTransformed && !hasWolfInCouple && hasPiedPiperInCouple && styles.bannerTitlePiper,
               ]}
@@ -426,6 +434,7 @@ export default function CoupleRevealModal({
             <Text
               style={[
                 styles.bannerSubtitle,
+                isCompactMobile && { fontSize: 11.5 },
                 isTransformed && hasSpecialReveal && styles.bannerSubtitleSpecial,
               ]}
             >
@@ -437,6 +446,7 @@ export default function CoupleRevealModal({
           <View
             style={[
               styles.stageRow,
+              isCompactMobile && { paddingVertical: 10, paddingHorizontal: 4 },
               isTransformed && hasWolfInCouple && styles.stageRowWolf,
               isTransformed && !hasWolfInCouple && hasPiedPiperInCouple && styles.stageRowPiper,
             ]}
@@ -451,6 +461,7 @@ export default function CoupleRevealModal({
                 <Animated.View
                   style={[
                     styles.roleBadgePill,
+                    isCompactMobile && { paddingHorizontal: 6, paddingVertical: 2 },
                     isP1Wolf && styles.roleBadgePillWolf,
                     isP1PiedPiper && styles.roleBadgePillPiper,
                     {
@@ -466,7 +477,7 @@ export default function CoupleRevealModal({
                     },
                   ]}
                 >
-                  <Text style={styles.roleBadgeText}>
+                  <Text style={[styles.roleBadgeText, isCompactMobile && { fontSize: 9 }]} numberOfLines={1}>
                     {getRoleEmoji(player1.role)} {getRoleName(player1.role).toUpperCase()}
                   </Text>
                 </Animated.View>
@@ -474,10 +485,11 @@ export default function CoupleRevealModal({
             </View>
 
             {/* Tia liên kết trái tim ở giữa */}
-            <View style={styles.connectorCenter}>
+            <View style={[styles.connectorCenter, isCompactMobile && { paddingHorizontal: 2 }]}>
               <Animated.View
                 style={[
                   styles.loveBeamLine,
+                  isCompactMobile && { width: 16 },
                   isTransformed && hasWolfInCouple && { backgroundColor: '#EF4444' },
                   isTransformed && !hasWolfInCouple && hasPiedPiperInCouple && { backgroundColor: '#C084FC' },
                   { opacity: beamAnim },
@@ -487,12 +499,13 @@ export default function CoupleRevealModal({
               <Animated.View
                 style={[
                   styles.heartCenterGlow,
+                  isCompactMobile && { marginHorizontal: 2, padding: 4 },
                   isTransformed && hasWolfInCouple && { backgroundColor: 'rgba(239, 68, 68, 0.28)' },
                   isTransformed && !hasWolfInCouple && hasPiedPiperInCouple && { backgroundColor: 'rgba(192, 132, 252, 0.28)' },
                   { transform: [{ scale: heartBeatAnim }] },
                 ]}
               >
-                <Text style={styles.heartCenterEmoji}>
+                <Text style={[styles.heartCenterEmoji, isCompactMobile && { fontSize: 22 }]}>
                   {isTransformed && hasWolfInCouple ? '❤️‍🔥' : isTransformed && hasPiedPiperInCouple ? '💜' : '💖'}
                 </Text>
               </Animated.View>
@@ -500,6 +513,7 @@ export default function CoupleRevealModal({
               <Animated.View
                 style={[
                   styles.loveBeamLine,
+                  isCompactMobile && { width: 16 },
                   isTransformed && hasWolfInCouple && { backgroundColor: '#EF4444' },
                   isTransformed && !hasWolfInCouple && hasPiedPiperInCouple && { backgroundColor: '#C084FC' },
                   { opacity: beamAnim },
@@ -517,6 +531,7 @@ export default function CoupleRevealModal({
                 <Animated.View
                   style={[
                     styles.roleBadgePill,
+                    isCompactMobile && { paddingHorizontal: 6, paddingVertical: 2 },
                     isP2Wolf && styles.roleBadgePillWolf,
                     isP2PiedPiper && styles.roleBadgePillPiper,
                     {
@@ -532,7 +547,7 @@ export default function CoupleRevealModal({
                     },
                   ]}
                 >
-                  <Text style={styles.roleBadgeText}>
+                  <Text style={[styles.roleBadgeText, isCompactMobile && { fontSize: 9 }]} numberOfLines={1}>
                     {getRoleEmoji(player2.role)} {getRoleName(player2.role).toUpperCase()}
                   </Text>
                 </Animated.View>

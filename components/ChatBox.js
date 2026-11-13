@@ -39,8 +39,10 @@ export default function ChatBox({
   // Các kênh: 'village' (Làng), 'wolf' (Hang Sói), 'couple' (Cặp Đôi)
   const [activeChannel, setActiveChannel] = useState(isWolf && isNight ? 'wolf' : 'village');
   const [text, setText] = useState('');
-  const [hasUnreadWolf, setHasUnreadWolf] = useState(false);
-  const [hasUnreadCouple, setHasUnreadCouple] = useState(false);
+  const [unreadVillageCount, setUnreadVillageCount] = useState(0);
+  const [unreadWolfCount, setUnreadWolfCount] = useState(0);
+  const [unreadCoupleCount, setUnreadCoupleCount] = useState(0);
+  const prevMsgCountRef = useRef(messages.length);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const flatListRef = useRef(null);
   const inputRef = useRef(null);
@@ -49,6 +51,7 @@ export default function ChatBox({
   useEffect(() => {
     if (isWolf && isNight && activeChannel !== 'couple') {
       setActiveChannel('wolf');
+      setUnreadWolfCount(0);
     }
   }, [isNight, isWolf]);
 
@@ -63,18 +66,29 @@ export default function ChatBox({
     return !m.isWolfChat && !m.isCoupleChat;
   });
 
-  // Kiểm tra tin nhắn mới trong kênh Sói & Couple khi đang ở kênh khác
+  // Kiểm tra tin nhắn mới theo từng kênh (Làng, Sói, Cặp Đôi) khi đang ở tab khác
   useEffect(() => {
-    if (messages.length > 0) {
-      const lastMsg = messages[messages.length - 1];
-      if (isWolf && activeChannel !== 'wolf' && lastMsg.isWolfChat && lastMsg.playerId !== myId) {
-        setHasUnreadWolf(true);
-      }
-      if (isCouple && activeChannel !== 'couple' && lastMsg.isCoupleChat && lastMsg.playerId !== myId) {
-        setHasUnreadCouple(true);
-      }
+    if (messages.length > prevMsgCountRef.current) {
+      const newMsgs = messages.slice(prevMsgCountRef.current);
+      newMsgs.forEach((msg) => {
+        if (msg.playerId === myId) return;
+        if (msg.isWolfChat) {
+          if (isWolf && activeChannel !== 'wolf') {
+            setUnreadWolfCount((c) => c + 1);
+          }
+        } else if (msg.isCoupleChat) {
+          if (isCouple && activeChannel !== 'couple') {
+            setUnreadCoupleCount((c) => c + 1);
+          }
+        } else {
+          if ((isWolf || isCouple) && activeChannel !== 'village') {
+            setUnreadVillageCount((c) => c + 1);
+          }
+        }
+      });
     }
-  }, [messages.length, activeChannel, isWolf, isCouple]);
+    prevMsgCountRef.current = messages.length;
+  }, [messages.length, activeChannel, isWolf, isCouple, myId]);
 
   // Auto-scroll xuống khi có tin mới
   useEffect(() => {
@@ -114,8 +128,9 @@ export default function ChatBox({
   const handleSwitchChannel = (channel) => {
     setActiveChannel(channel);
     setIsScrolledUp(false);
-    if (channel === 'wolf') setHasUnreadWolf(false);
-    if (channel === 'couple') setHasUnreadCouple(false);
+    if (channel === 'village') setUnreadVillageCount(0);
+    if (channel === 'wolf') setUnreadWolfCount(0);
+    if (channel === 'couple') setUnreadCoupleCount(0);
     setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: false });
     }, 80);
@@ -217,7 +232,7 @@ export default function ChatBox({
       {/* ================= CHAT HEADER & TABS ================= */}
       <View style={[styles.topHeaderRow, isMobile && styles.topHeaderRowMobile]}>
         {(isWolf || isCouple) ? (
-          <View style={styles.channelBar}>
+          <View style={[styles.channelBar, isMobile && { gap: 4, marginRight: 4 }]}>
             {/* Nút Chat Làng */}
             <TouchableOpacity
               style={[
@@ -228,13 +243,24 @@ export default function ChatBox({
               onPress={() => handleSwitchChannel('village')}
               activeOpacity={0.7}
             >
-              <Text style={[
-                styles.channelTabText,
-                isMobile && styles.channelTabTextMobile,
-                activeChannel === 'village' && styles.channelTabTextActive,
-              ]}>
+              <Text
+                style={[
+                  styles.channelTabText,
+                  isMobile && styles.channelTabTextMobile,
+                  isSmallMobile && isWolf && isCouple && { fontSize: 10 },
+                  activeChannel === 'village' && styles.channelTabTextActive,
+                ]}
+                numberOfLines={1}
+              >
                 💬 Làng
               </Text>
+              {unreadVillageCount > 0 && (
+                <View style={styles.unreadVillageBadge}>
+                  <Text style={styles.unreadBadgeText}>
+                    {unreadVillageCount > 9 ? '9+' : unreadVillageCount}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
 
             {/* Nút Chat Sói Bí Mật */}
@@ -248,14 +274,24 @@ export default function ChatBox({
                 onPress={() => handleSwitchChannel('wolf')}
                 activeOpacity={0.7}
               >
-                <Text style={[
-                  styles.channelTabText,
-                  isMobile && styles.channelTabTextMobile,
-                  activeChannel === 'wolf' && styles.channelTabWolfTextActive,
-                ]}>
-                  🐺 Hang Sói
+                <Text
+                  style={[
+                    styles.channelTabText,
+                    isMobile && styles.channelTabTextMobile,
+                    isSmallMobile && isWolf && isCouple && { fontSize: 10 },
+                    activeChannel === 'wolf' && styles.channelTabWolfTextActive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {isSmallMobile && isCouple ? '🐺 Sói' : '🐺 Hang Sói'}
                 </Text>
-                {hasUnreadWolf && <View style={styles.unreadDot} />}
+                {unreadWolfCount > 0 && (
+                  <View style={styles.unreadDot}>
+                    <Text style={styles.unreadBadgeText}>
+                      {unreadWolfCount > 9 ? '9+' : unreadWolfCount}
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
             )}
 
@@ -270,14 +306,24 @@ export default function ChatBox({
                 onPress={() => handleSwitchChannel('couple')}
                 activeOpacity={0.7}
               >
-                <Text style={[
-                  styles.channelTabText,
-                  isMobile && styles.channelTabTextMobile,
-                  activeChannel === 'couple' && styles.channelTabCoupleTextActive,
-                ]}>
-                  💘 Cặp Đôi
+                <Text
+                  style={[
+                    styles.channelTabText,
+                    isMobile && styles.channelTabTextMobile,
+                    isSmallMobile && isWolf && isCouple && { fontSize: 10 },
+                    activeChannel === 'couple' && styles.channelTabCoupleTextActive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {isSmallMobile && isWolf ? '💘 Đôi' : '💘 Cặp Đôi'}
                 </Text>
-                {hasUnreadCouple && <View style={styles.unreadCoupleDot} />}
+                {unreadCoupleCount > 0 && (
+                  <View style={styles.unreadCoupleDot}>
+                    <Text style={styles.unreadBadgeText}>
+                      {unreadCoupleCount > 9 ? '9+' : unreadCoupleCount}
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
             )}
           </View>
@@ -297,7 +343,11 @@ export default function ChatBox({
             activeOpacity={0.7}
           >
             <Text style={styles.minimizeChatIcon}>✕</Text>
-            <Text style={[styles.minimizeChatText, isMobile && { fontSize: 10 }]}>Đóng chat</Text>
+            {!(isSmallMobile && isWolf && isCouple) && (
+              <Text style={[styles.minimizeChatText, isMobile && { fontSize: 10 }]} numberOfLines={1}>
+                {isSmallMobile ? 'Đóng' : 'Đóng chat'}
+              </Text>
+            )}
           </TouchableOpacity>
         )}
       </View>
@@ -309,6 +359,32 @@ export default function ChatBox({
             {isWolfChatLocked
               ? '🔒 Hang Sói tạm khóa trong giờ Bỏ Phiếu để đảm bảo tính công bằng!'
               : '🔒 Kênh bí mật giữa các Sói - Hoạt động bất cứ lúc nào (tự khóa khi bỏ phiếu)!'}
+          </Text>
+        </View>
+      )}
+
+      {/* Subtitle nhắc nhở Cặp Đôi */}
+      {isCurrentChannelCouple && (
+        <View
+          style={[
+            styles.wolfSubHeader,
+            isMobile && styles.wolfSubHeaderMobile,
+            {
+              backgroundColor: isCoupleChatLocked ? 'rgba(131, 24, 67, 0.28)' : 'rgba(236, 72, 153, 0.18)',
+              borderBottomColor: 'rgba(244, 114, 182, 0.3)',
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.wolfSubHeaderText,
+              isMobile && { fontSize: 9.5 },
+              { color: isCoupleChatLocked ? '#F9A8D4' : '#FBCFE8' },
+            ]}
+          >
+            {isCoupleChatLocked
+              ? '🌙 Ban đêm kênh Cặp Đôi tạm nghỉ — Mở lại vào buổi sáng để tâm sự cùng người yêu!'
+              : `💘 Kênh bí mật với người yêu ${partner?.name ? `(${partner.name})` : ''} — Chỉ 2 bạn nhìn thấy!`}
           </Text>
         </View>
       )}
@@ -560,19 +636,40 @@ const styles = StyleSheet.create({
   channelTabCoupleTextActive: {
     color: COLORS.white,
   },
+  unreadVillageBadge: {
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#3B82F6',
+    marginLeft: 5,
+    paddingHorizontal: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
     backgroundColor: '#EF4444',
-    marginLeft: 6,
+    marginLeft: 5,
+    paddingHorizontal: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   unreadCoupleDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#F472B6',
-    marginLeft: 6,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#EC4899',
+    marginLeft: 5,
+    paddingHorizontal: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  unreadBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9.5,
+    fontWeight: '900',
   },
   wolfSubHeader: {
     backgroundColor: 'rgba(220, 38, 38, 0.15)',

@@ -93,6 +93,7 @@ export default function App() {
   const [seerHistory, setSeerHistory] = useState({});
   const [charmedHistory, setCharmedHistory] = useState({});
   const [couple, setCouple] = useState([]);
+  const [matchHistory, setMatchHistory] = useState([]);
 
   // Khởi tạo Socket.io một lần duy nhất
   useEffect(() => {
@@ -170,11 +171,18 @@ export default function App() {
       setRound(data.round || 1);
       setTimeLeft(data.timeLeft || 0);
       setDeadPlayer(data.deadPlayer || null);
+      setPoisonedPlayer(data.poisonedPlayer || null);
+      setShieldClashPlayer(data.shieldClashPlayer || null);
+      setWitchSavedPlayer(data.witchSavedPlayer || null);
       setSavedPlayer(data.savedPlayer || null);
       setWasProtected(Boolean(data.wasProtected));
       setLastProtectedTarget(data.lastProtectedTarget || null);
+      if (data.witchState) setWitchState(data.witchState);
+      if (data.hunter !== undefined) setHunter(data.hunter);
       setSeerHistory(data.seerHistory || {});
       setCharmedHistory(data.charmedHistory || {});
+      setCouple(data.couple || []);
+      setMatchHistory(data.matchHistory || []);
       setCurrentScreen('game');
       setError(null);
       // Cập nhật lại session storage với socket.id mới nhất
@@ -240,14 +248,18 @@ export default function App() {
       setShieldClashPlayer(null);
       setWitchSavedPlayer(null);
       setAttackedPlayer(null);
+      setHeartbrokenPlayer(null);
       setWasProtected(false);
       setLastProtectedTarget(null);
       setWolfVictim(null);
       setWitchState({ hasHeal: true, hasPoison: true });
+      setHunter(null);
       setWinner(null);
       setWinMessage('');
       setSeerHistory({});
       setCharmedHistory({});
+      setCouple([]);
+      setMatchHistory([]);
       setShowRoleReveal(true);
       setCurrentScreen('game');
     });
@@ -270,6 +282,7 @@ export default function App() {
       if (data.hunter !== undefined) setHunter(data.hunter);
       if (data.charmedHistory !== undefined) setCharmedHistory(data.charmedHistory);
       if (data.couple !== undefined) setCouple(data.couple);
+      if (data.matchHistory !== undefined) setMatchHistory(data.matchHistory);
       if (data.players) setPlayers(data.players);
       if (data.winner) setWinner(data.winner);
       if (data.message) setWinMessage(data.message);
@@ -315,14 +328,19 @@ export default function App() {
       setShieldClashPlayer(null);
       setWitchSavedPlayer(null);
       setAttackedPlayer(null);
+      setHeartbrokenPlayer(null);
       setWasProtected(false);
       setLastProtectedTarget(null);
       setWolfVictim(null);
       setWitchState({ hasHeal: true, hasPoison: true });
+      setHunter(null);
       setWinner(null);
       setWinMessage('');
       setMessages([]);
       setSeerHistory({});
+      setCharmedHistory({});
+      setCouple([]);
+      setMatchHistory([]);
       setShowRoleReveal(false);
       setCurrentScreen('lobby');
       setError(null);
@@ -343,16 +361,22 @@ export default function App() {
     setDeadPlayer(null);
     setSavedPlayer(null);
     setPoisonedPlayer(null);
+    setShieldClashPlayer(null);
     setWitchSavedPlayer(null);
     setAttackedPlayer(null);
+    setHeartbrokenPlayer(null);
     setWasProtected(false);
     setLastProtectedTarget(null);
     setWolfVictim(null);
     setWitchState({ hasHeal: true, hasPoison: true });
+    setHunter(null);
     setWinner(null);
     setWinMessage('');
     setMessages([]);
     setSeerHistory({});
+    setCharmedHistory({});
+    setCouple([]);
+    setMatchHistory([]);
     setError(null);
   };
 
@@ -421,6 +445,7 @@ export default function App() {
           myId={myId}
           hostId={hostId}
           couple={couple}
+          matchHistory={matchHistory}
           onReturnToLobby={handleReturnToLobby}
           onLeaveGame={handleLeaveRoom}
         />
