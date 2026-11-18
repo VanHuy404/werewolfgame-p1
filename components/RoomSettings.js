@@ -107,6 +107,7 @@ export default function RoomSettings({
   const [coupleRevealDemoVisible, setCoupleRevealDemoVisible] = useState(false);
   const [cupidVictoryDemoVisible, setCupidVictoryDemoVisible] = useState(false);
   const [coupleHeartbreakDemoVisible, setCoupleHeartbreakDemoVisible] = useState(false);
+  const [coupleSimultaneousDemo, setCoupleSimultaneousDemo] = useState(false);
   const [coupleDemoVariant, setCoupleDemoVariant] = useState('normal'); // 'normal' | 'wolf' | 'pied_piper'
 
   // Thử nghiệm hiệu ứng Xào Bài & Rút Bài Khởi Đầu (Dành riêng cho Chủ Phòng)
@@ -907,33 +908,24 @@ export default function RoomSettings({
                     style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(239, 68, 68, 0.32)', borderColor: '#EF4444', borderWidth: 2 }]}
                     onPress={() => {
                       setCoupleDemoVariant('normal');
+                      setCoupleSimultaneousDemo(false);
                       setCoupleHeartbreakDemoVisible(true);
                     }}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.hunterDemoBtnText}>💔 Người Yêu Chết Theo</Text>
+                    <Text style={styles.hunterDemoBtnText}>💔 Người Yêu Chết Theo (Tuẫn Tình)</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(185, 28, 28, 0.42)', borderColor: '#F87171', borderWidth: 2 }]}
+                    style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(147, 51, 234, 0.42)', borderColor: '#C084FC', borderWidth: 2 }]}
                     onPress={() => {
-                      setCoupleDemoVariant('wolf');
+                      setCoupleDemoVariant('normal');
+                      setCoupleSimultaneousDemo(true);
                       setCoupleHeartbreakDemoVisible(true);
                     }}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.hunterDemoBtnText}>🐺💔 Người Yêu Chết Theo (Phe sói)</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.hunterDemoBtn, { backgroundColor: 'rgba(126, 34, 206, 0.42)', borderColor: '#D8B4FE', borderWidth: 2 }]}
-                    onPress={() => {
-                      setCoupleDemoVariant('pied_piper');
-                      setCoupleHeartbreakDemoVisible(true);
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.hunterDemoBtnText}>🎶💔 Người Yêu Chết Theo (Thổi sáo)</Text>
+                    <Text style={styles.hunterDemoBtnText}>🐺☠️💔 Cả 2 Cùng Chết Trong Đêm (Sói Cào + Độc)</Text>
                   </TouchableOpacity>
                 </AccordionDemoBox>
 
@@ -1169,14 +1161,18 @@ export default function RoomSettings({
           onComplete={() => setCupidVictoryDemoVisible(false)}
         />
 
-        {/* Modal chạy thử Hoạt ảnh Người Yêu Chết & Tim Vỡ */}
+        {/* Modal chạy thử Hoạt ảnh Người Yêu Chết & Tim Vỡ / Đồng Tử Trong Đêm */}
         <CoupleHeartbreakModal
           visible={coupleHeartbreakDemoVisible}
           deadPlayer={getDemoCouple()[0]}
           heartbrokenPlayer={getDemoCouple()[1]}
-          reason="bị sát hại dã man"
-          duration={6}
-          onClose={() => setCoupleHeartbreakDemoVisible(false)}
+          reason={coupleSimultaneousDemo ? 'cùng ngã xuống trong đêm' : 'bị sát hại dã man'}
+          isSimultaneousNightDeath={coupleSimultaneousDemo}
+          duration={coupleSimultaneousDemo ? 7 : 6}
+          onClose={() => {
+            setCoupleHeartbreakDemoVisible(false);
+            setCoupleSimultaneousDemo(false);
+          }}
         />
 
         {/* Modal chạy thử Hoạt ảnh Xào Bài & Lật Mở Vai Trò */}

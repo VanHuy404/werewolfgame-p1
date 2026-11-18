@@ -69,6 +69,7 @@ export default function GameScreen({
   witchSavedPlayer = null,
   attackedPlayer = null,
   heartbrokenPlayer = null,
+  coupleSimultaneousNightDeath = false,
   wasProtected = false,
   lastProtectedTarget = null,
   wolfVictim = null,
@@ -311,7 +312,7 @@ export default function GameScreen({
       if (myRole === 'witch' && amAlive) {
         const hasHealAtStart = !!witchState?.hasHeal;
         const hasPoisonAtStart = !!witchState?.hasPoison;
-        const currentVictim = (wolfVictim !== undefined && wolfVictim !== null) ? wolfVictim : witchVictim;
+        const currentVictim = wolfVictim !== undefined ? wolfVictim : witchVictim;
 
         // Chỉ thiết lập bước ban đầu khi Phù Thủy chưa quyết định cứu/bỏ mặc đêm nay
         if (witchPendingSave === null) {
@@ -335,6 +336,7 @@ export default function GameScreen({
       }
     } else {
       witchNightInitializedRef.current = false;
+      setWitchVictim(null);
       setWitchPendingSave(null);
       setWitchPendingPoison(null);
       setWitchStep('done');
@@ -344,6 +346,38 @@ export default function GameScreen({
   // Quản lý hiển thị hoạt ảnh điện ảnh buổi sáng (DAY_ANNOUNCE)
   useEffect(() => {
     if (phase === PHASES.DAY_ANNOUNCE) {
+      const activeCouple = coupleDataState && coupleDataState.length === 2 ? coupleDataState : couple;
+      const coupleIds = activeCouple && activeCouple.length === 2 ? activeCouple.map((c) => c?.id || c) : [];
+      const isSimultaneousCoupleNightDeath = Boolean(
+        deadPlayer &&
+          poisonedPlayer &&
+          deadPlayer.id !== poisonedPlayer.id &&
+          (coupleSimultaneousNightDeath ||
+            (coupleIds.length === 2 && coupleIds.includes(deadPlayer.id) && coupleIds.includes(poisonedPlayer.id)))
+      );
+
+      if (isSimultaneousCoupleNightDeath) {
+        // YÊU CẦU: Khi cả 2 người tình đều chết trong 1 đêm (1 người bị Sói cào, 1 người bị Phù Thủy ném độc):
+        // Thay thế hoàn toàn 2 hoạt ảnh riêng lẻ bằng hoạt ảnh đặc biệt của Cặp Đôi!
+        setCoupleHeartbreakData({
+          deadPlayer,
+          heartbrokenPlayer: poisonedPlayer,
+          reason: 'cùng ngã xuống trong đêm',
+          isSimultaneousNightDeath: true,
+        });
+        pendingAfterHeartbreakCallbackRef.current = () => {
+          triggerNightPurificationIfPending();
+        };
+        setCoupleHeartbreakModalVisible(true);
+        setThreeWayClashModalVisible(false);
+        setDualKillModalVisible(false);
+        setBodyguardSaveModalVisible(false);
+        setWitchHealModalVisible(false);
+        setWolfClawModalVisible(false);
+        setWitchPoisonModalVisible(false);
+        return;
+      }
+
       const isDualKill = deadPlayer && poisonedPlayer && deadPlayer.id === poisonedPlayer.id && !shieldClashPlayer;
       const hasSeparateFirstEvent = Boolean(
         (deadPlayer && (!shieldClashPlayer || deadPlayer.id !== shieldClashPlayer.id)) ||
@@ -403,7 +437,7 @@ export default function GameScreen({
       setWitchHealModalVisible(false);
       setWitchPoisonModalVisible(false);
     }
-  }, [phase, deadPlayer?.id, savedPlayer?.id, witchSavedPlayer?.id, poisonedPlayer?.id, shieldClashPlayer?.id]);
+  }, [phase, deadPlayer?.id, savedPlayer?.id, witchSavedPlayer?.id, poisonedPlayer?.id, shieldClashPlayer?.id, coupleSimultaneousNightDeath]);
 
   // Kích hoạt thanh tẩy trực tiếp trên giao diện chính của game
   const triggerLivePurification = (victimIds = []) => {
@@ -1002,6 +1036,7 @@ export default function GameScreen({
     setWolfVotes({});
     setWolfConfirmed([]);
     if (phase !== PHASES.NIGHT_SEER) {
+      setSeerResult(null);
       setSeerPopupVisible(false);
     }
     if (phase !== PHASES.NIGHT_BODYGUARD) {
@@ -1245,6 +1280,10 @@ export default function GameScreen({
 
   const getPhaseTitle = () => {
     switch (phase) {
+      case PHASES.NIGHT_CUPID:
+        return `💘 Cupid đang ghép đôi`;
+      case PHASES.NIGHT_COUPLE_REVEAL:
+        return (me?.inCouple || myRole === 'cupid') ? `💘 Cặp Đôi Nhận Nhau (6s)` : `💘 Cupid đang ghép đôi`;
       case PHASES.NIGHT_BODYGUARD:
         return `🛡️ Bảo Vệ Thức Giấc - Hiệp ${round}`;
       case PHASES.NIGHT_WOLF:
@@ -1458,17 +1497,22 @@ export default function GameScreen({
                   </View>
                 )}
 
-                {/* Banner Tình Yêu Vĩnh Hằng cho Cặp Đôi nhìn thấy vai trò của nhau để tương trợ */}
+                {/* Banner Tình Yêu Vĩnh Hằng cho Cặp Đôi nhìn thấy vai trò của nhau để tương trợ (khi còn sống) */}
                 {(() => {
                   const loverPlayer = players.find((p) => p.isLover);
-                  const partnerRole = loverPlayer?.role || me?.partnerRole || coupleDataState?.find((c) => c.id !== myId)?.role;
+                  const isCoupleAlive = amAlive && (!loverPlayer || loverPlayer.alive !== false);
+                  const partnerRole = isCoupleAlive
+                    ? (loverPlayer?.role || me?.partnerRole || coupleDataState?.find((c) => c.id !== myId)?.role)
+                    : null;
                   const partnerName = loverPlayer?.name || me?.partnerName || coupleDataState?.find((c) => c.id !== myId)?.name;
                   if (!me?.inCouple || !partnerName) return null;
 
                   const isForbiddenWolfCouple =
-                    (myRole === 'wolf' && partnerRole && partnerRole !== 'wolf') ||
-                    (myRole !== 'wolf' && partnerRole === 'wolf');
-                  const isPiedPiperCouple = myRole === 'pied_piper' || partnerRole === 'pied_piper';
+                    isCoupleAlive && (
+                      (myRole === 'wolf' && partnerRole && partnerRole !== 'wolf') ||
+                      (myRole !== 'wolf' && partnerRole === 'wolf')
+                    );
+                  const isPiedPiperCouple = isCoupleAlive && (myRole === 'pied_piper' || partnerRole === 'pied_piper');
 
                   return (
                     <View
@@ -1484,14 +1528,14 @@ export default function GameScreen({
                       <View style={{ flex: 1 }}>
                         <Text style={styles.coupleSupportTitle}>
                           LIÊN KẾT TÌNH YÊU VỚI {partnerName.toUpperCase()}{' '}
-                          {partnerRole ? `• ${getRoleEmoji(partnerRole)} ${getRoleName(partnerRole).toUpperCase()}` : ''}
+                          {isCoupleAlive && partnerRole ? `• ${getRoleEmoji(partnerRole)} ${getRoleName(partnerRole).toUpperCase()}` : ''}
                         </Text>
                         <Text style={styles.coupleSupportSub}>
                           {isForbiddenWolfCouple
                             ? '🔥 Tình yêu cấm kỵ Sói & Người! Hai bạn tạo thành Phe Cặp Đôi riêng biệt — Hãy tương trợ và bảo vệ nhau sống sót đến cuối cùng!'
                             : isPiedPiperCouple
                             ? '🎶 Tiếng sáo quyện duyên tơ hồng! Hãy che chở cho nhau trước cả Dân Làng lẫn Ma Sói (1 người chết, người kia sẽ tuẫn tình theo)!'
-                            : '💞 Hai bạn đã biết rõ thân phận của nhau — Hãy phối hợp kỹ năng và bảo vệ nửa kia (nếu 1 người ngã xuống, người kia sẽ chết theo)!'}
+                            : '💞 Hai bạn đã kết nối tơ hồng — Hãy phối hợp kỹ năng và bảo vệ nửa kia (nếu 1 người ngã xuống, người kia sẽ chết theo)!'}
                         </Text>
                       </View>
                     </View>
@@ -1702,26 +1746,26 @@ export default function GameScreen({
                           </Text>
                         </View>
 
-                        {/* ================= HIỂN THỊ VAI TRÒ NGƯỜI YÊU DƯỚI TÊN ĐỂ TƯƠNG TRỢ LẪN NHAU ================= */}
+                        {/* ================= HIỂN THỊ VAI TRÒ NGƯỜI YÊU DƯỚI TÊN ĐỂ TƯƠNG TRỢ LẪN NHAU (CHỈ KHI CÒN SỐNG) ================= */}
                         {player.isLover && (
                           <View
                             style={[
                               styles.loverRoleBadgeUnderName,
-                              player.role === 'wolf' && styles.loverRoleBadgeUnderNameWolf,
-                              player.role === 'pied_piper' && styles.loverRoleBadgeUnderNamePiper,
+                              isAlive && amAlive && player.role === 'wolf' && styles.loverRoleBadgeUnderNameWolf,
+                              isAlive && amAlive && player.role === 'pied_piper' && styles.loverRoleBadgeUnderNamePiper,
                               isCompact && styles.loverRoleBadgeUnderNameCompact,
                             ]}
                           >
                             <Text
                               style={[
                                 styles.loverRoleBadgeUnderNameText,
-                                player.role === 'wolf' && styles.loverRoleBadgeUnderNameTextWolf,
-                                player.role === 'pied_piper' && styles.loverRoleBadgeUnderNameTextPiper,
+                                isAlive && amAlive && player.role === 'wolf' && styles.loverRoleBadgeUnderNameTextWolf,
+                                isAlive && amAlive && player.role === 'pied_piper' && styles.loverRoleBadgeUnderNameTextPiper,
                                 isCompact && { fontSize: 8.5 },
                               ]}
                               numberOfLines={1}
                             >
-                              {player.role
+                              {isAlive && amAlive && player.role
                                 ? `💘 NGƯỜI YÊU • ${getRoleEmoji(player.role)} ${getRoleName(player.role).toUpperCase()}`
                                 : '💘 NGƯỜI YÊU CỦA BẠN'}
                             </Text>
@@ -1917,7 +1961,7 @@ export default function GameScreen({
                         <View style={styles.cupidActionHeader}>
                           <Text style={{ fontSize: 32 }}>🏹💘</Text>
                           <View style={{ flex: 1 }}>
-                            <Text style={styles.cupidActionTitle}>THẦN TÌNH YÊU CUPID (ĐÊM 1)</Text>
+                            <Text style={styles.cupidActionTitle}>CUPID ĐANG GHÉP ĐÔI</Text>
                             <Text style={styles.cupidActionSub} numberOfLines={2}>
                               {cupidConfirmed
                                 ? `Đã kết đôi thành công: ${targetNames}!`
@@ -2520,13 +2564,14 @@ export default function GameScreen({
             onClose={handleDaytimeHangingClose}
           />
 
-          {/* ================= MODAL HIỆU ỨNG NGƯỜI YÊU CHẾT (TIM VỠ TUẪN TÌNH) ================= */}
+          {/* ================= MODAL HIỆU ỨNG NGƯỜI YÊU CHẾT (TIM VỠ TUẪN TÌNH HOẶC ĐỒNG TỬ TRONG ĐÊM) ================= */}
           <CoupleHeartbreakModal
             visible={coupleHeartbreakModalVisible}
             deadPlayer={coupleHeartbreakData.deadPlayer}
             heartbrokenPlayer={coupleHeartbreakData.heartbrokenPlayer}
             reason={coupleHeartbreakData.reason}
-            duration={6}
+            isSimultaneousNightDeath={Boolean(coupleHeartbreakData.isSimultaneousNightDeath)}
+            duration={coupleHeartbreakData.isSimultaneousNightDeath ? 7 : 6}
             onClose={handleCoupleHeartbreakModalClose}
           />
 

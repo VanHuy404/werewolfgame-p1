@@ -83,6 +83,7 @@ export default function App() {
   const [wasProtected, setWasProtected] = useState(false);
   const [lastProtectedTarget, setLastProtectedTarget] = useState(null);
   const [heartbrokenPlayer, setHeartbrokenPlayer] = useState(null);
+  const [coupleSimultaneousNightDeath, setCoupleSimultaneousNightDeath] = useState(false);
   const [wolfVictim, setWolfVictim] = useState(null);
   const [witchState, setWitchState] = useState({ hasHeal: true, hasPoison: true });
   const [hunter, setHunter] = useState(null);
@@ -249,6 +250,7 @@ export default function App() {
       setWitchSavedPlayer(null);
       setAttackedPlayer(null);
       setHeartbrokenPlayer(null);
+      setCoupleSimultaneousNightDeath(false);
       setWasProtected(false);
       setLastProtectedTarget(null);
       setWolfVictim(null);
@@ -275,9 +277,13 @@ export default function App() {
       if (data.witchSavedPlayer !== undefined) setWitchSavedPlayer(data.witchSavedPlayer);
       if (data.attackedPlayer !== undefined) setAttackedPlayer(data.attackedPlayer);
       if (data.heartbrokenPlayer !== undefined) setHeartbrokenPlayer(data.heartbrokenPlayer);
+      else if (data.phase !== 'day_announce') setHeartbrokenPlayer(null);
+      if (data.coupleSimultaneousNightDeath !== undefined) setCoupleSimultaneousNightDeath(Boolean(data.coupleSimultaneousNightDeath));
+      else if (data.phase !== 'day_announce') setCoupleSimultaneousNightDeath(false);
       if (data.wasProtected !== undefined) setWasProtected(data.wasProtected);
       if (data.lastProtectedTarget !== undefined) setLastProtectedTarget(data.lastProtectedTarget);
       if (data.wolfVictim !== undefined) setWolfVictim(data.wolfVictim);
+      else if (data.phase !== 'night_witch') setWolfVictim(null);
       if (data.witchState !== undefined) setWitchState(data.witchState);
       if (data.hunter !== undefined) setHunter(data.hunter);
       if (data.charmedHistory !== undefined) setCharmedHistory(data.charmedHistory);
@@ -329,6 +335,7 @@ export default function App() {
       setWitchSavedPlayer(null);
       setAttackedPlayer(null);
       setHeartbrokenPlayer(null);
+      setCoupleSimultaneousNightDeath(false);
       setWasProtected(false);
       setLastProtectedTarget(null);
       setWolfVictim(null);
@@ -365,6 +372,7 @@ export default function App() {
     setWitchSavedPlayer(null);
     setAttackedPlayer(null);
     setHeartbrokenPlayer(null);
+    setCoupleSimultaneousNightDeath(false);
     setWasProtected(false);
     setLastProtectedTarget(null);
     setWolfVictim(null);
@@ -469,6 +477,7 @@ export default function App() {
             witchSavedPlayer={witchSavedPlayer}
             attackedPlayer={attackedPlayer}
             heartbrokenPlayer={heartbrokenPlayer}
+            coupleSimultaneousNightDeath={coupleSimultaneousNightDeath}
             wasProtected={wasProtected}
             lastProtectedTarget={lastProtectedTarget}
             wolfVictim={wolfVictim}

@@ -427,14 +427,22 @@ function checkWinCondition(room) {
   const alive = getAlivePlayers(room);
 
   // 💘 Kiểm tra điều kiện thắng của Phe Cặp Đôi (Uyên Ương)
+  let isWolfMixedCoupleAlive = false;
+  let coupleIdsSet = new Set();
   if (room.couple && room.couple.length === 2) {
     const [id1, id2] = room.couple;
+    coupleIdsSet = new Set([id1, id2]);
     const p1 = room.players.get(id1);
     const p2 = room.players.get(id2);
     const p1Alive = p1 && p1.alive;
     const p2Alive = p2 && p2.alive;
 
     if (p1Alive && p2Alive) {
+      // Kiểm tra có phải Cặp Đôi Khác Phe (Sói + Dân / Phe Thứ 3) đang còn sống hay không
+      isWolfMixedCoupleAlive =
+        (p1.role === ROLES.WOLF && p2.role !== ROLES.WOLF) ||
+        (p2.role === ROLES.WOLF && p1.role !== ROLES.WOLF);
+
       // Điều kiện 1: Duy nhất 2 người trong Cặp Đôi sống sót trong cả làng
       if (alive.length === 2) {
         return {
@@ -485,6 +493,22 @@ function checkWinCondition(room) {
     };
   }
 
+  // Nếu có Cặp Đôi Sói - Dân (Phe Cặp Đôi) đang còn sống:
+  // Sói nằm trong Cặp Đôi đã phản bội bầy Sói để bảo vệ người yêu của mình!
+  // Do đó Phe Sói thuần túy chỉ thắng nếu số Sói trung thành (ngoài cặp đôi) áp đảo toàn bộ phần còn lại.
+  if (isWolfMixedCoupleAlive) {
+    const loyalWolves = wolves.filter((w) => !coupleIdsSet.has(w.id));
+    const nonLoyalWolves = alive.filter((p) => !loyalWolves.includes(p));
+    if (loyalWolves.length > 0 && loyalWolves.length >= nonLoyalWolves.length) {
+      return {
+        gameOver: true,
+        winner: 'wolves',
+        message: '🐺 Sói chiến thắng! Bầy Sói đã thống trị làng!',
+      };
+    }
+    return { gameOver: false };
+  }
+
   if (wolves.length >= nonWolves.length) {
     return {
       gameOver: true,
@@ -527,11 +551,12 @@ function getPlayersData(room, forPlayerId = null) {
     const isCharmed = Boolean((room.charmedPlayers && room.charmedPlayers.has(p.id)) || p.charmed);
     const showCharmed = (isPiedPiperViewer || canSeeCharmedInReveal || room.phase === PHASES.GAME_OVER) ? isCharmed : false;
 
-    // Hiển thị vai trò cho chính mình, đồng minh sói, người yêu (cặp đôi), hoặc khi game over
+    // Hiển thị vai trò cho chính mình, đồng minh sói, người yêu (cặp đôi khi còn sống), hoặc khi game over
     const isSelf = forPlayerId === p.id;
     const isPartner = isRequesterInCouple && p.id === partnerId;
+    const isPartnerAlive = isPartner && requestingPlayer?.alive !== false && p.alive !== false;
     const isWolfTeammate = isWolfViewer && p.role === ROLES.WOLF;
-    const showRole = isSelf || isPartner || isWolfTeammate || room.phase === PHASES.GAME_OVER;
+    const showRole = isSelf || isPartnerAlive || isWolfTeammate || room.phase === PHASES.GAME_OVER;
 
     // Hiển thị trạng thái Cặp Đôi cho bản thân, người yêu, Cupid hoặc khi game over
     const isPlayerInCouple = coupleIds.includes(p.id);
@@ -555,7 +580,7 @@ function getPlayersData(room, forPlayerId = null) {
       isLover: isPartner,
       partnerId: (isSelf && partnerId) ? partnerId : (showCouple ? otherLoverId : null),
       partnerName: (isSelf && partnerPlayer) ? partnerPlayer.name : (showCouple && otherLoverPlayer ? otherLoverPlayer.name : null),
-      partnerRole: isSelf && partnerPlayer ? partnerPlayer.role : null,
+      partnerRole: isSelf && partnerPlayer && requestingPlayer?.alive !== false && partnerPlayer.alive !== false ? partnerPlayer.role : null,
     };
   });
 }

@@ -25,6 +25,8 @@ import PlayerAvatar from './PlayerAvatar';
 import { getRoleName, getRoleEmoji } from '../utils/colors';
 
 const glassCrackImg = require('../assets/glass_crack.png');
+const wolfClawImg = require('../assets/wolf_claw.png');
+const potionPoisonImg = require('../assets/potion_poison.png');
 const WOLF_AVATAR_IMG = require('../assets/werewolf.jpg');
 const PIED_PIPER_AVATAR_IMG = require('../assets/pied_piper_victory.jpg');
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -144,6 +146,7 @@ export default function CoupleHeartbreakModal({
   deadPlayer = null,
   heartbrokenPlayer = null,
   reason = 'bị sát hại',
+  isSimultaneousNightDeath = false,
   duration = 6,
   onClose = () => {},
 }) {
@@ -166,7 +169,12 @@ export default function CoupleHeartbreakModal({
   const textFadeAnim = useRef(new Animated.Value(0)).current;
   const tearDropAnim = useRef(new Animated.Value(0)).current;
 
-  // Hiệu ứng chuyển avatar sang màu đen xám tro tàn & lộ diện Sói / Phe Thứ 3
+  // Hiệu ứng Sói cào người bên trái & Phù Thủy ném độc người bên phải (khi cả 2 cùng bị giết trong đêm)
+  const clawSlashAnim = useRef(new Animated.Value(0)).current;
+  const poisonBottleAnim = useRef(new Animated.Value(0)).current;
+  const poisonMistAnim = useRef(new Animated.Value(0)).current;
+
+  // Hiệu ứng chuyển avatar sang màu đen xám tro tàn
   const victimGrayAnim = useRef(new Animated.Value(0)).current;
   const heartbrokenGrayAnim = useRef(new Animated.Value(0)).current;
   const specialMorphAnim = useRef(new Animated.Value(0)).current;
@@ -178,6 +186,8 @@ export default function CoupleHeartbreakModal({
   const [typedText, setTypedText] = useState('');
 
   const HEARTBREAK_CHANT = '"It was my fault, I can\'t even protect you. I\'m so sorry...."';
+  const SIMULTANEOUS_DEATH_CHANT = '"Death could not separate us... See you on the other side...."';
+  const activeChant = isSimultaneousNightDeath ? SIMULTANEOUS_DEATH_CHANT : HEARTBREAK_CHANT;
 
   // Dữ liệu an toàn
   const victim = deadPlayer || {
@@ -191,14 +201,6 @@ export default function CoupleHeartbreakModal({
     avatar: '🐰',
     avatarColor: '#FB7185',
   };
-
-  const isVictimWolf = victim?.role === 'wolf';
-  const isHeartbrokenWolf = heartbroken?.role === 'wolf';
-  const isVictimPiper = victim?.role === 'pied_piper';
-  const isHeartbrokenPiper = heartbroken?.role === 'pied_piper';
-  const hasWolfInCouple = isVictimWolf || isHeartbrokenWolf;
-  const hasPiperInCouple = isVictimPiper || isHeartbrokenPiper;
-  const isSpecialCouple = hasWolfInCouple || hasPiperInCouple;
 
   useEffect(() => {
     if (!visible) {
@@ -215,6 +217,9 @@ export default function CoupleHeartbreakModal({
       heartbrokenShake.setValue(0);
       textFadeAnim.setValue(0);
       tearDropAnim.setValue(0);
+      clawSlashAnim.setValue(0);
+      poisonBottleAnim.setValue(0);
+      poisonMistAnim.setValue(0);
       victimGrayAnim.setValue(0);
       heartbrokenGrayAnim.setValue(0);
       specialMorphAnim.setValue(0);
@@ -233,13 +238,16 @@ export default function CoupleHeartbreakModal({
     setSpecialRevealed(false);
     setCapVisible(false);
     setTypedText('');
+    clawSlashAnim.setValue(0);
+    poisonBottleAnim.setValue(0);
+    poisonMistAnim.setValue(0);
     victimGrayAnim.setValue(0);
     heartbrokenGrayAnim.setValue(0);
     specialMorphAnim.setValue(0);
     capFadeAnim.setValue(0);
     textFadeAnim.setValue(0);
 
-    // BƯỚC 1: Mở màn & Nạn nhân đầu tiên ngã xuống (0s - 0.5s)
+    // BƯỚC 1: Mở màn (0s - 0.35s)
     Animated.parallel([
       Animated.timing(backdropAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
       Animated.spring(heartScaleAnim, { toValue: 1, tension: 50, friction: 6, useNativeDriver: true }),
@@ -253,101 +261,200 @@ export default function CoupleHeartbreakModal({
       Animated.timing(heartBeatAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
     ]).start();
 
-    // Rung lắc nạn nhân đầu tiên khi ngã xuống
-    Animated.sequence([
-      Animated.timing(deadLoverShake, { toValue: 12, duration: 80, useNativeDriver: true }),
-      Animated.timing(deadLoverShake, { toValue: -12, duration: 80, useNativeDriver: true }),
-      Animated.timing(deadLoverShake, { toValue: 8, duration: 80, useNativeDriver: true }),
-      Animated.timing(deadLoverShake, { toValue: 0, duration: 80, useNativeDriver: true }),
-    ]).start();
+    let clawTimer = null;
+    let poisonTimer = null;
+    let victimGrayTimer = null;
+    let breakTimer = null;
+    let capTimer = null;
+    let typingInterval = null;
 
-    // Nạn nhân đầu tiên hóa đen xám
-    const victimGrayTimer = setTimeout(() => {
-      setVictimIsGray(true);
-      Animated.timing(victimGrayAnim, {
-        toValue: 1,
-        duration: 450,
-        useNativeDriver: false,
-      }).start();
-    }, 150);
+    if (isSimultaneousNightDeath) {
+      // ==================== CHẾ ĐỘ ĐẶC BIỆT: CẢ 2 NGƯỜI TÌNH CÙNG CHẾT TRONG 1 ĐÊM ====================
+      // 1. Ma Sói vung móng vuốt cào rách người thứ nhất (bên trái) ở 0.4s
+      clawTimer = setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(clawSlashAnim, {
+            toValue: 1,
+            duration: 380,
+            useNativeDriver: true,
+          }),
+          Animated.sequence([
+            Animated.timing(deadLoverShake, { toValue: 14, duration: 65, useNativeDriver: true }),
+            Animated.timing(deadLoverShake, { toValue: -14, duration: 65, useNativeDriver: true }),
+            Animated.timing(deadLoverShake, { toValue: 10, duration: 65, useNativeDriver: true }),
+            Animated.timing(deadLoverShake, { toValue: 0, duration: 75, useNativeDriver: true }),
+          ]),
+        ]).start();
+      }, 400);
 
-    // BƯỚC 2 (Đối với cặp đôi đặc biệt): Hiện Role + Đổi Avatar Sói / Phe Thứ 3 TRƯỚC khi gõ dòng cap!
-    let morphTimer = null;
-    if (isSpecialCouple) {
-      morphTimer = setTimeout(() => {
-        setSpecialRevealed(true);
-        Animated.timing(specialMorphAnim, {
+      // 2. Phù Thủy ném bình thuốc độc vỡ tung vào người thứ hai (bên phải) ở 0.75s
+      poisonTimer = setTimeout(() => {
+        Animated.sequence([
+          Animated.timing(poisonBottleAnim, {
+            toValue: 1,
+            duration: 280,
+            useNativeDriver: true,
+          }),
+          Animated.parallel([
+            Animated.timing(poisonMistAnim, {
+              toValue: 1,
+              duration: 420,
+              useNativeDriver: true,
+            }),
+            Animated.sequence([
+              Animated.timing(heartbrokenShake, { toValue: -14, duration: 65, useNativeDriver: true }),
+              Animated.timing(heartbrokenShake, { toValue: 14, duration: 65, useNativeDriver: true }),
+              Animated.timing(heartbrokenShake, { toValue: -10, duration: 65, useNativeDriver: true }),
+              Animated.timing(heartbrokenShake, { toValue: 0, duration: 75, useNativeDriver: true }),
+            ]),
+          ]),
+        ]).start();
+      }, 750);
+
+      // 3. Ở 1.35s: Trái tim nứt vỡ nổ tung & CẢ 2 NGƯỜI TÌNH CÙNG CHUYỂN SANG ẢNH CHẾT ĐEN XÁM
+      breakTimer = setTimeout(() => {
+        playHeartbreakSynth();
+
+        Animated.sequence([
+          Animated.timing(crackOpacity, { toValue: 1, duration: 120, useNativeDriver: true }),
+          Animated.timing(crackOpacity, { toValue: 0.7, duration: 300, useNativeDriver: true }),
+        ]).start();
+
+        Animated.parallel([
+          Animated.timing(leftHalfOffset, { toValue: -42, duration: 850, useNativeDriver: true }),
+          Animated.timing(rightHalfOffset, { toValue: 42, duration: 850, useNativeDriver: true }),
+          Animated.timing(halfRotAnim, { toValue: 1, duration: 850, useNativeDriver: true }),
+          Animated.timing(beamBreakAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
+          Animated.timing(shardsAnim, { toValue: 1, duration: 1100, useNativeDriver: true }),
+        ]).start();
+
+        setVictimIsGray(true);
+        setHeartbrokenIsGray(true);
+        Animated.parallel([
+          Animated.timing(victimGrayAnim, {
+            toValue: 1,
+            duration: 550,
+            useNativeDriver: false,
+          }),
+          Animated.timing(heartbrokenGrayAnim, {
+            toValue: 1,
+            duration: 550,
+            useNativeDriver: false,
+          }),
+        ]).start();
+      }, 1350);
+
+      // 4. SAU KHI CẢ 2 NGƯỜI ĐÃ CHUYỂN ẢNH CHẾT ĐEN XÁM (2.0s) -> CHỮ MỚI LÊN VÀ CHẠY TỪNG CHỮ!
+      const simultaneousCapDelay = 2000;
+      capTimer = setTimeout(() => {
+        setCapVisible(true);
+        Animated.parallel([
+          Animated.timing(capFadeAnim, {
+            toValue: 1,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+          Animated.timing(textFadeAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ]).start();
+
+        let index = 0;
+        typingInterval = setInterval(() => {
+          index++;
+          if (index <= activeChant.length) {
+            setTypedText(activeChant.slice(0, index));
+          } else {
+            clearInterval(typingInterval);
+          }
+        }, 24);
+      }, simultaneousCapDelay);
+    } else {
+      // ==================== CHẾ ĐỘ THÔNG THƯỜNG: 1 NGƯỜI CHẾT TRƯỚC, NGƯỜI KIA TUẪN TÌNH THEO ====================
+      // Rung lắc nạn nhân đầu tiên khi ngã xuống
+      Animated.sequence([
+        Animated.timing(deadLoverShake, { toValue: 12, duration: 80, useNativeDriver: true }),
+        Animated.timing(deadLoverShake, { toValue: -12, duration: 80, useNativeDriver: true }),
+        Animated.timing(deadLoverShake, { toValue: 8, duration: 80, useNativeDriver: true }),
+        Animated.timing(deadLoverShake, { toValue: 0, duration: 80, useNativeDriver: true }),
+      ]).start();
+
+      // Nạn nhân đầu tiên hóa đen xám
+      victimGrayTimer = setTimeout(() => {
+        setVictimIsGray(true);
+        Animated.timing(victimGrayAnim, {
           toValue: 1,
-          duration: 420,
+          duration: 450,
+          useNativeDriver: false,
+        }).start();
+      }, 150);
+
+      // BƯỚC 2: GÕ TỪNG CHỮ (TYPEWRITER NHƯ PHÙ THỦY) DÒNG CAP TRƯỚC KHI NGƯỜI CÒN LẠI CHẾT THEO (KHÔNG LỘ ROLE KHI CHẾT)
+      const capDelay = 550;
+      capTimer = setTimeout(() => {
+        setCapVisible(true);
+        Animated.timing(capFadeAnim, {
+          toValue: 1,
+          duration: 250,
           useNativeDriver: true,
         }).start();
-      }, 500);
+
+        let index = 0;
+        typingInterval = setInterval(() => {
+          index++;
+          if (index <= activeChant.length) {
+            setTypedText(activeChant.slice(0, index));
+          } else {
+            clearInterval(typingInterval);
+          }
+        }, 24);
+      }, capDelay);
+
+      // BƯỚC 3: Sau khi đã gõ xong dòng cap (~1.25s gõ chữ) -> KÍCH HOẠT TIM VỠ & NGƯỜI CÒN LẠI CHẾT THEO (CHUYỂN ĐEN XÁM)
+      const breakDelay = 1900;
+      breakTimer = setTimeout(() => {
+        playHeartbreakSynth();
+
+        // Hiện vết nứt kính chớp rực đỏ
+        Animated.sequence([
+          Animated.timing(crackOpacity, { toValue: 1, duration: 120, useNativeDriver: true }),
+          Animated.timing(crackOpacity, { toValue: 0.7, duration: 300, useNativeDriver: true }),
+        ]).start();
+
+        // 2 nửa trái tim tách rời, vặn xoay và rơi xuống
+        Animated.parallel([
+          Animated.timing(leftHalfOffset, { toValue: -42, duration: 850, useNativeDriver: true }),
+          Animated.timing(rightHalfOffset, { toValue: 42, duration: 850, useNativeDriver: true }),
+          Animated.timing(halfRotAnim, { toValue: 1, duration: 850, useNativeDriver: true }),
+          Animated.timing(beamBreakAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
+          Animated.timing(shardsAnim, { toValue: 1, duration: 1100, useNativeDriver: true }),
+        ]).start();
+
+        // Rung lắc dữ dội người tình còn lại khi thất tình quặn thắt
+        Animated.sequence([
+          Animated.timing(heartbrokenShake, { toValue: -15, duration: 60, useNativeDriver: true }),
+          Animated.timing(heartbrokenShake, { toValue: 15, duration: 60, useNativeDriver: true }),
+          Animated.timing(heartbrokenShake, { toValue: -12, duration: 60, useNativeDriver: true }),
+          Animated.timing(heartbrokenShake, { toValue: 12, duration: 60, useNativeDriver: true }),
+          Animated.timing(heartbrokenShake, { toValue: -8, duration: 60, useNativeDriver: true }),
+          Animated.timing(heartbrokenShake, { toValue: 8, duration: 60, useNativeDriver: true }),
+          Animated.timing(heartbrokenShake, { toValue: 0, duration: 100, useNativeDriver: true }),
+        ]).start();
+
+        // Người yêu còn lại bắt đầu rút cạn sinh khí, chuyển sang màu đen xám tro tàn
+        setHeartbrokenIsGray(true);
+        Animated.timing(heartbrokenGrayAnim, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: false,
+        }).start();
+
+        // Hiện chi tiết thông báo tuẫn tình bên dưới dòng cap
+        Animated.timing(textFadeAnim, { toValue: 1, duration: 550, useNativeDriver: true }).start();
+      }, breakDelay);
     }
-
-    // BƯỚC 3: GÕ TỪNG CHỮ (TYPEWRITER NHƯ PHÙ THỦY) DÒNG CAP "I'm sorry , I can't protect you. It was my fault...." TRƯỚC KHI NGƯỜI CÒN LẠI CHẾT THEO!
-    let typingInterval = null;
-    const capDelay = isSpecialCouple ? 1000 : 550;
-    const capTimer = setTimeout(() => {
-      setCapVisible(true);
-      Animated.timing(capFadeAnim, {
-        toValue: 1,
-        duration: 250,
-        useNativeDriver: true,
-      }).start();
-
-      let index = 0;
-      typingInterval = setInterval(() => {
-        index++;
-        if (index <= HEARTBREAK_CHANT.length) {
-          setTypedText(HEARTBREAK_CHANT.slice(0, index));
-        } else {
-          clearInterval(typingInterval);
-        }
-      }, 24);
-    }, capDelay);
-
-    // BƯỚC 4: Sau khi đã gõ xong dòng cap (~1.25s gõ chữ) -> KÍCH HOẠT TIM VỠ & NGƯỜI CÒN LẠI CHẾT THEO (CHUYỂN ĐEN XÁM)
-    const breakDelay = isSpecialCouple ? 2350 : 1900;
-    const breakTimer = setTimeout(() => {
-      playHeartbreakSynth();
-
-      // Hiện vết nứt kính chớp rực đỏ
-      Animated.sequence([
-        Animated.timing(crackOpacity, { toValue: 1, duration: 120, useNativeDriver: true }),
-        Animated.timing(crackOpacity, { toValue: 0.7, duration: 300, useNativeDriver: true }),
-      ]).start();
-
-      // 2 nửa trái tim tách rời, vặn xoay và rơi xuống
-      Animated.parallel([
-        Animated.timing(leftHalfOffset, { toValue: -42, duration: 850, useNativeDriver: true }),
-        Animated.timing(rightHalfOffset, { toValue: 42, duration: 850, useNativeDriver: true }),
-        Animated.timing(halfRotAnim, { toValue: 1, duration: 850, useNativeDriver: true }),
-        Animated.timing(beamBreakAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
-        Animated.timing(shardsAnim, { toValue: 1, duration: 1100, useNativeDriver: true }),
-      ]).start();
-
-      // Rung lắc dữ dội người tình còn lại khi thất tình quặn thắt
-      Animated.sequence([
-        Animated.timing(heartbrokenShake, { toValue: -15, duration: 60, useNativeDriver: true }),
-        Animated.timing(heartbrokenShake, { toValue: 15, duration: 60, useNativeDriver: true }),
-        Animated.timing(heartbrokenShake, { toValue: -12, duration: 60, useNativeDriver: true }),
-        Animated.timing(heartbrokenShake, { toValue: 12, duration: 60, useNativeDriver: true }),
-        Animated.timing(heartbrokenShake, { toValue: -8, duration: 60, useNativeDriver: true }),
-        Animated.timing(heartbrokenShake, { toValue: 8, duration: 60, useNativeDriver: true }),
-        Animated.timing(heartbrokenShake, { toValue: 0, duration: 100, useNativeDriver: true }),
-      ]).start();
-
-      // Người yêu còn lại bắt đầu rút cạn sinh khí, chuyển sang màu đen xám tro tàn
-      setHeartbrokenIsGray(true);
-      Animated.timing(heartbrokenGrayAnim, {
-        toValue: 1,
-        duration: 900,
-        useNativeDriver: false,
-      }).start();
-
-      // Hiện chi tiết thông báo tuẫn tình bên dưới dòng cap
-      Animated.timing(textFadeAnim, { toValue: 1, duration: 550, useNativeDriver: true }).start();
-    }, breakDelay);
 
     // Hiệu ứng cánh hoa / giọt lệ máu rơi lả tả
     const tearLoop = Animated.loop(
@@ -371,15 +478,16 @@ export default function CoupleHeartbreakModal({
     }, 1000);
 
     return () => {
-      if (morphTimer) clearTimeout(morphTimer);
+      if (clawTimer) clearTimeout(clawTimer);
+      if (poisonTimer) clearTimeout(poisonTimer);
       if (typingInterval) clearInterval(typingInterval);
-      clearTimeout(capTimer);
-      clearTimeout(victimGrayTimer);
-      clearTimeout(breakTimer);
+      if (capTimer) clearTimeout(capTimer);
+      if (victimGrayTimer) clearTimeout(victimGrayTimer);
+      if (breakTimer) clearTimeout(breakTimer);
       clearInterval(timer);
       tearLoop.stop();
     };
-  }, [visible, hasWolfInCouple, hasPiperInCouple]);
+  }, [visible, isSimultaneousNightDeath]);
 
   if (!visible) return null;
 
@@ -474,18 +582,10 @@ export default function CoupleHeartbreakModal({
           {/* Header Báo Tử Cặp Đôi */}
           <View style={[styles.headerBlock, isCompactMobile && { marginBottom: 10 }]}>
             <Text style={[styles.headerEmojiRow, isCompactMobile && { fontSize: 22 }]}>
-              {specialRevealed && hasWolfInCouple
-                ? '🐺 💔 🥀'
-                : specialRevealed && hasPiperInCouple
-                ? '🎶 💔 🥀'
-                : '💔 🥀 🖤'}
+              {isSimultaneousNightDeath ? '🐺 💔 ☠️' : '💔 🥀 🖤'}
             </Text>
             <Text style={[styles.headerTitle, isCompactMobile && { fontSize: 15 }]}>
-              {specialRevealed && hasWolfInCouple
-                ? 'TÌNH YÊU CẤM KỴ TAN VỠ • SÓI LỘ DIỆN!'
-                : specialRevealed && hasPiperInCouple
-                ? 'KHÚC NHẠC ĐỨT ĐOẠN • PHE THỨ 3 LỘ DIỆN!'
-                : 'TRÁI TIM TAN VỠ!'}
+              {isSimultaneousNightDeath ? 'ĐỊNH MỆNH ĐẪM MÁU • ĐÔI TÌNH NHÂN ĐỒNG TỬ!' : 'TRÁI TIM TAN VỠ!'}
             </Text>
             <View style={{ minHeight: 24, justifyContent: 'center', alignItems: 'center', marginTop: 4 }}>
               {capVisible ? (
@@ -494,7 +594,9 @@ export default function CoupleHeartbreakModal({
                 </Text>
               ) : (
                 <Text style={styles.headerSub}>
-                  Một nửa linh hồn đã gục ngã...
+                  {isSimultaneousNightDeath
+                    ? 'Nanh vuốt Ma Sói và độc dược Phù Thủy cùng giáng xuống trong đêm...'
+                    : 'Một nửa linh hồn đã gục ngã...'}
                 </Text>
               )}
             </View>
@@ -502,7 +604,7 @@ export default function CoupleHeartbreakModal({
 
           {/* SÂN KHẤU TIM VỠ VÀ 2 AVATAR */}
           <View style={[styles.stageBox, isCompactMobile && { paddingVertical: 6 }]}>
-            {/* 1. NẠN NHÂN TỬ NẠN (DEAD LOVER) - BÊN TRÁI */}
+            {/* 1. NẠN NHÂN BÊN TRÁI (BỊ SÓI CẮN TRONG ĐÊM ĐỒNG TỬ HOẶC CHẾT TRƯỚC) */}
             <Animated.View
               style={[
                 styles.playerColumn,
@@ -530,7 +632,7 @@ export default function CoupleHeartbreakModal({
                 ]}
               >
                 <View style={styles.avatarInnerCircle}>
-                  {/* Giữ nguyên avatar chính của người chơi (hoặc biến hình sang Sói / Phe Thứ 3) rồi chuyển dần sang đen xám */}
+                  {/* Giữ nguyên avatar chính của người chơi rồi chuyển dần sang đen xám (không lộ role khi chết) */}
                   <PlayerAvatar
                     player={{
                       ...victim,
@@ -539,22 +641,6 @@ export default function CoupleHeartbreakModal({
                     compact={true}
                     size="medium"
                   />
-
-                  {(isVictimWolf || isVictimPiper) && (
-                    <Animated.View
-                      pointerEvents="none"
-                      style={[
-                        styles.specialRoleAvatarOverlay,
-                        { opacity: specialMorphAnim },
-                      ]}
-                    >
-                      <Image
-                        source={isVictimWolf ? WOLF_AVATAR_IMG : PIED_PIPER_AVATAR_IMG}
-                        style={styles.specialRoleAvatarImg}
-                        resizeMode="cover"
-                      />
-                    </Animated.View>
-                  )}
 
                   {/* Lớp phủ đen xám tro tàn chuyển động mượt mà */}
                   <Animated.View
@@ -569,6 +655,29 @@ export default function CoupleHeartbreakModal({
                       },
                     ]}
                   />
+
+                  {/* Hiệu ứng Móng Vuốt Sói Cào Rách Avatar (khi cả 2 cùng bị giết trong đêm) */}
+                  {isSimultaneousNightDeath && (
+                    <Animated.Image
+                      source={wolfClawImg}
+                      pointerEvents="none"
+                      style={[
+                        styles.simultaneousClawOverlay,
+                        {
+                          opacity: clawSlashAnim,
+                          transform: [
+                            {
+                              scale: clawSlashAnim.interpolate({
+                                inputRange: [0, 0.4, 1],
+                                outputRange: [1.6, 1.15, 1.0],
+                              }),
+                            },
+                          ],
+                        },
+                      ]}
+                      resizeMode="contain"
+                    />
+                  )}
                 </View>
 
                 {/* Dấu vết tử vong đè lên avatar khi đã hóa đen xám */}
@@ -589,7 +698,7 @@ export default function CoupleHeartbreakModal({
                   ]}
                   pointerEvents="none"
                 >
-                  <Text style={styles.deadSkullText}>💀</Text>
+                  <Text style={styles.deadSkullText}>{isSimultaneousNightDeath ? '🐺' : '💀'}</Text>
                 </Animated.View>
               </Animated.View>
 
@@ -599,32 +708,6 @@ export default function CoupleHeartbreakModal({
               >
                 {victim.name}
               </Animated.Text>
-
-              {victim.role && (
-                <Animated.View
-                  style={[
-                    styles.roleSubBadge,
-                    isCompactMobile && { paddingHorizontal: 5, paddingVertical: 1.5 },
-                    isVictimWolf && styles.roleSubBadgeWolf,
-                    isVictimPiper && styles.roleSubBadgePiper,
-                    (isVictimWolf || isVictimPiper) && {
-                      opacity: specialMorphAnim,
-                      transform: [
-                        {
-                          scale: specialMorphAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0.65, 1],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                >
-                  <Text style={[styles.roleSubBadgeText, isCompactMobile && { fontSize: 8.5 }]} numberOfLines={1}>
-                    {getRoleEmoji(victim.role)} {getRoleName(victim.role).toUpperCase()}
-                  </Text>
-                </Animated.View>
-              )}
 
               <Animated.View
                 style={[
@@ -636,7 +719,9 @@ export default function CoupleHeartbreakModal({
                 ]}
               >
                 <Text style={[styles.deadBadgeText, isCompactMobile && { fontSize: 9.5 }]} numberOfLines={1}>
-                  {isCompactMobile ? 'Tử Nạn 💀' : 'Nạn Nhân Tử Nạn'}
+                  {isSimultaneousNightDeath
+                    ? (isCompactMobile ? '🐺 Sói Cào 💀' : '🐺 Bị Sói Cào 💀')
+                    : (isCompactMobile ? 'Tử Nạn 💀' : 'Nạn Nhân Tử Nạn')}
                 </Text>
               </Animated.View>
             </Animated.View>
@@ -795,7 +880,7 @@ export default function CoupleHeartbreakModal({
                 ]}
               >
                 <View style={styles.avatarInnerCircle}>
-                  {/* Giữ nguyên avatar chính của người yêu lúc còn sống (hoặc biến hình sang Sói / Phe Thứ 3), sau đó rút cạn màu */}
+                  {/* Giữ nguyên avatar chính của người yêu lúc còn sống, sau đó rút cạn màu (không lộ role khi chết) */}
                   <PlayerAvatar
                     player={{
                       ...heartbroken,
@@ -804,22 +889,6 @@ export default function CoupleHeartbreakModal({
                     compact={true}
                     size="medium"
                   />
-
-                  {(isHeartbrokenWolf || isHeartbrokenPiper) && (
-                    <Animated.View
-                      pointerEvents="none"
-                      style={[
-                        styles.specialRoleAvatarOverlay,
-                        { opacity: specialMorphAnim },
-                      ]}
-                    >
-                      <Image
-                        source={isHeartbrokenWolf ? WOLF_AVATAR_IMG : PIED_PIPER_AVATAR_IMG}
-                        style={styles.specialRoleAvatarImg}
-                        resizeMode="cover"
-                      />
-                    </Animated.View>
-                  )}
 
                   {/* Lớp phủ đen xám tro tàn */}
                   <Animated.View
@@ -834,9 +903,71 @@ export default function CoupleHeartbreakModal({
                       },
                     ]}
                   />
+
+                  {/* Hiệu ứng Khói Độc Phù Thủy bao trùm Avatar (khi cả 2 cùng bị giết trong đêm) */}
+                  {isSimultaneousNightDeath && (
+                    <Animated.View
+                      pointerEvents="none"
+                      style={[
+                        styles.simultaneousPoisonMistOverlay,
+                        {
+                          opacity: poisonMistAnim.interpolate({
+                            inputRange: [0, 0.5, 1],
+                            outputRange: [0, 0.85, 0.45],
+                          }),
+                        },
+                      ]}
+                    >
+                      <Text style={{ fontSize: 28 }}>☠️</Text>
+                    </Animated.View>
+                  )}
                 </View>
 
-                {/* Trái tim vỡ nhấp nháy trên đầu người yêu chết theo */}
+                {/* Bình Thuốc Độc Phù Thủy ném trúng Avatar bên phải (khi cả 2 cùng bị giết trong đêm) */}
+                {isSimultaneousNightDeath && (
+                  <Animated.Image
+                    source={potionPoisonImg}
+                    pointerEvents="none"
+                    style={[
+                      styles.simultaneousPoisonBottle,
+                      {
+                        opacity: poisonBottleAnim.interpolate({
+                          inputRange: [0, 0.2, 0.85, 1],
+                          outputRange: [0, 1, 1, 0],
+                        }),
+                        transform: [
+                          {
+                            translateY: poisonBottleAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [-55, 0],
+                            }),
+                          },
+                          {
+                            translateX: poisonBottleAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [35, 0],
+                            }),
+                          },
+                          {
+                            rotate: poisonBottleAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: ['45deg', '-25deg'],
+                            }),
+                          },
+                          {
+                            scale: poisonBottleAnim.interpolate({
+                              inputRange: [0, 0.8, 1],
+                              outputRange: [0.6, 1.15, 1.35],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                    resizeMode="contain"
+                  />
+                )}
+
+                {/* Trái tim vỡ hoặc Đầu lâu độc nhấp nháy trên đầu người bên phải */}
                 <Animated.View
                   style={[
                     styles.brokenHeartBadge,
@@ -854,7 +985,9 @@ export default function CoupleHeartbreakModal({
                   ]}
                   pointerEvents="none"
                 >
-                  <Text style={styles.brokenHeartBadgeEmoji}>💔</Text>
+                  <Text style={styles.brokenHeartBadgeEmoji}>
+                    {isSimultaneousNightDeath ? '☠️' : '💔'}
+                  </Text>
                 </Animated.View>
               </Animated.View>
 
@@ -865,50 +998,26 @@ export default function CoupleHeartbreakModal({
                 {heartbroken.name}
               </Animated.Text>
 
-              {heartbroken.role && (
-                <Animated.View
-                  style={[
-                    styles.roleSubBadge,
-                    isCompactMobile && { paddingHorizontal: 5, paddingVertical: 1.5 },
-                    isHeartbrokenWolf && styles.roleSubBadgeWolf,
-                    isHeartbrokenPiper && styles.roleSubBadgePiper,
-                    (isHeartbrokenWolf || isHeartbrokenPiper) && {
-                      opacity: specialMorphAnim,
-                      transform: [
-                        {
-                          scale: specialMorphAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0.65, 1],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                >
-                  <Text style={[styles.roleSubBadgeText, isCompactMobile && { fontSize: 8.5 }]} numberOfLines={1}>
-                    {getRoleEmoji(heartbroken.role)} {getRoleName(heartbroken.role).toUpperCase()}
-                  </Text>
-                </Animated.View>
-              )}
-
               <Animated.View
                 style={[
                   styles.heartbrokenBadge,
                   isCompactMobile && { paddingHorizontal: 6, paddingVertical: 2 },
                   {
                     borderColor: heartbrokenBorderColor,
-                    opacity: heartbrokenGrayAnim,
+                    opacity: isSimultaneousNightDeath ? 1 : heartbrokenGrayAnim,
                   },
                 ]}
               >
                 <Text style={[styles.heartbrokenBadgeText, isCompactMobile && { fontSize: 9.5 }]} numberOfLines={1}>
-                  {isCompactMobile ? 'Chết Theo 💔' : 'Người Tình Chết Theo 💔'}
+                  {isSimultaneousNightDeath
+                    ? (isCompactMobile ? '☠️ Trúng Độc' : '☠️ Phù Thủy Hạ Độc')
+                    : (isCompactMobile ? 'Chết Theo 💔' : 'Người Tình Chết Theo 💔')}
                 </Text>
               </Animated.View>
             </Animated.View>
           </View>
 
-          {/* DÒNG CAP TRĂN TRỐI XUẤT HIỆN TRƯỚC KHI NGƯỜI CÒN LẠI CHẾT THEO */}
+          {/* DÒNG CAP TRĂN TRỐI */}
           <Animated.View
             style={[
               styles.narrativeBox,
@@ -929,11 +1038,7 @@ export default function CoupleHeartbreakModal({
             <View style={[styles.narrativeTitleRow, isCompactMobile && { width: '96%' }]}>
               <View style={styles.narrativeLine} />
               <Text style={[styles.narrativeTitle, isCompactMobile && { fontSize: 10 }]} numberOfLines={1}>
-                {hasWolfInCouple
-                  ? '🐺 BEAUTY AND THE BEAST'
-                  : hasPiperInCouple
-                  ? '🎶 KHÚC NHẠC CUỐI CÙNG'
-                  : 'LỜI THỀ ĐÃ ỨNG NGHIỆM'}
+                {isSimultaneousNightDeath ? 'SINH TỬ CÓ NHAU • ĐỒNG TỬ TRONG ĐÊM' : 'LỜI THỀ ĐÃ ỨNG NGHIỆM'}
               </Text>
               <View style={styles.narrativeLine} />
             </View>
@@ -943,13 +1048,23 @@ export default function CoupleHeartbreakModal({
             </Text>
 
             <Animated.View style={{ opacity: textFadeAnim, marginTop: 6 }}>
-              <Text style={styles.narrativeMainText}>
-                <Text style={{ color: '#FCA5A5', fontWeight: 'bold' }}>{victim.name}</Text>{' '}
-                đã ngã xuống, khiến trái tim{' '}
-                <Text style={{ color: '#F472B6', fontWeight: 'bold' }}>{heartbroken.name}</Text>{' '}
-                vỡ vụn và{' '}
-                <Text style={{ color: '#FB7185', fontWeight: 'bold' }}>người tình chết theo!</Text>
-              </Text>
+              {isSimultaneousNightDeath ? (
+                <Text style={styles.narrativeMainText}>
+                  <Text style={{ color: '#FCA5A5', fontWeight: 'bold' }}>{victim.name}</Text>{' '}
+                  gục ngã dưới nanh vuốt Ma Sói, còn{' '}
+                  <Text style={{ color: '#C084FC', fontWeight: 'bold' }}>{heartbroken.name}</Text>{' '}
+                  trúng kịch độc Phù Thủy —{' '}
+                  <Text style={{ color: '#FB7185', fontWeight: 'bold' }}>Đôi tình nhân cùng nắm tay nhau sang thế giới bên kia!</Text>
+                </Text>
+              ) : (
+                <Text style={styles.narrativeMainText}>
+                  <Text style={{ color: '#FCA5A5', fontWeight: 'bold' }}>{victim.name}</Text>{' '}
+                  đã ngã xuống, khiến trái tim{' '}
+                  <Text style={{ color: '#F472B6', fontWeight: 'bold' }}>{heartbroken.name}</Text>{' '}
+                  vỡ vụn và{' '}
+                  <Text style={{ color: '#FB7185', fontWeight: 'bold' }}>người tình chết theo!</Text>
+                </Text>
+              )}
             </Animated.View>
           </Animated.View>
         </Animated.View>
@@ -965,6 +1080,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
+  },
+  simultaneousClawOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+    zIndex: 18,
+  },
+  simultaneousPoisonMistOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(147, 51, 234, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 999,
+    zIndex: 18,
+  },
+  simultaneousPoisonBottle: {
+    position: 'absolute',
+    top: -12,
+    right: -12,
+    width: 48,
+    height: 48,
+    zIndex: 30,
   },
   floatingCloseBtn: {
     position: 'absolute',

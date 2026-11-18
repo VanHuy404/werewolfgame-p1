@@ -251,6 +251,32 @@ class GameScreenAnimationController {
       this.onPiedPiperPurified(nightPiperPurifiedPayload);
     }
 
+    const activeCouple = this.couple && this.couple.length === 2 ? this.couple : [];
+    const coupleIds = activeCouple.map((c) => c?.id || c);
+    const isSimultaneousCoupleNightDeath = Boolean(
+      this.deadPlayer &&
+        this.poisonedPlayer &&
+        this.deadPlayer.id !== this.poisonedPlayer.id &&
+        (data.coupleSimultaneousNightDeath ||
+          (coupleIds.length === 2 &&
+            coupleIds.includes(this.deadPlayer.id) &&
+            coupleIds.includes(this.poisonedPlayer.id)))
+    );
+
+    if (isSimultaneousCoupleNightDeath) {
+      this.pendingAfterHeartbreakCallback = () => {
+        this.triggerNightPurificationIfPending();
+      };
+      this._openModal('CoupleHeartbreakModal', {
+        deadPlayer: this.deadPlayer,
+        heartbrokenPlayer: this.poisonedPlayer,
+        isSimultaneousNightDeath: true,
+        variant: 'simultaneous_night_death',
+      });
+      this.handleCoupleHeartbreakModalClose();
+      return;
+    }
+
     const isDualKill =
       this.deadPlayer &&
       this.poisonedPlayer &&
@@ -517,19 +543,25 @@ function verifyComponentInternalTimelines() {
     'Dòng cap của CoupleHeartbreakModal phải có màu xanh biển sâu thẳm (#2563EB)'
   );
   assert(
-    coupleHeartbreakCode.includes('setTypedText(HEARTBREAK_CHANT.slice(0, index))'),
-    'Dòng cap của CoupleHeartbreakModal phải chạy từng chữ (typewriter) như Phù Thủy'
+    coupleHeartbreakCode.includes('setTypedText(activeChant.slice(0, index))') &&
+      coupleHeartbreakCode.includes('Death could not separate us... See you on the other side....') &&
+      coupleHeartbreakCode.includes('simultaneousClawOverlay') &&
+      coupleHeartbreakCode.includes('simultaneousPoisonBottle') &&
+      coupleHeartbreakCode.includes('const simultaneousCapDelay = 2000;'),
+    'CoupleHeartbreakModal phải chạy từng chữ (typewriter) và hỗ trợ chế độ Đồng Tử Trong Đêm (Sói cào + Phù Thủy ném độc -> 2 người chuyển ảnh chết -> chữ lên sau)'
   );
   assert(
-    coupleHeartbreakCode.includes('const capDelay = isSpecialCouple ? 1000 : 550;') &&
-      coupleHeartbreakCode.includes('const breakDelay = isSpecialCouple ? 2350 : 1900;'),
-    'CoupleHeartbreakModal: Nạn nhân 1 hóa xám (0.15s) -> (Nếu đặc biệt: hiện role + đổi avatar ở 0.5s) -> Gõ chữ dòng cap (0.55s/1.0s) -> Tim vỡ & người còn lại hóa đen xám (1.9s/2.35s)'
+    coupleHeartbreakCode.includes('const capDelay = 550;') &&
+      coupleHeartbreakCode.includes('const breakDelay = 1900;') &&
+      !coupleHeartbreakCode.includes('{victim.role &&') &&
+      !coupleHeartbreakCode.includes('{heartbroken.role &&'),
+    'CoupleHeartbreakModal: Nạn nhân 1 hóa xám (0.15s) -> Gõ chữ dòng cap (0.55s) -> Tim vỡ & người còn lại hóa đen xám (1.9s) và KHÔNG lộ role khi cặp đôi chết'
   );
   results.push({
     id: 'COMP-02',
-    name: 'CoupleHeartbreakModal (Tuẫn tình Thường / Đặc biệt)',
+    name: 'CoupleHeartbreakModal (Tuẫn tình & Đồng Tử Trong Đêm - Không lộ Role)',
     detail:
-      '0.15s: Người chết trước hóa đen xám -> (Đặc biệt 0.5s: lộ role + đổi avatar) -> 0.55s/1.0s: Chạy từng chữ cap màu xanh biển sâu (#2563EB) -> 1.9s/2.35s: Tim vỡ & người còn lại hóa đen xám',
+      'Thường: Người 1 hóa xám (0.15s) -> Cap (0.55s) -> Người 2 hóa xám (1.9s) | Đồng Tử: Sói cào (0.4s) + Phù Thủy độc (0.75s) -> Cả 2 hóa xám (1.35s) -> Cap "Death could not separate us..." lên sau (2.0s)',
   });
 
   return results;
@@ -959,6 +991,25 @@ function runAllAnimationTestCases() {
         return ctrl;
       },
     },
+    {
+      id: 'TC-23',
+      when: 'Bình Minh (DAY_ANNOUNCE) - Cả 2 người tình đều chết trong 1 đêm (1 người Sói cào + 1 người Phù Thủy độc)',
+      condition: 'An và Bình là Cặp Đôi: An bị Sói cào chết VÀ Bình bị Phù Thủy ném độc trong cùng 1 đêm -> Thay thế hoàn toàn 2 hoạt ảnh riêng lẻ bằng hoạt ảnh đặc biệt của Cặp Đôi!',
+      expectedSequence: ['CoupleHeartbreakModal'],
+      run: () => {
+        const ctrl = new GameScreenAnimationController({
+          players: allPlayers,
+          couple: [pA, pB],
+        });
+        ctrl.onDayAnnounce({
+          deadPlayer: pA,
+          poisonedPlayer: pB,
+          coupleSimultaneousNightDeath: true,
+        });
+        assert.strictEqual(ctrl.timeline[0].payload.isSimultaneousNightDeath, true);
+        return ctrl;
+      },
+    },
   ];
 
   const report = [];
@@ -1204,17 +1255,29 @@ function verifyLifecycleAndUxUpgrades() {
   );
   checks.push('Mid-Game Exit: Tự động kích hoạt Tuẫn Tình (Cặp Đôi) & Thanh Tẩy (Thổi Sáo) khi thoát ngang');
 
-  // 4. Kiểm tra nâng cấp GameOverScreen (Huy hiệu Cặp Đôi, Bùa Mê & Biên Niên Sử Ván Đấu)
+  // 4. Kiểm tra nâng cấp GameOverScreen (Huy hiệu "💘 Cặp đôi", Bùa Mê & Slidebar Log bên phải có scroll)
   assert(
     gameOverCode.includes('coupleSummaryBanner') &&
-      gameOverCode.includes('loverRevealTag') &&
+      gameOverCode.includes('💘 Cặp đôi') &&
+      !gameOverCode.includes('Yêu ${otherLover}') &&
       gameOverCode.includes('charmedRevealTag') &&
-      gameOverCode.includes('BIÊN NIÊN SỬ VÁN ĐẤU'),
-    'GameOverScreen phải hiển thị Huy hiệu Cặp Đôi, Huy hiệu Bị Thôi Miên và Biên Niên Sử Ván Đấu'
+      gameOverCode.includes('floatingLogSlideToggle') &&
+      gameOverCode.includes('logDrawerScroll') &&
+      gameOverCode.includes('LỊCH SỬ VÁN ĐẤU'),
+    'GameOverScreen phải hiển thị Huy hiệu "💘 Cặp đôi", Huy hiệu Bị Thôi Miên và Slidebar Lịch Sử Ván Đấu bên phải có scroll'
   );
-  checks.push('GameOverScreen: Hiển thị Huy hiệu Cặp Đôi (💘), Bị Thôi Miên (🎶) & Biên Niên Sử Ván Đấu (📜)');
+  checks.push('GameOverScreen: Huy hiệu "💘 Cặp đôi", Bị Thôi Miên (🎶) & Nút Log mở Slidebar bên phải có Scroll (📜)');
 
-  // 5. Kiểm tra Unread Badge theo từng kênh Chat & Nhịp Tim Đập Đỏ (<= 5s)
+  // 5. Kiểm tra Lượt Cupid ("💘 Cupid đang ghép đôi") & Ẩn role khi cặp đôi chết
+  assert(
+    gameScreenCode.includes('💘 Cupid đang ghép đôi') &&
+      gameScreenCode.includes('CUPID ĐANG GHÉP ĐÔI') &&
+      gameScreenCode.includes('isAlive && amAlive && player.role'),
+    'GameScreen phải hiển thị "💘 Cupid đang ghép đôi" ở lượt Cupid và ẩn role người yêu khi cặp đôi đã chết'
+  );
+  checks.push('Cupid & Couple Role: Tiêu đề "💘 Cupid đang ghép đôi" & xóa hiển thị role khi cặp đôi chết');
+
+  // 6. Kiểm tra Unread Badge theo từng kênh Chat & Nhịp Tim Đập Đỏ (<= 5s)
   assert(
     chatBoxCode.includes('unreadVillageCount') &&
       chatBoxCode.includes('unreadWolfCount') &&
@@ -1226,6 +1289,832 @@ function verifyLifecycleAndUxUpgrades() {
   checks.push('Chat Unread Badges & Danger Heartbeat Pulse: Báo số tin chưa đọc từng kênh & nhịp tim đỏ 5s cuối');
 
   return checks;
+}
+
+// ============================================================================
+// PHẦN 6: GIẢ LẬP TRẬN ĐẤU THỰC TẾ KÉO DÀI 6 ĐÊM VỚI TẤT CẢ CÁC ROLE ĐẶC BIỆT CÒN SỐNG
+// ============================================================================
+function runSixNightFullMatchSimulation() {
+  const { createRoom, joinRoom, processDayVote, getPlayersData } = require('../server/gameLogic');
+
+  // 1. Tạo phòng 12 người chơi với đầy đủ 8 vai trò (2 Sói, 1 Cupid, 1 Bảo Vệ, 1 Phù Thủy, 1 Tiên Tri, 1 Thổi Sáo, 1 Thợ Săn, 4 Dân Làng)
+  const { room } = createRoom('w1', 'Sói Alpha', {
+    numWolves: 2,
+    numCupids: 1,
+    numBodyguards: 1,
+    numWitches: 1,
+    numSeers: 1,
+    numPiedPipers: 1,
+    numHunters: 1,
+    piedPiperCharmCount: 2,
+    piedPiperRevealDawn: true,
+    hunterShootOnHeartbreak: true,
+  });
+
+  const roster = [
+    { id: 'w2', name: 'Sói Beta', role: ROLES.WOLF },
+    { id: 'cupid', name: 'Thần Cupid', role: ROLES.CUPID },
+    { id: 'bg', name: 'Bảo Vệ Thép', role: ROLES.BODYGUARD },
+    { id: 'witch', name: 'Phù Thủy Đêm', role: ROLES.WITCH },
+    { id: 'seer', name: 'Tiên Tri Mù', role: ROLES.SEER },
+    { id: 'piper', name: 'Người Thổi Sáo', role: ROLES.PIED_PIPER },
+    { id: 'hunter', name: 'Thợ Săn Già', role: ROLES.HUNTER },
+    { id: 'v1', name: 'Dân Làng 1', role: ROLES.VILLAGER },
+    { id: 'v2', name: 'Dân Làng 2', role: ROLES.VILLAGER },
+    { id: 'v3', name: 'Dân Làng 3', role: ROLES.VILLAGER },
+    { id: 'v4', name: 'Dân Làng 4', role: ROLES.VILLAGER },
+  ];
+
+  for (const p of roster) {
+    joinRoom(room.code, p.id, p.name);
+  }
+
+  // Gán vai trò cố định để kiểm thử chính xác từng đêm qua 6 đêm
+  room.players.get('w1').role = ROLES.WOLF;
+  for (const p of roster) {
+    const playerObj = room.players.get(p.id);
+    playerObj.role = p.role;
+    if (p.role === ROLES.WITCH) {
+      playerObj.witchState = { hasHeal: true, hasPoison: true };
+    }
+  }
+
+  const specialRoleIds = ['w1', 'w2', 'cupid', 'bg', 'witch', 'seer', 'piper', 'hunter'];
+  const assertSpecialRolesAlive = (upToNight) => {
+    for (const id of specialRoleIds) {
+      const p = room.players.get(id);
+      assert(p && p.alive, `[Đêm ${upToNight}] Role đặc biệt ${id} (${p?.name}) phải còn sống!`);
+    }
+  };
+
+  const nightLogs = [];
+
+  // =========================================================================
+  // 🌙 ĐÊM 1: Cupid ghép đôi (Seer + Bodyguard) -> Bảo Vệ cứu Seer khỏi Sói -> Phù Thủy giữ 2 bình -> Tiên Tri soi W1 -> Thổi Sáo thôi miên V1, V2
+  // =========================================================================
+  room.round = 1;
+  room.phase = PHASES.NIGHT_CUPID;
+  room.couple = ['seer', 'bg'];
+  room.cupidActed = true;
+
+  // Kiểm tra 2 người yêu nhìn thấy role của nhau khi còn sống, người ngoài không thấy
+  room.phase = PHASES.NIGHT_COUPLE_REVEAL;
+  const seerViewN1 = getPlayersData(room, 'seer');
+  const bgFromSeerN1 = seerViewN1.find((p) => p.id === 'bg');
+  assert.strictEqual(bgFromSeerN1.role, ROLES.BODYGUARD, '[Đêm 1] Tiên Tri phải nhìn thấy role Bảo Vệ của người yêu');
+  assert.strictEqual(bgFromSeerN1.isLover, true);
+
+  // Bảo Vệ che chở cho Tiên Tri
+  room.phase = PHASES.NIGHT_BODYGUARD;
+  room.nightActions.bodyguardTarget = 'seer';
+
+  // Sói vote cắn Tiên Tri
+  room.phase = PHASES.NIGHT_WOLF;
+  room.nightActions.wolfVotes.set('w1', 'seer');
+  room.nightActions.wolfVotes.set('w2', 'seer');
+
+  // Phù Thủy thức dậy: vì Tiên Tri đã được Bảo Vệ che chở nên effectiveVictim = null
+  room.phase = PHASES.NIGHT_WITCH;
+  const witchPlayer = room.players.get('witch');
+  const effectiveVictimN1 =
+    room.nightActions.bodyguardTarget === 'seer' ? null : 'seer';
+  assert.strictEqual(effectiveVictimN1, null, '[Đêm 1] Nạn nhân đã được Bảo Vệ che chở thì Phù Thủy thấy không ai bị cắn');
+  assert.deepStrictEqual(witchPlayer.witchState, { hasHeal: true, hasPoison: true });
+
+  // Tiên Tri soi W1 -> PHE ÁC
+  room.phase = PHASES.NIGHT_SEER;
+  room.seerHistory['w1'] = { alignment: 'evil', alignmentName: 'ÁC' };
+
+  // Người Thổi Sáo thôi miên V1 & V2
+  room.phase = PHASES.NIGHT_PIED_PIPER;
+  room.nightActions.piedPiperTargets = ['v1', 'v2'];
+  room.nightActions.piedPiperTargets.forEach((tid) => {
+    room.charmedPlayers.add(tid);
+    room.charmedHistory[tid] = true;
+    room.players.get(tid).charmed = true;
+  });
+
+  // Pha 5s Hội Thôi Miên mở mắt nhận biết nhau
+  room.phase = PHASES.NIGHT_CHARMED_REVEAL;
+  const v1ViewRevealN1 = getPlayersData(room, 'v1');
+  const v2InV1View = v1ViewRevealN1.find((p) => p.id === 'v2');
+  const w1ViewRevealN1 = getPlayersData(room, 'w1');
+  assert.strictEqual(v2InV1View.charmed, true, '[Đêm 1] Trong 5s rạng sáng, V1 bị thôi miên phải nhìn thấy V2 cùng bị thôi miên');
+  assert.strictEqual(w1ViewRevealN1.find((p) => p.id === 'v1').charmed, false, '[Đêm 1] Sói chưa bị thôi miên không được nhìn thấy ai bị thôi miên');
+
+  // Xử lý kết quả Đêm 1 -> Bình minh Ngày 1
+  const resN1 = processNightActions(room);
+  assert.strictEqual(resN1.deadPlayerId, null);
+  assert.strictEqual(resN1.savedPlayerId, 'seer');
+  assert.strictEqual(room.nightActions.lastProtectedTarget, 'seer');
+  assert.strictEqual(room.nightActions.wolfVotes.size, 0, '[Đêm 1 -> 2] Phiếu Sói phải tự động xóa sạch sau đêm');
+
+  // Bỏ phiếu Ngày 1: Cả làng bỏ phiếu trắng (skip) -> Không ai chết
+  room.phase = PHASES.DAY_VOTE;
+  room.dayVotes.set('seer', 'skip');
+  room.dayVotes.set('bg', 'skip');
+  room.dayVotes.set('witch', 'skip');
+  const voteN1 = processDayVote(room);
+  assert.strictEqual(voteN1.eliminatedId, null);
+  assertSpecialRolesAlive(1);
+  nightLogs.push('Đêm 1 & Ngày 1: Cupid ghép đôi (Seer+BG), Bảo Vệ cứu Seer, Tiên Tri soi W1 (Ác), Thổi Sáo thôi miên 2 người, Vote Skip');
+
+  // =========================================================================
+  // 🌙 ĐÊM 2: Cupid ngủ -> Bảo Vệ bị chặn chọn lại Seer, đổi sang Witch -> Sói cắn Hunter -> Phù Thủy dùng Bình Cứu -> Tiên Tri soi BG -> Thổi Sáo thôi miên thêm 2 người
+  // =========================================================================
+  room.round = 2;
+  assert.strictEqual(room.cupidActed, true, '[Đêm 2] Cupid không thức dậy ở Đêm 2');
+  room.phase = PHASES.NIGHT_BODYGUARD;
+  assert.strictEqual(room.nightActions.lastProtectedTarget, 'seer', '[Đêm 2] Bảo Vệ không được chọn lại Seer (người vừa bảo vệ Đêm 1)');
+  room.nightActions.bodyguardTarget = 'witch';
+
+  // Sói chọn cắn Hunter
+  room.phase = PHASES.NIGHT_WOLF;
+  room.nightActions.wolfVotes.set('w1', 'hunter');
+  room.nightActions.wolfVotes.set('w2', 'hunter');
+
+  // Phù Thủy thức dậy: thấy Hunter bị cắn -> dùng Bình Cứu (save: true)
+  room.phase = PHASES.NIGHT_WITCH;
+  room.nightActions.witchSavedThisNight = true;
+  // Kết thúc lượt Phù Thủy -> trừ Bình Cứu
+  witchPlayer.witchState.hasHeal = false;
+  assert.deepStrictEqual(witchPlayer.witchState, { hasHeal: false, hasPoison: true });
+
+  // Tiên Tri soi BG -> PHE THIỆN
+  room.phase = PHASES.NIGHT_SEER;
+  room.seerHistory['bg'] = { alignment: 'good', alignmentName: 'THIỆN' };
+
+  // Thổi Sáo thôi miên V3 & Cupid
+  room.phase = PHASES.NIGHT_PIED_PIPER;
+  ['v3', 'cupid'].forEach((tid) => {
+    room.charmedPlayers.add(tid);
+    room.charmedHistory[tid] = true;
+    room.players.get(tid).charmed = true;
+  });
+
+  const resN2 = processNightActions(room);
+  assert.strictEqual(resN2.deadPlayerId, null);
+  assert.strictEqual(resN2.witchSavedPlayerId, 'hunter', '[Đêm 2] Phù Thủy cứu sống Thợ Săn thành công');
+  assert.strictEqual(room.nightActions.lastProtectedTarget, 'witch');
+
+  // Bỏ phiếu Ngày 2: Hòa phiếu (1 phiếu v1, 1 phiếu v2) -> Không ai chết
+  room.phase = PHASES.DAY_VOTE;
+  room.dayVotes.set('w1', 'v1');
+  room.dayVotes.set('w2', 'v2');
+  const voteN2 = processDayVote(room);
+  assert.strictEqual(voteN2.eliminatedId, null);
+  assertSpecialRolesAlive(2);
+  nightLogs.push('Đêm 2 & Ngày 2: Bảo Vệ đổi mục tiêu (Witch), Phù Thủy dùng Bình Cứu cứu Hunter, Tiên Tri soi BG (Thiện), Hòa phiếu ngày');
+
+  // =========================================================================
+  // 🌙 ĐÊM 3: Bảo Vệ Bỏ Lượt (reset lastProtectedTarget) -> Sói hòa phiếu cắn -> Phù Thủy (hết Cứu, còn Độc) không ai chết -> Tiên Tri soi Piper -> Thổi Sáo Bỏ Lượt
+  // =========================================================================
+  room.round = 3;
+  room.phase = PHASES.NIGHT_BODYGUARD;
+  room.nightActions.bodyguardTarget = null; // Bỏ lượt đêm 3
+
+  room.phase = PHASES.NIGHT_WOLF;
+  room.nightActions.wolfVotes.set('w1', 'v1');
+  room.nightActions.wolfVotes.set('w2', 'v2'); // Sói bất đồng ý kiến -> không ai bị cắn
+
+  room.phase = PHASES.NIGHT_WITCH;
+  assert.strictEqual(witchPlayer.witchState.hasHeal, false);
+  assert.strictEqual(witchPlayer.witchState.hasPoison, true);
+
+  room.phase = PHASES.NIGHT_SEER;
+  room.seerHistory['piper'] = { alignment: 'good', alignmentName: 'THIỆN' };
+
+  room.phase = PHASES.NIGHT_PIED_PIPER;
+  room.nightActions.piedPiperTargets = []; // Bỏ lượt
+
+  const resN3 = processNightActions(room);
+  assert.strictEqual(resN3.deadPlayerId, null);
+  assert.strictEqual(resN3.attackedPlayerId, null);
+  assert.strictEqual(room.nightActions.lastProtectedTarget, null, '[Đêm 3] Sau khi Bảo Vệ bỏ lượt, lastProtectedTarget phải về null');
+  assertSpecialRolesAlive(3);
+  nightLogs.push('Đêm 3 & Ngày 3: Bảo Vệ skip (reset khóa mục tiêu), Sói chia phiếu không cắn ai, Tiên Tri soi Thổi Sáo (Thiện), Đêm bình yên');
+
+  // =========================================================================
+  // 🌙 ĐÊM 4: Bảo Vệ bảo vệ Hunter -> Sói cắn V4 -> Phù Thủy (hết Cứu, còn Độc) xem V4 bị cắn trong 5s rồi giữ bình Độc -> Tiên Tri soi Hunter -> Thổi Sáo thôi miên Witch
+  // =========================================================================
+  room.round = 4;
+  room.phase = PHASES.NIGHT_BODYGUARD;
+  room.nightActions.bodyguardTarget = 'hunter';
+
+  room.phase = PHASES.NIGHT_WOLF;
+  room.nightActions.wolfVotes.set('w1', 'v4');
+  room.nightActions.wolfVotes.set('w2', 'v4');
+
+  // Phù Thủy thức dậy: đã hết bình Cứu từ Đêm 2, còn bình Độc, thấy V4 bị cắn
+  room.phase = PHASES.NIGHT_WITCH;
+  assert.strictEqual(witchPlayer.witchState.hasHeal, false);
+  assert.strictEqual(witchPlayer.witchState.hasPoison, true);
+
+  room.phase = PHASES.NIGHT_SEER;
+  room.seerHistory['hunter'] = { alignment: 'good', alignmentName: 'THIỆN' };
+
+  room.phase = PHASES.NIGHT_PIED_PIPER;
+  room.charmedPlayers.add('witch');
+  room.charmedHistory['witch'] = true;
+  room.players.get('witch').charmed = true;
+
+  const resN4 = processNightActions(room);
+  assert.strictEqual(resN4.deadPlayerId, 'v4');
+  room.players.get('v4').alive = false;
+  assertSpecialRolesAlive(4);
+  nightLogs.push('Đêm 4 & Ngày 4: Sói cắn V4, Phù Thủy (hết bình Cứu) quan sát V4 bị cắn 5s & giữ bình Độc, Tiên Tri soi Hunter, 8 role đặc biệt vẫn sống');
+
+  // =========================================================================
+  // 🌙 ĐÊM 5: Bảo Vệ che chở V3 + Sói cắn V3 + Phù Thủy ném Bình Độc vào V3 (Xung Đột Tay Ba ThreeWayClashModal) -> Tiên Tri soi W2 -> Thổi Sáo thôi miên Seer
+  // =========================================================================
+  room.round = 5;
+  room.phase = PHASES.NIGHT_BODYGUARD;
+  room.nightActions.bodyguardTarget = 'v3';
+
+  room.phase = PHASES.NIGHT_WOLF;
+  room.nightActions.wolfVotes.set('w1', 'v3');
+  room.nightActions.wolfVotes.set('w2', 'v3');
+
+  room.phase = PHASES.NIGHT_WITCH;
+  room.nightActions.witchPoisonTarget = 'v3';
+  witchPlayer.witchState.hasPoison = false; // Đã dùng hết cả 2 bình thuốc sau Đêm 5!
+
+  room.phase = PHASES.NIGHT_SEER;
+  room.seerHistory['w2'] = { alignment: 'evil', alignmentName: 'ÁC' };
+
+  room.phase = PHASES.NIGHT_PIED_PIPER;
+  room.charmedPlayers.add('seer');
+  room.charmedHistory['seer'] = true;
+  room.players.get('seer').charmed = true;
+
+  const resN5 = processNightActions(room);
+  assert.strictEqual(resN5.savedPlayerId, 'v3', '[Đêm 5] Bảo Vệ đỡ được đòn Sói cắn V3');
+  assert.strictEqual(resN5.poisonedPlayerId, 'v3', '[Đêm 5] Phù Thủy ném độc xuyên khiên giết V3');
+  assert.strictEqual(resN5.shieldClashPlayerId, 'v3', '[Đêm 5] Kích hoạt Xung Đột Tay Ba (ThreeWayClashModal)');
+  room.players.get('v3').alive = false;
+  assert.deepStrictEqual(witchPlayer.witchState, { hasHeal: false, hasPoison: false });
+  assertSpecialRolesAlive(5);
+  nightLogs.push('Đêm 5 & Ngày 5: Xung đột tay ba (Bảo Vệ + Sói + Phù Thủy độc cùng nhắm V3), Phù Thủy dùng hết cả 2 bình, Tiên Tri soi ra Sói thứ 2 (W2)');
+
+  // =========================================================================
+  // 🌙 ĐÊM 6: TẤT CẢ 8 NGƯỜI CHƠI ROLE ĐẶC BIỆT VẪN CÒN SỐNG BƯỚC VÀO ĐÊM 6!
+  // Bảo Vệ bảo vệ Cupid -> Phù Thủy thức dậy trạng thái HẾT CẢ 2 BÌNH THUỐC (10s) -> Tiên Tri soi Cupid (6 đêm soi 6 người) -> Sói cắn V2 -> Ngày 6 dân làng treo cổ W1 & W2 -> Dân Làng Thắng!
+  // =========================================================================
+  room.round = 6;
+  assertSpecialRolesAlive(6);
+
+  room.phase = PHASES.NIGHT_BODYGUARD;
+  room.nightActions.bodyguardTarget = 'cupid';
+
+  room.phase = PHASES.NIGHT_WOLF;
+  room.nightActions.wolfVotes.set('w1', 'v2');
+  room.nightActions.wolfVotes.set('w2', 'v2');
+
+  // Phù Thủy thức dậy ở Đêm 6 khi cả 2 bình đều đã hết (hasHeal: false, hasPoison: false)
+  room.phase = PHASES.NIGHT_WITCH;
+  const anyWitchHasPotionsN6 = witchPlayer.witchState.hasHeal || witchPlayer.witchState.hasPoison;
+  assert.strictEqual(anyWitchHasPotionsN6, false, '[Đêm 6] Phù Thủy thức dậy ở Đêm 6 trong trạng thái đã hết cả 2 bình thuốc (rút timer 10s)');
+
+  // Tiên Tri soi Cupid (tích lũy đủ 6 lần soi qua 6 đêm!)
+  room.phase = PHASES.NIGHT_SEER;
+  room.seerHistory['cupid'] = { alignment: 'good', alignmentName: 'THIỆN' };
+  assert.strictEqual(Object.keys(room.seerHistory).length, 6, '[Đêm 6] Tiên Tri phải lưu giữ đầy đủ lịch sử 6 mục tiêu đã soi qua 6 đêm');
+
+  const resN6 = processNightActions(room);
+  assert.strictEqual(resN6.deadPlayerId, 'v2');
+  room.players.get('v2').alive = false;
+
+  // Kiểm tra tất cả các role đặc biệt vẫn sống nguyên vẹn sau rạng sáng Ngày 6!
+  assertSpecialRolesAlive(6);
+
+  // Ngày 6: Treo cổ W1 & W2 để kết thúc ván đấu và kiểm tra điều kiện thắng
+  room.players.get('w1').alive = false;
+  assert.strictEqual(checkWinCondition(room).gameOver, false, '[Ngày 6] Còn 1 Sói (W2) thì game chưa kết thúc');
+  room.players.get('w2').alive = false;
+  const finalWin = checkWinCondition(room);
+  assert.strictEqual(finalWin.gameOver, true);
+  assert.strictEqual(finalWin.winner, 'village');
+  nightLogs.push('Đêm 6 & Ngày 6: Tất cả Role đặc biệt sống đủ 6 đêm, Phù Thủy hiện trạng thái hết cả 2 bình (10s), Tiên Tri đủ 6 lịch sử soi, Dân Làng thắng');
+
+  return nightLogs;
+}
+
+// ============================================================================
+// PHẦN 7: KIỂM THỬ TRẬN ĐẤU CẶP ĐÔI SÓI - DÂN (PHE CẶP ĐÔI) CHIẾN THẮNG
+// ============================================================================
+function runWolfVillagerCoupleVictorySimulation() {
+  const { createRoom, joinRoom, processDayVote, getPlayersData } = require('../server/gameLogic');
+
+  const { room } = createRoom('w1', 'Sói Si Tình', {
+    numWolves: 2,
+    numCupids: 1,
+    numWitches: 1,
+    numSeers: 1,
+    numBodyguards: 1,
+    numHunters: 0,
+    numPiedPipers: 0,
+  });
+
+  const playersList = [
+    { id: 'w2', name: 'Sói Đơn Độc', role: ROLES.WOLF },
+    { id: 'witch', name: 'Phù Thủy Yêu Sói', role: ROLES.WITCH },
+    { id: 'cupid', name: 'Thần Cupid', role: ROLES.CUPID },
+    { id: 'seer', name: 'Tiên Tri', role: ROLES.SEER },
+    { id: 'bg', name: 'Bảo Vệ', role: ROLES.BODYGUARD },
+    { id: 'v1', name: 'Dân Làng', role: ROLES.VILLAGER },
+  ];
+
+  for (const p of playersList) {
+    joinRoom(room.code, p.id, p.name);
+  }
+
+  room.players.get('w1').role = ROLES.WOLF;
+  for (const p of playersList) {
+    const obj = room.players.get(p.id);
+    obj.role = p.role;
+    if (p.role === ROLES.WITCH) {
+      obj.witchState = { hasHeal: true, hasPoison: true };
+    }
+  }
+
+  const steps = [];
+  const ctrl = new GameScreenAnimationController({
+    players: [...room.players.values()],
+  });
+
+  // 1. ĐÊM 1: Cupid ghép đôi Sói Si Tình (w1) ❤️ Phù Thủy Yêu Sói (witch) -> Cặp Đôi Khác Phe (Beauty and The Beast)
+  room.round = 1;
+  room.phase = PHASES.NIGHT_CUPID;
+  room.couple = ['w1', 'witch'];
+  room.cupidActed = true;
+  ctrl.couple = [room.players.get('w1'), room.players.get('witch')];
+
+  ctrl.onCoupleFormed({
+    couple: [room.players.get('w1'), room.players.get('witch')],
+    cupid: room.players.get('cupid'),
+  });
+  assert.strictEqual(ctrl.timeline[0].modal, 'CoupleRevealModal');
+  assert.strictEqual(ctrl.timeline[0].payload.variant, 'special_wolf');
+
+  // Kiểm tra 2 bên nhìn thấy Role thật của nhau để tương trợ
+  const w1Data = getPlayersData(room, 'w1');
+  const witchData = getPlayersData(room, 'witch');
+  assert.strictEqual(w1Data.find((p) => p.id === 'witch').role, ROLES.WITCH);
+  assert.strictEqual(witchData.find((p) => p.id === 'w1').role, ROLES.WOLF);
+  steps.push('Đêm 1: Cupid ghép đôi Sói (w1) ❤️ Phù Thủy (witch) ➔ Phát hoạt ảnh đặc biệt "Beauty and The Beast" & lộ Role cho nhau');
+
+  // Đêm 1: Bầy Sói cắn Bảo Vệ (bg), Phù Thủy ném Bình Độc giết Tiên Tri (seer) để dọn đường cho Phe Cặp Đôi!
+  room.nightActions.wolfVotes.set('w1', 'bg');
+  room.nightActions.wolfVotes.set('w2', 'bg');
+  room.nightActions.witchPoisonTarget = 'seer';
+  room.players.get('witch').witchState.hasPoison = false;
+
+  const resN1 = processNightActions(room);
+  assert.strictEqual(resN1.deadPlayerId, 'bg');
+  assert.strictEqual(resN1.poisonedPlayerId, 'seer');
+  room.players.get('bg').alive = false;
+  room.players.get('seer').alive = false;
+
+  // Bình minh Ngày 1: Còn 5 người sống (w1, w2, witch, cupid, v1) -> Chưa kết thúc
+  assert.strictEqual(checkWinCondition(room).gameOver, false);
+
+  // Ban ngày 1: Cặp đôi (w1 + witch) dẫn dắt làng bỏ phiếu treo cổ Cupid
+  room.dayVotes.set('w1', 'cupid');
+  room.dayVotes.set('witch', 'cupid');
+  room.dayVotes.set('v1', 'cupid');
+  const voteD1 = processDayVote(room);
+  assert.strictEqual(voteD1.eliminatedId, 'cupid');
+
+  // LÚC NÀY CÒN 4 NGƯỜI SỐNG: 2 Sói (w1, w2) và 2 Dân (witch, v1)
+  // Vì w1 + witch là Cặp Đôi Sói - Dân đang sống, Phe Sói KHÔNG ĐƯỢC thắng sớm ở mốc 2 Sói vs 2 Dân!
+  const checkAt4Players = checkWinCondition(room);
+  assert.strictEqual(
+    checkAt4Players.gameOver,
+    false,
+    'Khi còn 4 người (2 Sói: w1, w2 + 2 Dân: witch, v1) mà w1+witch là Cặp Đôi Sói-Dân thì game PHẢI TIẾP TỤC để Cặp Đôi tranh chiến thắng!'
+  );
+  steps.push('Ngày 1: Sau khi Bảo Vệ, Tiên Tri, Cupid chết (còn 2 Sói + 2 Dân), game KHÔNG kết thúc sớm cho Phe Sói vì Sói Si Tình thuộc Phe Cặp Đôi');
+
+  // 2. ĐÊM 2: Sói Si Tình (w1) cắn Dân Làng (v1), nhưng Phù Thủy Yêu Sói (witch) dùng Bình Cứu giữ v1 sống để ban ngày cùng vote treo cổ Sói Đơn Độc (w2)!
+  room.round = 2;
+  room.nightActions.wolfVotes.set('w1', 'v1');
+  room.nightActions.wolfVotes.set('w2', 'v1');
+  room.nightActions.witchSavedThisNight = true;
+  room.players.get('witch').witchState.hasHeal = false;
+  const resN2 = processNightActions(room);
+  assert.strictEqual(resN2.deadPlayerId, null);
+  assert.strictEqual(resN2.witchSavedPlayerId, 'v1');
+
+  // Ban ngày 2: Cặp đôi (w1 + witch) bắt tay với v1 bỏ phiếu treo cổ Sói Đơn Độc (w2)!
+  room.dayVotes.set('w1', 'w2');
+  room.dayVotes.set('witch', 'w2');
+  room.dayVotes.set('v1', 'w2');
+  room.dayVotes.set('w2', 'v1');
+  const voteD2 = processDayVote(room);
+  assert.strictEqual(voteD2.eliminatedId, 'w2');
+
+  // Lúc này còn 3 người sống: Sói Si Tình (w1), Phù Thủy Yêu Sói (witch) và Dân Làng (v1)
+  const checkAt3Players = checkWinCondition(room);
+  assert.strictEqual(checkAt3Players.gameOver, false, 'Còn 3 người (w1, witch, v1) thì vào Đêm 3 để loại người ngoài cuối cùng');
+  steps.push('Ngày 2: Cặp đôi Sói - Dân liên minh treo cổ Sói Đơn Độc (w2), còn 3 người bước vào Đêm quyết định');
+
+  // 3. ĐÊM 3: Sói Si Tình (w1) cắn chết người ngoài cuối cùng là Dân Làng (v1)!
+  room.round = 3;
+  room.nightActions.wolfVotes.set('w1', 'v1');
+  const resN3 = processNightActions(room);
+  assert.strictEqual(resN3.deadPlayerId, 'v1');
+  room.players.get('v1').alive = false;
+
+  // Bình minh Ngày 3: Chỉ còn duy nhất 2 người trong Cặp Đôi (w1 + witch) sống sót!
+  const finalCoupleWin = checkWinCondition(room);
+  assert.strictEqual(finalCoupleWin.gameOver, true, 'Khi chỉ còn 2 người trong Cặp Đôi Sói - Dân sống sót, trận đấu phải kết thúc!');
+  assert.strictEqual(finalCoupleWin.winner, 'couple', 'Người chiến thắng phải là Phe Cặp Đôi ("couple")!');
+  assert.strictEqual(finalCoupleWin.couple.length, 2);
+
+  // Kiểm tra luồng hoạt ảnh chiến thắng CupidVictoryModal -> GameOverScreen
+  ctrl.onGameOver({
+    winner: finalCoupleWin.winner,
+    message: finalCoupleWin.message,
+    couple: finalCoupleWin.couple,
+    players: [...room.players.values()],
+  });
+  const lastTwoModals = ctrl.timeline.slice(-2).map((m) => m.modal);
+  assert.deepStrictEqual(lastTwoModals, ['CupidVictoryModal', 'GameOverScreen']);
+  steps.push('Đêm 3 & Bình Minh: Sói Si Tình hạ gục người ngoài cuối cùng (v1) ➔ Chỉ còn Cặp Đôi Sói - Dân sống sót ➔ PHE CẶP ĐÔI CHIẾN THẮNG (CupidVictoryModal ➔ GameOverScreen)!');
+
+  return steps;
+}
+
+// ============================================================================
+// PHẦN 8: 12 KỊCH BẢN TOÀN HỆ THỐNG (ĐỦ 4 PHE THẮNG, LUẬT THỢ SĂN, BẢO MẬT ROLE, PHÒNG & CHAT)
+// ============================================================================
+function runComprehensiveSystemScenarios() {
+  const {
+    createRoom,
+    joinRoom,
+    leaveRoom,
+    assignRoles,
+    processNightActions,
+    processDayVote,
+    checkWinCondition,
+    getPlayersData,
+    validateSettings,
+    shuffleArray,
+  } = require('../server/gameLogic');
+
+  const results = [];
+
+  // -------------------------------------------------------------------------
+  // [SYS-01] Phe Thứ 3 (Người Thổi Sáo đơn độc) Chiến Thắng
+  // -------------------------------------------------------------------------
+  {
+    const { room } = createRoom('piper', 'Thổi Sáo', { numWolves: 1, numPiedPipers: 1 });
+    joinRoom(room.code, 'w1', 'Sói');
+    joinRoom(room.code, 'v1', 'Dân 1');
+    joinRoom(room.code, 'v2', 'Dân 2');
+    room.players.get('piper').role = ROLES.PIED_PIPER;
+    room.players.get('w1').role = ROLES.WOLF;
+    room.players.get('v1').role = ROLES.VILLAGER;
+    room.players.get('v2').role = ROLES.VILLAGER;
+
+    // Mới thôi miên 2/3 người ngoài -> chưa thắng
+    room.charmedPlayers = new Set(['w1', 'v1']);
+    assert.strictEqual(checkWinCondition(room).gameOver, false);
+
+    // Thôi miên nốt v2 -> Toàn bộ người sống sót ngoài Thổi Sáo đã trúng bùa mê!
+    room.charmedPlayers.add('v2');
+    const win = checkWinCondition(room);
+    assert.strictEqual(win.gameOver, true);
+    assert.strictEqual(win.winner, 'pied_piper');
+    results.push('[SYS-01] Phe Thứ 3 (Người Thổi Sáo đơn độc) thắng khi thôi miên toàn bộ người sống sót');
+  }
+
+  // -------------------------------------------------------------------------
+  // [SYS-02] Cặp Đôi có Người Thổi Sáo Chiến Thắng bằng Bùa Mê (Couple Charm Win)
+  // -------------------------------------------------------------------------
+  {
+    const { room } = createRoom('piper', 'Thổi Sáo', { numWolves: 1, numPiedPipers: 1, numCupids: 1 });
+    joinRoom(room.code, 'bg', 'Bảo Vệ (Người Yêu)');
+    joinRoom(room.code, 'w1', 'Sói');
+    joinRoom(room.code, 'v1', 'Dân 1');
+    room.players.get('piper').role = ROLES.PIED_PIPER;
+    room.players.get('bg').role = ROLES.BODYGUARD;
+    room.players.get('w1').role = ROLES.WOLF;
+    room.players.get('v1').role = ROLES.VILLAGER;
+
+    // Cupid ghép đôi Người Thổi Sáo + Bảo Vệ
+    room.couple = ['piper', 'bg'];
+    // Người Thổi Sáo chỉ cần thôi miên hết người ngoài (w1, v1), không cần thôi miên người yêu (bg)!
+    room.charmedPlayers = new Set(['w1', 'v1']);
+    const win = checkWinCondition(room);
+    assert.strictEqual(win.gameOver, true);
+    assert.strictEqual(win.winner, 'couple');
+    assert(win.message.includes('Người Thổi Sáo và Người Yêu'));
+    results.push('[SYS-02] Cặp Đôi có Người Thổi Sáo thắng ngay khi thôi miên hết người ngoài còn sống');
+  }
+
+  // -------------------------------------------------------------------------
+  // [SYS-03] Cặp Đôi Dân - Dân: Thắng cùng Dân Làng (khi >2 người) & Thắng Cặp Đôi (khi còn 2 người)
+  // -------------------------------------------------------------------------
+  {
+    const { room } = createRoom('seer', 'Tiên Tri', { numWolves: 1, numCupids: 1 });
+    joinRoom(room.code, 'bg', 'Bảo Vệ');
+    joinRoom(room.code, 'v1', 'Dân 1');
+    joinRoom(room.code, 'w1', 'Sói');
+    room.players.get('seer').role = ROLES.SEER;
+    room.players.get('bg').role = ROLES.BODYGUARD;
+    room.players.get('v1').role = ROLES.VILLAGER;
+    room.players.get('w1').role = ROLES.WOLF;
+    room.couple = ['seer', 'bg'];
+
+    // Nhánh A: Sói chết khi còn 3 Dân (seer, bg, v1) -> Phe Dân Làng thắng
+    room.players.get('w1').alive = false;
+    const winVillage = checkWinCondition(room);
+    assert.strictEqual(winVillage.gameOver, true);
+    assert.strictEqual(winVillage.winner, 'village');
+
+    // Nhánh B: Chỉ còn đúng 2 người trong Cặp Đôi sống sót -> Phe Cặp Đôi thắng
+    room.players.get('v1').alive = false;
+    const winCouple = checkWinCondition(room);
+    assert.strictEqual(winCouple.gameOver, true);
+    assert.strictEqual(winCouple.winner, 'couple');
+    results.push('[SYS-03] Cặp Đôi Dân - Dân: Thắng theo Phe Dân (khi >2 người) & Thắng Phe Cặp Đôi (khi còn 2 người)');
+  }
+
+  // -------------------------------------------------------------------------
+  // [SYS-04] Phe Ma Sói Chiến Thắng trong cả 3 nhánh (Thường / Sau khi Cặp Đôi chết / Sói ngoài áp đảo)
+  // -------------------------------------------------------------------------
+  {
+    const { room } = createRoom('w1', 'Sói 1', { numWolves: 2 });
+    joinRoom(room.code, 'w2', 'Sói 2');
+    joinRoom(room.code, 'v1', 'Dân 1');
+    joinRoom(room.code, 'v2', 'Dân 2');
+    room.players.get('w1').role = ROLES.WOLF;
+    room.players.get('w2').role = ROLES.WOLF;
+    room.players.get('v1').role = ROLES.VILLAGER;
+    room.players.get('v2').role = ROLES.VILLAGER;
+
+    // Nhánh A: Không có cặp đôi, 2 Sói >= 2 Dân -> Sói thắng
+    assert.strictEqual(checkWinCondition(room).winner, 'wolves');
+
+    // Nhánh B: Có cặp đôi Sói-Dân (w1+v1) nhưng cặp đôi đã chết -> w2 >= v2 -> Sói thắng
+    room.couple = ['w1', 'v1'];
+    room.players.get('w1').alive = false;
+    room.players.get('v1').alive = false;
+    assert.strictEqual(checkWinCondition(room).winner, 'wolves');
+
+    // Nhánh C: Cặp đôi Sói-Dân (w1+v1) còn sống, nhưng có tới 2 Sói trung thành ngoài cặp đôi (w2, w3) áp đảo (2 >= 2)
+    room.players.get('w1').alive = true;
+    room.players.get('v1').alive = true;
+    room.players.get('v2').alive = false;
+    joinRoom(room.code, 'w3', 'Sói 3');
+    room.players.get('w3').role = ROLES.WOLF;
+    assert.strictEqual(checkWinCondition(room).winner, 'wolves');
+    results.push('[SYS-04] Phe Ma Sói thắng chuẩn xác trong cả 3 nhánh (Thường / Cặp đôi chết / Sói trung thành áp đảo)');
+  }
+
+  // -------------------------------------------------------------------------
+  // [SYS-05] Quy tắc Thợ Săn trong mọi trường hợp chết (Sói cắn / Độc / DualKill / Treo cổ / Setting Tuẫn tình)
+  // -------------------------------------------------------------------------
+  {
+    const evaluateHunterCanShoot = ({ deadPlayer, poisonedPlayer, heartbrokenPlayer, eliminated, hunterShootOnHeartbreak }) => {
+      // Ban đêm
+      const directWolfKilledHunter =
+        deadPlayer && deadPlayer.role === ROLES.HUNTER && (!poisonedPlayer || poisonedPlayer.id !== deadPlayer.id)
+          ? deadPlayer
+          : null;
+      const heartbrokenHunterNight =
+        hunterShootOnHeartbreak !== false && heartbrokenPlayer && heartbrokenPlayer.role === ROLES.HUNTER
+          ? heartbrokenPlayer
+          : null;
+      // Ban ngày
+      const hunterAfterVote =
+        eliminated && eliminated.role === ROLES.HUNTER
+          ? eliminated
+          : hunterShootOnHeartbreak !== false && heartbrokenPlayer && heartbrokenPlayer.role === ROLES.HUNTER
+          ? heartbrokenPlayer
+          : null;
+      return Boolean(directWolfKilledHunter || heartbrokenHunterNight || hunterAfterVote);
+    };
+
+    const hunterObj = { id: 'h', name: 'Thợ Săn', role: ROLES.HUNTER };
+    // 5a: Bị Sói cắn đơn thuần -> ĐƯỢC BẮN
+    assert.strictEqual(evaluateHunterCanShoot({ deadPlayer: hunterObj, poisonedPlayer: null }), true);
+    // 5b: Bị Phù Thủy ném độc đơn thuần -> KHÔNG ĐƯỢC BẮN
+    assert.strictEqual(evaluateHunterCanShoot({ deadPlayer: null, poisonedPlayer: hunterObj }), false);
+    // 5c: Bị cả Sói cắn lẫn Phù Thủy ném độc (DualKill) -> KHÔNG ĐƯỢC BẮN
+    assert.strictEqual(evaluateHunterCanShoot({ deadPlayer: hunterObj, poisonedPlayer: hunterObj }), false);
+    // 5d: Bị treo cổ ban ngày -> ĐƯỢC BẮN
+    assert.strictEqual(evaluateHunterCanShoot({ eliminated: hunterObj }), true);
+    // 5e: Chết theo người yêu khi BẬT hunterShootOnHeartbreak -> ĐƯỢC BẮN
+    assert.strictEqual(evaluateHunterCanShoot({ heartbrokenPlayer: hunterObj, hunterShootOnHeartbreak: true }), true);
+    // 5f: Chết theo người yêu khi TẮT hunterShootOnHeartbreak -> KHÔNG ĐƯỢC BẮN
+    assert.strictEqual(evaluateHunterCanShoot({ heartbrokenPlayer: hunterObj, hunterShootOnHeartbreak: false }), false);
+    results.push('[SYS-05] Quy tắc Thợ Săn: Sói cắn/Treo cổ (Bắn), Trúng độc/DualKill (Cấm bắn), Tuẫn tình (Theo Setting Bật/Tắt)');
+  }
+
+  // -------------------------------------------------------------------------
+  // [SYS-06] Thợ Săn chết theo người yêu -> Bắn hạ Sói cuối cùng -> Lật kèo Dân Làng thắng
+  // -------------------------------------------------------------------------
+  {
+    const { room } = createRoom('w1', 'Sói Cuối', { numWolves: 1, numHunters: 1, numCupids: 1, hunterShootOnHeartbreak: true });
+    joinRoom(room.code, 'hunter', 'Thợ Săn');
+    joinRoom(room.code, 'v1', 'Người Yêu Thợ Săn');
+    joinRoom(room.code, 'v2', 'Dân Làng');
+    room.players.get('w1').role = ROLES.WOLF;
+    room.players.get('hunter').role = ROLES.HUNTER;
+    room.players.get('v1').role = ROLES.VILLAGER;
+    room.players.get('v2').role = ROLES.VILLAGER;
+    room.couple = ['hunter', 'v1'];
+
+    // Sói cắn chết v1 -> hunter chết theo vì thất tình -> hunter nổ súng bắn chết w1!
+    room.players.get('v1').alive = false;
+    room.players.get('hunter').alive = false;
+    room.players.get('w1').alive = false; // Bị Thợ Săn bắn hạ
+
+    const win = checkWinCondition(room);
+    assert.strictEqual(win.gameOver, true);
+    assert.strictEqual(win.winner, 'village');
+    results.push('[SYS-06] Lật kèo kinh điển: Thợ Săn tuẫn tình theo người yêu -> Bắn hạ Sói cuối cùng -> Phe Dân thắng');
+  }
+
+  // -------------------------------------------------------------------------
+  // [SYS-07] Dây chuyền liên hoàn: Thợ Săn bắn trúng A (A yêu Người Thổi Sáo) -> Tuẫn tình + Thanh tẩy bùa mê
+  // -------------------------------------------------------------------------
+  {
+    const { room } = createRoom('hunter', 'Thợ Săn', { numWolves: 1, numHunters: 1, numPiedPipers: 1, numCupids: 1 });
+    joinRoom(room.code, 'v1', 'Dân Yêu Thổi Sáo');
+    joinRoom(room.code, 'piper', 'Người Thổi Sáo');
+    joinRoom(room.code, 'w1', 'Sói');
+    room.players.get('hunter').role = ROLES.HUNTER;
+    room.players.get('v1').role = ROLES.VILLAGER;
+    room.players.get('piper').role = ROLES.PIED_PIPER;
+    room.players.get('w1').role = ROLES.WOLF;
+    room.couple = ['v1', 'piper'];
+    room.charmedPlayers = new Set(['hunter', 'w1']);
+    room.players.get('hunter').charmed = true;
+    room.players.get('w1').charmed = true;
+
+    // Thợ Săn bắn trúng v1 -> piper chết theo vì tuẫn tình -> toàn bộ bùa mê trên hunter & w1 bị xóa sạch!
+    room.players.get('v1').alive = false;
+    room.players.get('piper').alive = false;
+    room.charmedPlayers.clear();
+    room.players.forEach((p) => { p.charmed = false; });
+
+    assert.strictEqual(room.charmedPlayers.size, 0);
+    assert.strictEqual(room.players.get('w1').charmed, false);
+    results.push('[SYS-07] Dây chuyền: Thợ Săn bắn trúng người yêu của Thổi Sáo -> Thổi Sáo tuẫn tình -> Thanh tẩy toàn bộ bùa mê');
+  }
+
+  // -------------------------------------------------------------------------
+  // [SYS-08] Cupid hết giờ không chọn -> Hệ thống tự động Random ghép đôi 2 người (trừ Cupid)
+  // -------------------------------------------------------------------------
+  {
+    const { room } = createRoom('cupid', 'Cupid', { numWolves: 1, numCupids: 1 });
+    joinRoom(room.code, 'p1', 'Người 1');
+    joinRoom(room.code, 'p2', 'Người 2');
+    joinRoom(room.code, 'p3', 'Người 3');
+    room.players.get('cupid').role = ROLES.CUPID;
+
+    // Giả lập finishCupidTurn khi room.couple chưa được chọn
+    const cupidPlayer = [...room.players.values()].find((p) => p.role === ROLES.CUPID);
+    const candidates = [...room.players.values()]
+      .filter((p) => p.alive && p.id !== cupidPlayer.id)
+      .map((p) => p.id);
+    const shuffled = shuffleArray(candidates);
+    room.couple = [shuffled[0], shuffled[1]];
+
+    assert.strictEqual(room.couple.length, 2);
+    assert(!room.couple.includes('cupid'), 'Random ghép đôi không được chọn chính Cupid');
+    assert.notStrictEqual(room.couple[0], room.couple[1]);
+    results.push('[SYS-08] Cupid hết giờ không chọn -> Tự động Random ghép đôi 2 người chơi hợp lệ (trừ Cupid)');
+  }
+
+  // -------------------------------------------------------------------------
+  // [SYS-09] Quản lý Phòng: Chặn trùng tên, Chuyển quyền Chủ Phòng khi Host thoát, Xóa phòng trống
+  // -------------------------------------------------------------------------
+  {
+    const { room } = createRoom('host1', 'Chủ Phòng');
+    const dupJoin = joinRoom(room.code, 'p2', 'chủ phòng'); // Trùng tên (không phân biệt hoa thường)
+    assert(dupJoin.error && dupJoin.error.includes('Tên này đã có người dùng'));
+
+    joinRoom(room.code, 'p2', 'Người Chơi 2');
+    joinRoom(room.code, 'p3', 'Người Chơi 3');
+
+    // Host rời phòng -> p2 tự động lên làm Host mới
+    const updatedAfterHostLeave = leaveRoom(room.code, 'host1');
+    assert.strictEqual(updatedAfterHostLeave.hostId, 'p2');
+    assert.strictEqual(updatedAfterHostLeave.hostPlayerName, 'Người Chơi 2');
+
+    // Tất cả rời phòng -> Phòng tự động bị xóa khỏi bộ nhớ
+    leaveRoom(room.code, 'p2');
+    const emptyRoom = leaveRoom(room.code, 'p3');
+    assert.strictEqual(emptyRoom, null);
+    results.push('[SYS-09] Quản lý Phòng: Chặn trùng tên, tự động kế thừa Chủ Phòng khi Host rời & dọn phòng trống');
+  }
+
+  // -------------------------------------------------------------------------
+  // [SYS-10] Phân vai (assignRoles) & Kiểm tra cài đặt phòng (validateSettings)
+  // -------------------------------------------------------------------------
+  {
+    // Kiểm tra validateSettings chặn cấu hình sai
+    assert.strictEqual(validateSettings({ numWolves: -1, numSeers: 1 }, 6).valid, false);
+    assert.strictEqual(validateSettings({ numWolves: 1, numSeers: 1, dayDiscussionTime: 5 }, 6).valid, false);
+    assert.strictEqual(validateSettings({ numWolves: 3, numSeers: 1, numBodyguards: 1, numWitches: 0, numHunters: 0, numPiedPipers: 0, numCupids: 0 }, 6).valid, false);
+    assert.strictEqual(validateSettings({ numWolves: 2, numSeers: 1, numBodyguards: 1, numWitches: 1, numHunters: 1, numPiedPipers: 0, numCupids: 0 }, 8).valid, true);
+
+    // Kiểm tra assignRoles phân bổ đúng số lượng từng vai trò
+    const { room } = createRoom('p1', 'P1', {
+      numWolves: 2,
+      numSeers: 1,
+      numBodyguards: 1,
+      numWitches: 1,
+      numHunters: 1,
+      numPiedPipers: 1,
+      numCupids: 1,
+    });
+    for (let i = 2; i <= 10; i++) joinRoom(room.code, `p${i}`, `P${i}`);
+    assignRoles(room);
+    const rolesAssigned = [...room.players.values()].map((p) => p.role);
+    assert.strictEqual(rolesAssigned.filter((r) => r === ROLES.WOLF).length, 2);
+    assert.strictEqual(rolesAssigned.filter((r) => r === ROLES.SEER).length, 1);
+    assert.strictEqual(rolesAssigned.filter((r) => r === ROLES.BODYGUARD).length, 1);
+    assert.strictEqual(rolesAssigned.filter((r) => r === ROLES.WITCH).length, 1);
+    assert.strictEqual(rolesAssigned.filter((r) => r === ROLES.HUNTER).length, 1);
+    assert.strictEqual(rolesAssigned.filter((r) => r === ROLES.PIED_PIPER).length, 1);
+    assert.strictEqual(rolesAssigned.filter((r) => r === ROLES.CUPID).length, 1);
+    assert.strictEqual(rolesAssigned.filter((r) => r === ROLES.VILLAGER).length, 2);
+    results.push('[SYS-10] Validate Cài Đặt & Phân Vai Tự Động (assignRoles): Đúng số lượng 8 vai trò & khởi tạo bình thuốc Phù Thủy');
+  }
+
+  // -------------------------------------------------------------------------
+  // [SYS-11] Bảo mật phân quyền góc nhìn getPlayersData (Chống lộ Role tuyệt đối)
+  // -------------------------------------------------------------------------
+  {
+    const { room } = createRoom('w1', 'Sói 1');
+    joinRoom(room.code, 'w2', 'Sói 2');
+    joinRoom(room.code, 'cupid', 'Cupid');
+    joinRoom(room.code, 'seer', 'Tiên Tri');
+    joinRoom(room.code, 'v1', 'Dân Thường');
+    room.phase = PHASES.DAY_DISCUSSION;
+    room.players.get('w1').role = ROLES.WOLF;
+    room.players.get('w2').role = ROLES.WOLF;
+    room.players.get('cupid').role = ROLES.CUPID;
+    room.players.get('seer').role = ROLES.SEER;
+    room.players.get('v1').role = ROLES.VILLAGER;
+    room.couple = ['w1', 'seer'];
+
+    // 1. Góc nhìn Dân Thường (v1): Chỉ thấy role của chính mình, không thấy role hay cặp đôi của ai khác
+    const v1View = getPlayersData(room, 'v1');
+    assert.strictEqual(v1View.find((p) => p.id === 'v1').role, ROLES.VILLAGER);
+    assert.strictEqual(v1View.find((p) => p.id === 'w1').role, null);
+    assert.strictEqual(v1View.find((p) => p.id === 'w1').inCouple, false);
+
+    // 2. Góc nhìn Cupid: Thấy ai thuộc Cặp Đôi (inCouple = true) nhưng KHÔNG ĐƯỢC thấy Role của 2 người trong cặp đôi!
+    const cupidView = getPlayersData(room, 'cupid');
+    assert.strictEqual(cupidView.find((p) => p.id === 'w1').inCouple, true);
+    assert.strictEqual(cupidView.find((p) => p.id === 'seer').inCouple, true);
+    assert.strictEqual(cupidView.find((p) => p.id === 'w1').role, null, 'Cupid không được biết role của Cặp Đôi');
+    assert.strictEqual(cupidView.find((p) => p.id === 'seer').role, null, 'Cupid không được biết role của Cặp Đôi');
+
+    // 3. Góc nhìn Sói 1 (w1 - đang sống trong Cặp Đôi với seer): Thấy cả đồng bọn Sói (w2) LẪN Role của người yêu (seer)
+    const w1ViewAlive = getPlayersData(room, 'w1');
+    assert.strictEqual(w1ViewAlive.find((p) => p.id === 'w2').role, ROLES.WOLF);
+    assert.strictEqual(w1ViewAlive.find((p) => p.id === 'seer').role, ROLES.SEER);
+
+    // 4. Khi Cặp Đôi chết (alive = false): Xóa quyền nhìn thấy Role người yêu trong trận (chỉ mở lại khi GAME_OVER)
+    room.players.get('w1').alive = false;
+    room.players.get('seer').alive = false;
+    const w1ViewDead = getPlayersData(room, 'w1');
+    assert.strictEqual(w1ViewDead.find((p) => p.id === 'seer').role, null, 'Khi Cặp Đôi đã chết thì không còn hiển thị role người yêu trong trận');
+
+    // 5. Khi GAME_OVER: Lật mở toàn bộ Role và trạng thái Cặp Đôi cho tất cả mọi người
+    room.phase = PHASES.GAME_OVER;
+    const v1ViewGameOver = getPlayersData(room, 'v1');
+    assert.strictEqual(v1ViewGameOver.find((p) => p.id === 'w1').role, ROLES.WOLF);
+    assert.strictEqual(v1ViewGameOver.find((p) => p.id === 'seer').role, ROLES.SEER);
+    assert.strictEqual(v1ViewGameOver.find((p) => p.id === 'w1').inCouple, true);
+    results.push('[SYS-11] Bảo mật getPlayersData: Dân/Sói/Cupid/Cặp Đôi (lúc sống vs lúc chết) & Lật mở toàn bộ khi GAME_OVER');
+  }
+
+  // -------------------------------------------------------------------------
+  // [SYS-12] Kiểm tra Quy Tắc Phân Luồng & Khóa 3 Kênh Chat (Làng / Hang Sói / Cặp Đôi)
+  // -------------------------------------------------------------------------
+  {
+    const serverCode = fs.readFileSync(path.join(__dirname, '../server/index.js'), 'utf8');
+    // 1. Hang Sói tự khóa khi DAY_VOTE
+    assert(serverCode.includes("Kênh chat Hang Sói tạm khóa trong thời gian Bỏ Phiếu"));
+    // 2. Kênh Cặp Đôi chỉ cho phép 2 người trong room.couple gửi & nhận, và khóa vào ban đêm
+    assert(
+      serverCode.includes('!room.couple || !room.couple.includes(socket.id)') &&
+        serverCode.includes('tâm sự Cặp Đôi sẽ mở vào buổi sáng')
+    );
+    // 3. Người đã chết không được chat trong trận
+    assert(serverCode.includes('room.phase !== PHASES.WAITING && room.phase !== PHASES.GAME_OVER && !player.alive'));
+    results.push('[SYS-12] Phân luồng 3 kênh Chat: Khóa Làng & Cặp Đôi ban đêm, khóa Hang Sói giờ Vote, chặn hồn ma & người ngoài');
+  }
+
+  return results;
 }
 
 // ============================================================================
@@ -1272,10 +2161,39 @@ function main() {
   }
   console.log('');
 
-  const totalTests = compResults.length + queueResults.length + 1 + mobileResults.length + lifecycleResults.length;
+  const sixNightLogs = runSixNightFullMatchSimulation();
+  console.log('✅ [PHẦN 6] KIỂM THỬ GIẢ LẬP VÁN ĐẤU 6 ĐÊM LIÊN TIẾP (TẤT CẢ ROLE ĐẶC BIỆT CÒN SỐNG):');
+  for (const log of sixNightLogs) {
+    console.log(`   ✔ ${log}`);
+  }
+  console.log('');
+
+  const wolfVillageCoupleLogs = runWolfVillagerCoupleVictorySimulation();
+  console.log('✅ [PHẦN 7] KIỂM THỬ KỊCH BẢN CẶP ĐÔI SÓI - DÂN (PHE CẶP ĐÔI) CHIẾN THẮNG:');
+  for (const step of wolfVillageCoupleLogs) {
+    console.log(`   ✔ ${step}`);
+  }
+  console.log('');
+
+  const sysScenarios = runComprehensiveSystemScenarios();
+  console.log(`✅ [PHẦN 8] KIỂM THỬ 12 KỊCH BẢN TOÀN HỆ THỐNG (${sysScenarios.length}/${sysScenarios.length} PASS):`);
+  for (const s of sysScenarios) {
+    console.log(`   ✔ ${s}`);
+  }
+  console.log('');
+
+  const totalTests =
+    compResults.length +
+    queueResults.length +
+    1 +
+    mobileResults.length +
+    lifecycleResults.length +
+    sixNightLogs.length +
+    wolfVillageCoupleLogs.length +
+    sysScenarios.length;
   console.log('================================================================================');
   console.log(
-    `🎉 TỔNG KẾT: TẤT CẢ ${totalTests}/${totalTests} BÀI TEST HOẠT ẢNH, MOBILE & HỆ THỐNG ĐỀU PASS 100%!`
+    `🎉 TỔNG KẾT: TẤT CẢ ${totalTests}/${totalTests} BÀI TEST TOÀN BỘ HỆ THỐNG ĐỀU PASS 100%!`
   );
   console.log('================================================================================');
 }

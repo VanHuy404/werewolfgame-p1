@@ -56,6 +56,8 @@ export default function GameOverScreen({
   };
   const [showVictoryCinematic, setShowVictoryCinematic] = useState(isPiedPiperWin);
   const [showCupidVictoryCinematic, setShowCupidVictoryCinematic] = useState(isCoupleWin);
+  const [isLogOpen, setIsLogOpen] = useState(false);
+  const isMobile = windowWidth <= 860;
 
   const couplePlayers = (couple && couple.length === 2)
     ? couple
@@ -260,7 +262,7 @@ export default function GameOverScreen({
                       {isPlayerInCouple && (
                         <View style={styles.loverRevealTag}>
                           <Text style={styles.loverRevealTagText} numberOfLines={1} ellipsizeMode="tail">
-                            💘 {otherLover ? `Yêu ${otherLover}` : 'Cặp Đôi'}
+                            💘 Cặp đôi
                           </Text>
                         </View>
                       )}
@@ -279,18 +281,88 @@ export default function GameOverScreen({
               </ScrollView>
             </View>
 
-            {/* Card Biên Niên Sử Ván Đấu (Match Timeline) */}
-            {Array.isArray(matchHistory) && matchHistory.length > 0 && (
-              <View style={styles.timelineCard}>
-                <View style={styles.revealHeader}>
-                  <Text style={styles.revealHeaderEmoji}>⏳</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.revealHeaderTitle} numberOfLines={1}>BIÊN NIÊN SỬ VÁN ĐẤU</Text>
-                    <Text style={styles.revealHeaderSub} numberOfLines={1}>Tóm tắt toàn bộ hành động bí mật từng Đêm & Ngày</Text>
+            {/* Nút hành động */}
+            <View style={[styles.actionButtonsRow, windowWidth < 420 && styles.actionButtonsRowMobile]}>
+              <TouchableOpacity
+                style={[styles.returnLobbyBtn, windowWidth < 420 && { width: '100%', flex: 0 }]}
+                onPress={handleReturn}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.returnLobbyEmoji}>🔄</Text>
+                <Text style={styles.returnLobbyText}>Trở về phòng chờ</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.leaveGameBtn, windowWidth < 420 && { width: '100%', flex: 0 }]}
+                onPress={onLeaveGame}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.leaveGameEmoji}>🚪</Text>
+                <Text style={styles.leaveGameText}>Rời trận</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+
+          {/* NÚT NỔI BÊN PHẢI MỞ LỊCH SỬ VÁN ĐẤU (KIỂU BUTTON LOG BÊN PHẢI NHƯ CHAT) */}
+          {!isLogOpen && Array.isArray(matchHistory) && matchHistory.length > 0 && (
+            <TouchableOpacity
+              style={styles.floatingLogSlideToggle}
+              onPress={() => setIsLogOpen(true)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.floatingLogIcon}>📜</Text>
+              <Text style={styles.floatingLogLabel}>Log</Text>
+              <View style={styles.logFabBadge}>
+                <Text style={styles.logFabBadgeText}>
+                  {matchHistory.length > 99 ? '99+' : matchHistory.length}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+
+          {/* SLIDEBAR DRAWER LỊCH SỬ VÁN ĐẤU BÊN PHẢI (CÓ SCROLL RIÊNG TRÁNH DÀI TRANG) */}
+          {isLogOpen && (
+            <View style={styles.logDrawerOverlay}>
+              <TouchableOpacity
+                style={styles.logDrawerBackdrop}
+                activeOpacity={1}
+                onPress={() => setIsLogOpen(false)}
+              />
+              <View
+                style={[
+                  styles.logDrawerContent,
+                  { width: isMobile ? Math.min(windowWidth * 0.88, 360) : 390 },
+                ]}
+              >
+                {/* Header Slidebar Log */}
+                <View style={styles.logDrawerHeader}>
+                  <View style={styles.logDrawerHeaderLeft}>
+                    <Text style={styles.logDrawerHeaderIcon}>⏳</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.logDrawerHeaderTitle} numberOfLines={1}>
+                        LỊCH SỬ VÁN ĐẤU
+                      </Text>
+                      <Text style={styles.logDrawerHeaderSub} numberOfLines={1}>
+                        {matchHistory.length} sự kiện Đêm & Ngày
+                      </Text>
+                    </View>
                   </View>
+                  <TouchableOpacity
+                    style={styles.logDrawerCloseBtn}
+                    onPress={() => setIsLogOpen(false)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.logDrawerCloseIcon}>✕</Text>
+                    <Text style={styles.logDrawerCloseText}>Đóng</Text>
+                  </TouchableOpacity>
                 </View>
 
-                <View style={styles.timelineList}>
+                {/* Danh sách diễn biến có Scroll riêng */}
+                <ScrollView
+                  style={styles.logDrawerScroll}
+                  contentContainerStyle={styles.logDrawerScrollContent}
+                  showsVerticalScrollIndicator={true}
+                >
                   {matchHistory.map((item, idx) => {
                     const isNightEvent = item.phaseType === 'night';
                     const isDayEvent = item.phaseType === 'day';
@@ -322,31 +394,10 @@ export default function GameOverScreen({
                       </View>
                     );
                   })}
-                </View>
+                </ScrollView>
               </View>
-            )}
-
-            {/* Nút hành động */}
-            <View style={[styles.actionButtonsRow, windowWidth < 420 && styles.actionButtonsRowMobile]}>
-              <TouchableOpacity
-                style={[styles.returnLobbyBtn, windowWidth < 420 && { width: '100%', flex: 0 }]}
-                onPress={handleReturn}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.returnLobbyEmoji}>🔄</Text>
-                <Text style={styles.returnLobbyText}>Trở về phòng chờ</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.leaveGameBtn, windowWidth < 420 && { width: '100%', flex: 0 }]}
-                onPress={onLeaveGame}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.leaveGameEmoji}>🚪</Text>
-                <Text style={styles.leaveGameText}>Rời trận</Text>
-              </TouchableOpacity>
             </View>
-          </ScrollView>
+          )}
         </SafeAreaView>
       </View>
     </ImageBackground>
@@ -607,15 +658,135 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#E9D5FF',
   },
-  timelineCard: {
-    backgroundColor: 'rgba(21, 18, 43, 0.92)',
-    borderRadius: 22,
-    padding: 20,
+  floatingLogSlideToggle: {
+    position: 'absolute',
+    right: 0,
+    top: '48%',
+    backgroundColor: 'rgba(15, 23, 42, 0.96)',
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
     borderWidth: 1.5,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
-    marginBottom: 24,
+    borderRightWidth: 0,
+    borderColor: '#38BDF8',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 90,
+    shadowColor: '#38BDF8',
+    shadowOffset: { width: -2, height: 2 },
+    shadowOpacity: 0.45,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  timelineList: {
+  floatingLogIcon: {
+    fontSize: 20,
+    marginBottom: 2,
+  },
+  floatingLogLabel: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#F8FAFC',
+    letterSpacing: 0.4,
+  },
+  logFabBadge: {
+    position: 'absolute',
+    top: -6,
+    left: -6,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#0284C7',
+    borderWidth: 1.5,
+    borderColor: '#7DD3FC',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  logFabBadgeText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  logDrawerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    zIndex: 100,
+  },
+  logDrawerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(2, 6, 23, 0.55)',
+  },
+  logDrawerContent: {
+    height: '100%',
+    backgroundColor: 'rgba(15, 12, 34, 0.98)',
+    borderLeftWidth: 1.5,
+    borderLeftColor: 'rgba(56, 189, 248, 0.4)',
+    shadowColor: '#000',
+    shadowOffset: { width: -6, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 16,
+  },
+  logDrawerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(30, 27, 75, 0.55)',
+  },
+  logDrawerHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  logDrawerHeaderIcon: {
+    fontSize: 22,
+  },
+  logDrawerHeaderTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#F8FAFC',
+    letterSpacing: 0.8,
+  },
+  logDrawerHeaderSub: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  logDrawerCloseBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(239, 68, 68, 0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(248, 113, 113, 0.5)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  logDrawerCloseIcon: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#FCA5A5',
+  },
+  logDrawerCloseText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#FCA5A5',
+  },
+  logDrawerScroll: {
+    flex: 1,
+  },
+  logDrawerScrollContent: {
+    padding: 14,
+    paddingBottom: 32,
     gap: 10,
   },
   timelineItem: {

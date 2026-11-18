@@ -695,15 +695,18 @@ function startDayAnnounce(room, nightResult = {}) {
     poisonedPlayer.alive = false;
   }
 
-  // 💔 Kiểm tra Cặp Đôi chết theo nhau vì thất tình
+  // 💔 Kiểm tra Cặp Đôi chết theo nhau vì thất tình HOẶC cả 2 cùng bị giết trong đêm
   let heartbrokenPlayer = null;
   let heartbrokenPartnerId = null;
+  let coupleSimultaneousNightDeath = false;
   if (room.couple && room.couple.length === 2) {
     const [c1Id, c2Id] = room.couple;
     const c1Died = (deadPlayer && deadPlayer.id === c1Id) || (poisonedPlayer && poisonedPlayer.id === c1Id);
     const c2Died = (deadPlayer && deadPlayer.id === c2Id) || (poisonedPlayer && poisonedPlayer.id === c2Id);
 
-    if (c1Died && !c2Died) {
+    if (c1Died && c2Died && deadPlayer && poisonedPlayer && deadPlayer.id !== poisonedPlayer.id) {
+      coupleSimultaneousNightDeath = true;
+    } else if (c1Died && !c2Died) {
       const p2 = room.players.get(c2Id);
       if (p2 && p2.alive) {
         p2.alive = false;
@@ -749,6 +752,7 @@ function startDayAnnounce(room, nightResult = {}) {
       heartbrokenPlayer: heartbrokenPlayer
         ? { id: heartbrokenPlayer.id, name: heartbrokenPlayer.name, avatar: heartbrokenPlayer.avatar, avatarColor: heartbrokenPlayer.avatarColor, role: heartbrokenPlayer.role, partnerId: heartbrokenPartnerId }
         : null,
+      coupleSimultaneousNightDeath,
       players: getPlayersData(room, playerId),
     });
   });
@@ -758,6 +762,8 @@ function startDayAnnounce(room, nightResult = {}) {
   if (deadPlayer && poisonedPlayer) {
     if (deadPlayer.id === poisonedPlayer.id) {
       announceChat = `💀☠️ [CẢ THIỆN VÀ ÁC]: Đêm qua, ${deadPlayer.name} đã bị cả Ma Sói cào xé và Phù Thủy hạ độc tử vong! "Cả thiện và ác đều nhắm vào ngươi , kẻ phản bội"`;
+    } else if (coupleSimultaneousNightDeath) {
+      announceChat = `💔💀☠️ [SINH TỬ CÓ NHAU]: Đêm qua, đôi tình nhân uyên ương đều đã ngã xuống — ${deadPlayer.name} bị Ma Sói cào xé và ${poisonedPlayer.name} trúng độc dược Phù Thủy! "Death could not separate us... See you on the other side...."`;
     } else {
       announceChat = `💀 [BÌNH MINH ĐẪM MÁU]: Đêm qua, ${deadPlayer.name} đã bị Ma Sói sát hại, và ${poisonedPlayer.name} đã bị trúng độc tử vong!`;
     }
