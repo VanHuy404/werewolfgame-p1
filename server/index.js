@@ -26,17 +26,36 @@ const {
 } = require('./gameLogic');
 
 const { PHASES, TIMERS, ROLES, ROLE_NAMES, ROLE_EMOJIS } = require('./constants');
+const {
+  startPhaseTimer: startRoomPhaseTimer,
+  clearPhaseTimer,
+  scheduleRoomTimeout,
+  clearAllRoomTimers,
+} = require('./timerManager');
+const { getSeerAlignment, isWolfTeam } = require('./roles/registry');
+const {
+  verifyReconnectToken,
+  sanitizeMessage,
+  validateAvatarPayload,
+  getCorsOrigin,
+  createRateLimiter,
+} = require('./security');
+const { roomStore } = require('./roomStore');
 
 // ==================== KHỞI TẠO SERVER ====================
+const corsOrigin = getCorsOrigin();
 const app = express();
-app.use(cors());
-app.use(express.json());
+app.use(cors({ origin: corsOrigin }));
+app.use(express.json({ limit: '256kb' }));
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: '*', methods: ['GET', 'POST'] },
-  maxHttpBufferSize: 1e7, // 10MB để hỗ trợ tải ảnh avatar custom
+  cors: { origin: corsOrigin, methods: ['GET', 'POST'] },
+  maxHttpBufferSize: 1e5, // 100KB (chỉ dùng icon emoji, tối ưu chống tấn công DoS payload lớn)
 });
+
+// Bộ giới hạn tần suất (chống spam sự kiện socket)
+const rateLimiter = createRateLimiter();
 
 // Bộ nhớ đệm tạm thời cho người chơi ngắt kết nối tạm (F5 / tải lại trang)
 const pendingDisconnects = new Map(); // key: socketId, value: { timer, roomCode }
@@ -54,9 +73,15 @@ if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
 }
 
-// Health check endpoint riêng
+// Health check endpoint kèm thống kê vận hành thời gian thực
 app.get('/api/health', (req, res) => {
-  res.json({ status: '🐺 Ma Sói Server đang chạy!', timestamp: new Date().toISOString() });
+  const stats = roomStore.getStats();
+  res.json({
+    status: '🐺 Ma Sói Server đang chạy!',
+    uptimeSec: Math.floor(process.uptime()),
+    ...stats,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // Phục vụ index.html cho mọi đường dẫn còn lại nếu có bản build web
@@ -78,23 +103,7 @@ app.get('*', (req, res) => {
  * @param {Function} onComplete - Callback khi hết giờ
  */
 function startPhaseTimer(room, duration, onComplete) {
-  // Dọn timer cũ
-  if (room.timer) clearInterval(room.timer);
-  room.timeLeft = duration;
-
-  // Gửi thời gian ban đầu
-  io.to(room.code).emit('timer-update', { timeLeft: room.timeLeft });
-
-  room.timer = setInterval(() => {
-    room.timeLeft--;
-    io.to(room.code).emit('timer-update', { timeLeft: room.timeLeft });
-
-    if (room.timeLeft <= 0) {
-      clearInterval(room.timer);
-      room.timer = null;
-      onComplete();
-    }
-  }, 1000);
+  startRoomPhaseTimer(io, room, duration, onComplete);
 }
 
 // ==================== GHI LỊCH SỬ TRẬN ĐẤU ====================
@@ -918,7 +927,7 @@ function startDayAnnounce(room, nightResult = {}) {
     });
 
     // Bảng treo cổ chiếu 3.8s -> Hoạt ảnh Thổi Sáo chết chiếu 3.35s -> Đến khi đóng hết (7.5s) mới gửi tin nhắn chat thanh tẩy!
-    setTimeout(() => {
+    scheduleRoomTimeout(room, () => {
       io.to(room.code).emit('new-message', {
         playerId: 'system',
         playerName: '📢 Hệ Thống',
@@ -928,7 +937,7 @@ function startDayAnnounce(room, nightResult = {}) {
         isWolfChat: false,
         isSystem: true,
       });
-    }, 7500);
+    }, 7500, 'night-pied-piper-purify-chat');
   }
 
   // Nếu có nhiều hoạt ảnh tuần tự (vừa chết sói/cứu vừa chết độc/xung đột khiên), người yêu tuẫn tình và thanh tẩy -> cho đủ thời gian thoải mái hiển thị
@@ -1027,10 +1036,11 @@ function concludeDayVote(room) {
     }
   }
 
-  // Tính số lượng Sói còn sống sau khi bỏ phiếu
+  // Tính số lượng Sói còn sống sau khi bỏ phiếu (hỗ trợ mọi vai trò thuộc bầy Sói qua isWolfTeam)
   const remainingWolves = [...room.players.values()].filter(
-    (p) => p.role === ROLES.WOLF && p.alive
+    (p) => isWolfTeam(p.role) && p.alive
   ).length;
+  const shouldRevealWolves = room.settings.showRemainingWolvesAfterVote !== false;
 
   // Kiểm tra nếu người bị treo cổ HOẶC người yêu chết theo là Người Thổi Sáo -> Kích hoạt Thanh Tẩy Hoàng Kim
   const isPiedPiperEliminated =
@@ -1058,12 +1068,13 @@ function concludeDayVote(room) {
     room.players.forEach((p) => { p.charmed = false; });
   }
 
-  // Ghi nhận kết quả biểu quyết và số Sói còn lại vào khung chat (không tiết lộ số người bị thôi miên theo Phương án 1)
+  // Ghi nhận kết quả biểu quyết (chỉ kèm số Sói còn lại nếu chủ phòng BẬT showRemainingWolvesAfterVote)
+  const wolfCountSuffix = shouldRevealWolves ? ` (🐺 Sói còn lại: ${remainingWolves})` : '';
   let voteChatMsg = '';
   if (eliminated) {
-    voteChatMsg = `⚖️ [KẾT QUẢ BIỂU QUYẾT]: Dân làng đã quyết định treo cổ ${eliminated.name}! (🐺 Sói còn lại: ${remainingWolves})`;
+    voteChatMsg = `⚖️ [KẾT QUẢ BIỂU QUYẾT]: Dân làng đã quyết định treo cổ ${eliminated.name}!${wolfCountSuffix}`;
   } else {
-    voteChatMsg = `🕊️ [KẾT QUẢ BIỂU QUYẾT]: Hòa phiếu hoặc đa số bỏ phiếu trắng — Không ai bị treo cổ hôm nay! (🐺 Sói còn lại: ${remainingWolves})`;
+    voteChatMsg = `🕊️ [KẾT QUẢ BIỂU QUYẾT]: Hòa phiếu hoặc đa số bỏ phiếu trắng — Không ai bị treo cổ hôm nay!${wolfCountSuffix}`;
   }
 
   io.to(room.code).emit('new-message', {
@@ -1128,7 +1139,7 @@ function concludeDayVote(room) {
         }
       : null,
     votes: voteDetails,
-    remainingWolves,
+    remainingWolves: shouldRevealWolves ? remainingWolves : null,
     isPiedPiperDead: Boolean(isPiedPiperEliminated),
     purifiedPlayers,
     players: getPlayersData(room),
@@ -1152,7 +1163,7 @@ function concludeDayVote(room) {
     });
 
     // Bảng treo cổ chiếu 3.8s -> Hoạt ảnh Thổi Sáo chết chiếu 3.35s -> Đến khi đóng hết (7.5s) mới gửi tin nhắn chat thanh tẩy!
-    setTimeout(() => {
+    scheduleRoomTimeout(room, () => {
       io.to(room.code).emit('new-message', {
         playerId: 'system',
         playerName: '📢 Hệ Thống',
@@ -1162,7 +1173,7 @@ function concludeDayVote(room) {
         isWolfChat: false,
         isSystem: true,
       });
-    }, 7500);
+    }, 7500, 'night-pied-piper-purify-chat');
   }
 
   const hasVoteHeartbreak = Boolean(voteHeartbrokenPlayer);
@@ -1182,9 +1193,9 @@ function concludeDayVote(room) {
     const hunterVoteDelay = hasVoteHeartbreak
       ? (isPiedPiperEliminated ? 18000 : 11000)
       : (isPiedPiperEliminated ? 12000 : 4500);
-    setTimeout(() => {
+    scheduleRoomTimeout(room, () => {
       startHunterShotPhase(room, hunterAfterVote, 'vote');
-    }, hunterVoteDelay);
+    }, hunterVoteDelay, 'vote-hunter-shot');
     return;
   }
 
@@ -1196,12 +1207,12 @@ function concludeDayVote(room) {
   // Kiểm tra win condition sau vote
   const winCheck = checkWinCondition(room);
   if (winCheck.gameOver) {
-    setTimeout(() => endGame(room, winCheck), voteTransitionDelay);
+    scheduleRoomTimeout(room, () => endGame(room, winCheck), voteTransitionDelay, 'vote-end-game');
     return;
   }
 
   // Tiếp tục -> Ban Đêm
-  setTimeout(() => startNightPhase(room), voteTransitionDelay);
+  scheduleRoomTimeout(room, () => startNightPhase(room), voteTransitionDelay, 'vote-next-night');
 }
 
 /**
@@ -1288,7 +1299,7 @@ function processHunterShot(room, hunterPlayer, targetPlayer, passed, cause) {
       text: `Thợ Săn ${hunterPlayer.name} quyết định bắn chỉ thiên, không kéo theo ai xuống mồ.`,
     });
 
-    setTimeout(() => {
+    scheduleRoomTimeout(room, () => {
       const winCheck = checkWinCondition(room);
       if (winCheck.gameOver) {
         endGame(room, winCheck);
@@ -1299,7 +1310,7 @@ function processHunterShot(room, hunterPlayer, targetPlayer, passed, cause) {
       } else {
         startNightPhase(room);
       }
-    }, 2000);
+    }, 2000, 'hunter-pass-transition');
     return;
   }
 
@@ -1354,7 +1365,7 @@ function processHunterShot(room, hunterPlayer, targetPlayer, passed, cause) {
 
     // Chờ cả modal Thợ Săn nổ súng (4.5s), modal Tim Vỡ (nếu có: 6s) và modal Thổi Sáo chết (3.35s) đóng hết mới gửi tin nhắn chat thanh tẩy!
     const chatPurifyDelay = hunterHeartbrokenPlayer ? 14000 : 8000;
-    setTimeout(() => {
+    scheduleRoomTimeout(room, () => {
       io.to(room.code).emit('new-message', {
         playerId: 'system',
         playerName: '📢 Hệ Thống',
@@ -1364,7 +1375,7 @@ function processHunterShot(room, hunterPlayer, targetPlayer, passed, cause) {
         isWolfChat: false,
         isSystem: true,
       });
-    }, chatPurifyDelay);
+    }, chatPurifyDelay, 'hunter-pied-piper-purify-chat');
   }
 
   io.to(room.code).emit('hunter-shot-result', {
@@ -1429,7 +1440,7 @@ function processHunterShot(room, hunterPlayer, targetPlayer, passed, cause) {
   const hunterDelay = isPiedPiperShot
     ? (hasHunterHeartbreak ? 18000 : 13000)
     : (hasHunterHeartbreak ? 12500 : 6500);
-  setTimeout(() => {
+  scheduleRoomTimeout(room, () => {
     const winCheck = checkWinCondition(room);
     if (winCheck.gameOver) {
       endGame(room, winCheck);
@@ -1440,16 +1451,13 @@ function processHunterShot(room, hunterPlayer, targetPlayer, passed, cause) {
     } else {
       startNightPhase(room);
     }
-  }, hunterDelay);
+  }, hunterDelay, 'hunter-shot-transition');
 }
 
 /** Kết thúc game - Lật bài, hiển thị kết quả */
 function endGame(room, winCheck) {
   room.phase = PHASES.GAME_OVER;
-  if (room.timer) {
-    clearInterval(room.timer);
-    room.timer = null;
-  }
+  clearAllRoomTimers(room);
 
   const coupleIds = Array.isArray(room.couple) ? room.couple : [];
 
@@ -1629,6 +1637,13 @@ io.on('connection', (socket) => {
   // ---------- TẠO PHÒNG ----------
   socket.on('create-room', (data = {}) => {
     try {
+      const ipScope = socket.handshake?.address || socket.id;
+      const rl = rateLimiter.check(ipScope, 'create-room');
+      if (!rl.allowed) {
+        socket.emit('error-msg', { message: 'Bạn thao tác tạo phòng quá nhanh, vui lòng chờ vài giây!' });
+        return;
+      }
+
       const { playerName, settings, customAvatar } = data || {};
       console.log(`🏠 ${playerName} tạo phòng với settings:`, settings);
 
@@ -1642,11 +1657,13 @@ io.on('connection', (socket) => {
       socket.join(room.code);
       socket.roomCode = room.code;
 
+      const hostPlayer = room.players.get(socket.id);
       socket.emit('room-created', {
         roomCode: room.code,
         players: getPlayersData(room, socket.id),
         settings: room.settings,
         hostId: room.hostId,
+        reconnectToken: hostPlayer?.reconnectToken,
       });
     } catch (err) {
       console.error('Lỗi khi tạo phòng:', err);
@@ -1657,6 +1674,12 @@ io.on('connection', (socket) => {
   // ---------- VÀO PHÒNG ----------
   socket.on('join-room', (data = {}) => {
     try {
+      const rl = rateLimiter.check(socket.id, 'join-room');
+      if (!rl.allowed) {
+        socket.emit('error-msg', { message: 'Bạn thử vào phòng quá nhanh, vui lòng chờ vài giây!' });
+        return;
+      }
+
       const { playerName, roomCode, customAvatar } = data || {};
       if (!roomCode || typeof roomCode !== 'string') {
         socket.emit('error-msg', { message: 'Vui lòng nhập đúng mã phòng!' });
@@ -1675,12 +1698,14 @@ io.on('connection', (socket) => {
       socket.join(code);
       socket.roomCode = code;
 
+      const joinedPlayer = room.players.get(socket.id);
       // Gửi cho người vào
       socket.emit('room-joined', {
         roomCode: code,
         players: getPlayersData(room, socket.id),
         settings: room.settings,
         hostId: room.hostId,
+        reconnectToken: joinedPlayer?.reconnectToken,
       });
 
       // Thông báo cho cả phòng
@@ -1718,6 +1743,7 @@ io.on('connection', (socket) => {
       piedPiperCharmCount: settings.piedPiperCharmCount !== undefined ? settings.piedPiperCharmCount : (room.settings.piedPiperCharmCount || 2),
       piedPiperRevealDawn: settings.piedPiperRevealDawn !== undefined ? settings.piedPiperRevealDawn : (room.settings.piedPiperRevealDawn !== false),
       hunterShootOnHeartbreak: settings.hunterShootOnHeartbreak !== undefined ? settings.hunterShootOnHeartbreak : (room.settings.hunterShootOnHeartbreak !== false),
+      showRemainingWolvesAfterVote: settings.showRemainingWolvesAfterVote !== undefined ? settings.showRemainingWolvesAfterVote : (room.settings.showRemainingWolvesAfterVote !== false),
       dayDiscussionTime: settings.dayDiscussionTime !== undefined ? settings.dayDiscussionTime : (room.settings.dayDiscussionTime || 60),
       dayVoteTime: settings.dayVoteTime !== undefined ? settings.dayVoteTime : (room.settings.dayVoteTime || 25),
       nightWolfTime: settings.nightWolfTime !== undefined ? settings.nightWolfTime : (room.settings.nightWolfTime || 90),
@@ -1806,8 +1832,11 @@ io.on('connection', (socket) => {
       });
     });
 
+    // Dọn sạch mọi timer tồn đọng từ ván trước trước khi bắt đầu ván mới
+    clearAllRoomTimers(room);
+
     // Bắt đầu đêm đầu tiên sau delay để xem role
-    setTimeout(() => startNightPhase(room), TIMERS.ROLE_REVEAL * 1000);
+    scheduleRoomTimeout(room, () => startNightPhase(room), TIMERS.ROLE_REVEAL * 1000, 'start-first-night');
   });
 
   // ---------- BẢO VỆ CHỌN NGƯỜI ĐỂ CHE CHỞ ----------
@@ -2034,17 +2063,17 @@ io.on('connection', (socket) => {
 
     room.nightActions.seerCheck = { seerId: socket.id, targetId };
 
-    const isEvil = target.role === ROLES.WOLF;
+    const { isEvil, alignment, alignmentName } = getSeerAlignment(target.role);
 
     if (!room.seerHistory) room.seerHistory = {};
     room.seerHistory[targetId] = {
-      alignment: isEvil ? 'evil' : 'good',
-      alignmentName: isEvil ? 'ÁC' : 'THIỆN',
+      alignment,
+      alignmentName,
     };
     room.seerCheckedThisNight = {
       targetId,
       targetName: target.name,
-      alignmentName: isEvil ? 'ÁC' : 'THIỆN',
+      alignmentName,
     };
 
     // Tiên Tri chỉ được biết là THIỆN hay ÁC, không được biết vai trò cụ thể!
@@ -2054,8 +2083,8 @@ io.on('connection', (socket) => {
       targetAvatar: target.avatar,
       targetAvatarColor: target.avatarColor,
       isWolf: isEvil,
-      alignment: isEvil ? 'evil' : 'good',
-      alignmentName: isEvil ? 'ÁC' : 'THIỆN',
+      alignment,
+      alignmentName,
       seerHistory: room.seerHistory,
     });
 
@@ -2132,9 +2161,9 @@ io.on('connection', (socket) => {
 
     // Nếu tất cả người chơi còn sống đều đã vote xong -> chuyển tiếp nhanh
     if (room.dayVotes.size >= aliveCount && aliveCount > 0) {
-      setTimeout(() => {
+      scheduleRoomTimeout(room, () => {
         concludeDayVote(room);
-      }, 800);
+      }, 800, 'all-voted-conclude');
     }
   });
 
@@ -2265,29 +2294,32 @@ io.on('connection', (socket) => {
       socket.emit('cupid-chosen-success', { couple: [target1, target2] });
 
       // Rút ngắn timer xuống 2s để chuyển nhanh sang màn hình hé lộ Cặp Đôi
-      if (room.timer) {
-        clearInterval(room.timer);
-        room.timer = null;
-      }
+      clearPhaseTimer(room);
       room.timeLeft = 2;
-      io.to(room.code).emit('timer-update', { timeLeft: 2 });
-      setTimeout(() => {
+      io.to(room.code).emit('timer-update', { timeLeft: 2, phaseEndsAt: Date.now() + 2000 });
+      scheduleRoomTimeout(room, () => {
         finishCupidTurn(room);
-      }, 2000);
+      }, 2000, 'cupid-finish-turn');
     } catch (err) {
       console.error('Error in cupid-choose-couple:', err);
     }
   });
 
   // ---------- CHAT ----------
-  socket.on('send-message', ({ message, isWolfChat, isCoupleChat }) => {
+  socket.on('send-message', ({ message, isWolfChat, isCoupleChat } = {}) => {
+    const rl = rateLimiter.check(socket.id, 'send-message');
+    if (!rl.allowed) {
+      socket.emit('error-msg', { message: '💬 Bạn đang nhắn quá nhanh, vui lòng chậm lại!' });
+      return;
+    }
+
     const room = getRoom(socket.roomCode);
     if (!room) return;
 
     const player = room.players.get(socket.id);
     if (!player) return;
 
-    const trimmed = message.trim();
+    const trimmed = sanitizeMessage(message);
     if (!trimmed) return;
 
     // Người chết không được chat (trừ khi đang ở lobby hoặc game over)
@@ -2332,8 +2364,8 @@ io.on('connection', (socket) => {
         return;
       }
 
-      if (player.role === ROLES.WOLF) {
-        const wolves = [...room.players.values()].filter((p) => p.role === ROLES.WOLF);
+      if (isWolfTeam(player.role)) {
+        const wolves = [...room.players.values()].filter((p) => isWolfTeam(p.role));
         wolves.forEach((wolf) => {
           io.to(wolf.id).emit('new-message', {
             playerId: socket.id,
@@ -2418,7 +2450,13 @@ io.on('connection', (socket) => {
   // ---------- TỰ ĐỘNG KHÔI PHỤC KẾT NỐI KHI TẢI LẠI TRANG (F5) ----------
   socket.on('reconnect-room', (data = {}) => {
     try {
-      const { roomCode, playerName, oldPlayerId, customAvatar } = data || {};
+      const rl = rateLimiter.check(socket.id, 'reconnect-room');
+      if (!rl.allowed) {
+        socket.emit('reconnect-failed', { message: 'Thử kết nối lại quá nhiều lần, vui lòng chờ giây lát!' });
+        return;
+      }
+
+      const { roomCode, playerName, oldPlayerId, customAvatar, reconnectToken } = data || {};
       if (!roomCode || typeof roomCode !== 'string') {
         socket.emit('reconnect-failed', { message: 'Mã phòng không hợp lệ!' });
         return;
@@ -2426,6 +2464,32 @@ io.on('connection', (socket) => {
       const room = getRoom(roomCode.toUpperCase().trim());
       if (!room) {
         socket.emit('reconnect-failed', { message: 'Phòng không còn tồn tại hoặc đã bị giải tán!' });
+        return;
+      }
+
+      // Hàm tìm kiếm chỗ ngồi khớp + xác thực reconnectToken bí mật chống chiếm chỗ
+      const findAndVerifyPlayer = () => {
+        let candidate = oldPlayerId ? room.players.get(oldPlayerId) : null;
+        let matchedId = oldPlayerId;
+        if (!candidate && playerName) {
+          for (const [id, p] of room.players) {
+            if (p.name.toLowerCase() === playerName.toLowerCase()) {
+              candidate = p;
+              matchedId = id;
+              break;
+            }
+          }
+        }
+        if (!candidate) return { candidate: null, matchedId: null, authorized: true };
+        if (candidate.reconnectToken && !verifyReconnectToken(candidate.reconnectToken, reconnectToken)) {
+          return { candidate: null, matchedId: null, authorized: false };
+        }
+        return { candidate, matchedId, authorized: true };
+      };
+
+      const { candidate: verifiedPlayer, matchedId: verifiedMatchedId, authorized } = findAndVerifyPlayer();
+      if (!authorized) {
+        socket.emit('reconnect-failed', { message: '🔐 Phiên xác thực không hợp lệ! Không thể chiếm quyền chỗ ngồi của người khác.' });
         return;
       }
 
@@ -2441,19 +2505,10 @@ io.on('connection', (socket) => {
 
       // 1. Nếu đang ở phòng chờ (WAITING)
       if (room.phase === PHASES.WAITING) {
-        let existingPlayer = oldPlayerId ? room.players.get(oldPlayerId) : null;
-        let matchedPlayerId = oldPlayerId;
-        if (!existingPlayer) {
-          for (const [id, p] of room.players) {
-            if (p.name.toLowerCase() === (playerName || '').toLowerCase()) {
-              existingPlayer = p;
-              matchedPlayerId = id;
-              room.players.delete(id);
-              break;
-            }
-          }
-        } else {
-          room.players.delete(oldPlayerId);
+        const existingPlayer = verifiedPlayer;
+        const matchedPlayerId = verifiedMatchedId;
+        if (existingPlayer && matchedPlayerId) {
+          room.players.delete(matchedPlayerId);
         }
 
         const isHost = (oldPlayerId && oldPlayerId === room.hostId) ||
@@ -2462,14 +2517,19 @@ io.on('connection', (socket) => {
                        (room.hostPlayerName && playerName && room.hostPlayerName.toLowerCase() === playerName.toLowerCase()) ||
                        room.players.size === 0;
 
+        const safeReconnectAvatar =
+          customAvatar && validateAvatarPayload(customAvatar).valid
+            ? customAvatar.trim()
+            : null;
         const playerObj = {
           id: socket.id,
           name: playerName || 'Dân Làng',
           role: null,
           alive: true,
-          avatar: customAvatar || (existingPlayer ? existingPlayer.avatar : '🐺'),
+          avatar: safeReconnectAvatar || (existingPlayer ? existingPlayer.avatar : '🐺'),
           avatarColor: existingPlayer ? existingPlayer.avatarColor : '#6366F1',
           connected: true,
+          reconnectToken: existingPlayer?.reconnectToken || undefined,
         };
 
         room.players.set(socket.id, playerObj);
@@ -2483,6 +2543,7 @@ io.on('connection', (socket) => {
           players: getPlayersData(room),
           settings: room.settings,
           hostId: room.hostId,
+          reconnectToken: playerObj.reconnectToken,
         });
 
         io.to(room.code).emit('players-update', {
@@ -2493,19 +2554,10 @@ io.on('connection', (socket) => {
       }
 
       // 2. Nếu đang trong trận đấu
-      let existingPlayer = oldPlayerId ? room.players.get(oldPlayerId) : null;
-      let matchedPlayerId = oldPlayerId;
-      if (!existingPlayer) {
-        for (const [id, p] of room.players) {
-          if (p.name.toLowerCase() === (playerName || '').toLowerCase()) {
-            existingPlayer = p;
-            matchedPlayerId = id;
-            room.players.delete(id);
-            break;
-          }
-        }
-      } else {
-        room.players.delete(oldPlayerId);
+      const existingPlayer = verifiedPlayer;
+      const matchedPlayerId = verifiedMatchedId;
+      if (existingPlayer && matchedPlayerId) {
+        room.players.delete(matchedPlayerId);
       }
 
       if (existingPlayer) {
@@ -2675,6 +2727,7 @@ io.on('connection', (socket) => {
           charmCountRequired: existingPlayer.role === ROLES.PIED_PIPER ? (room.settings.piedPiperCharmCount || 2) : 2,
           couple: coupleData,
           matchHistory: room.matchHistory || [],
+          reconnectToken: existingPlayer.reconnectToken,
         });
 
         // Gửi players-update riêng cho từng người chơi để bảo toàn hiển thị Role của Người Yêu & Đồng Đội Sói!
@@ -2696,6 +2749,7 @@ io.on('connection', (socket) => {
   // ---------- NGẮT KẾT NỐI ----------
   socket.on('disconnect', () => {
     console.log(`❌ Ngắt kết nối: ${socket.id}`);
+    rateLimiter.clearScope(socket.id);
     const room = getRoomByPlayerId(socket.id);
     if (!room) return;
 
@@ -2781,10 +2835,8 @@ io.on('connection', (socket) => {
     if (!room) return;
     if (room.phase !== PHASES.GAME_OVER) return;
 
-    if (room.timer) {
-      clearInterval(room.timer);
-      room.timer = null;
-    }
+    // Dọn sạch toàn bộ phase timer + pending setTimeout của ván cũ
+    clearAllRoomTimers(room);
 
     // Reset trạng thái phòng về WAITING
     room.phase = PHASES.WAITING;
@@ -2840,10 +2892,25 @@ io.on('connection', (socket) => {
 
 // ==================== KHỞI ĐỘNG ====================
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  console.log('');
-  console.log('🐺 ================================');
-  console.log(`🐺  Ma Sói Server - Port ${PORT}`);
-  console.log('🐺 ================================');
-  console.log('');
-});
+
+function startServer(port = PORT) {
+  return new Promise((resolve) => {
+    server.listen(port, () => {
+      const actualPort = server.address()?.port || port;
+      if (require.main === module) {
+        console.log('');
+        console.log('🐺 ================================');
+        console.log(`🐺  Ma Sói Server - Port ${actualPort}`);
+        console.log('🐺 ================================');
+        console.log('');
+      }
+      resolve({ server, io, app, port: actualPort });
+    });
+  });
+}
+
+if (require.main === module) {
+  startServer(PORT);
+}
+
+module.exports = { app, server, io, startServer };

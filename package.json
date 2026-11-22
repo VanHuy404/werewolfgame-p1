@@ -11,7 +11,10 @@
     "clean": "npx -y kill-port 8081 3001",
     "kill:node": "taskkill /F /IM node.exe",
     "android": "expo start --android",
-    "ios": "expo start --ios"
+    "ios": "expo start --ios",
+    "test:logic": "node tests/animationTestCases.js",
+    "test:e2e": "node tests/socketE2E.test.js",
+    "test": "node tests/animationTestCases.js && node tests/socketE2E.test.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

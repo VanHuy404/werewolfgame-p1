@@ -87,12 +87,7 @@ export default function PlayerAvatar({
     outputRange: ['transparent', COLORS.secondary],
   });
 
-  const isCustomImage = typeof player?.avatar === 'string' && (
-    player.avatar.startsWith('data:') ||
-    player.avatar.startsWith('http') ||
-    player.avatar.startsWith('blob:') ||
-    player.avatar.length > 30
-  );
+  const isCustomImage = false;
 
   const content = (
     <Animated.View

@@ -1230,7 +1230,7 @@ function verifyLifecycleAndUxUpgrades() {
     'Server reconnect-room phải cập nhật socket.id mới vào room.couple, hunterShotContext và gửi players-update riêng cho từng pid'
   );
   assert(
-    appCode.includes('setCouple(data.couple || [])') &&
+    (appCode.includes('setCouple(data.couple || [])') || appCode.includes('setCouple(hydratePlayers(data.couple || []))')) &&
       appCode.includes('setMatchHistory(data.matchHistory || [])'),
     'App.js reconnected-in-game phải khôi phục couple và matchHistory'
   );
@@ -2182,6 +2182,20 @@ function main() {
   }
   console.log('');
 
+  const archResults = runPhase1ArchitectureTests();
+  console.log(`✅ [PHẦN 9] KIỂM THỬ KIẾN TRÚC GIAI ĐOẠN 1 (TimerManager + RoleRegistry + AnimationQueue):`);
+  for (const a of archResults) {
+    console.log(`   ✔ ${a}`);
+  }
+  console.log('');
+
+  const secResults = runPhase2SecurityAndBandwidthTests();
+  console.log(`✅ [PHẦN 10] KIỂM THỬ GIAI ĐOẠN 2 (Bảo mật Reconnect Token, Rate Limit & Tối ưu băng thông Avatar):`);
+  for (const s of secResults) {
+    console.log(`   ✔ ${s}`);
+  }
+  console.log('');
+
   const totalTests =
     compResults.length +
     queueResults.length +
@@ -2190,12 +2204,261 @@ function main() {
     lifecycleResults.length +
     sixNightLogs.length +
     wolfVillageCoupleLogs.length +
-    sysScenarios.length;
+    sysScenarios.length +
+    archResults.length +
+    secResults.length;
   console.log('================================================================================');
   console.log(
     `🎉 TỔNG KẾT: TẤT CẢ ${totalTests}/${totalTests} BÀI TEST TOÀN BỘ HỆ THỐNG ĐỀU PASS 100%!`
   );
   console.log('================================================================================');
+}
+
+function runPhase1ArchitectureTests() {
+  const {
+    createRoom,
+    joinRoom,
+    leaveRoom,
+    assignRoles,
+    checkWinCondition,
+    getPlayersData,
+  } = require('../server/gameLogic');
+  const { ROLES } = require('../server/constants');
+  const {
+    scheduleRoomTimeout,
+    clearAllRoomTimers,
+    getActiveTimerCount,
+  } = require('../server/timerManager');
+  const {
+    FACTIONS,
+    registerRole,
+    unregisterRole,
+    getRole,
+    getAllRoles,
+    getNightOrderedRoles,
+    isWolfTeam,
+    getSeerAlignment,
+  } = require('../server/roles/registry');
+
+  const results = [];
+
+  // [ARCH-01] TimerManager: Đăng ký & hủy toàn bộ pending timers chống timer ma
+  {
+    const { room } = createRoom('tm1', 'HostTM');
+    let ghostFired = false;
+    scheduleRoomTimeout(room, () => { ghostFired = true; }, 50, 'ghost-1');
+    scheduleRoomTimeout(room, () => { ghostFired = true; }, 80, 'ghost-2');
+    assert.strictEqual(getActiveTimerCount(room), 2, 'Phải theo dõi đúng 2 pending timers');
+
+    const prevGen = room.matchGeneration;
+    const cleared = clearAllRoomTimers(room);
+    assert.strictEqual(cleared, 2, 'clearAllRoomTimers phải hủy đúng 2 timers');
+    assert.strictEqual(getActiveTimerCount(room), 0, 'Sau khi clear không còn timer nào');
+    assert.strictEqual(room.matchGeneration, prevGen + 1, 'matchGeneration phải tăng để chặn callback cũ');
+    assert.strictEqual(ghostFired, false);
+
+    // Xóa phòng trống cũng tự động dọn timer & đánh dấu destroyed
+    scheduleRoomTimeout(room, () => { ghostFired = true; }, 50, 'ghost-leave');
+    assert.strictEqual(getActiveTimerCount(room), 1);
+    const left = leaveRoom(room.code, 'tm1');
+    assert.strictEqual(left, null);
+    assert.strictEqual(room.destroyed, true);
+    assert.strictEqual(getActiveTimerCount(room), 0);
+    results.push('[ARCH-01] TimerManager: Theo dõi, dọn sạch 100% pending timers khi reset ván hoặc xóa phòng (0 timer ma)');
+  }
+
+  // [ARCH-02] RoleRegistry: Đủ 8 vai trò lõi & thứ tự đêm chuẩn (Đêm 1 có Cupid, Đêm 2 bỏ Cupid)
+  {
+    const allRoles = getAllRoles();
+    assert(allRoles.length >= 8, 'RoleRegistry phải chứa ít nhất 8 vai trò cốt lõi');
+    assert.strictEqual(getRole(ROLES.WOLF).isWolfPack, true);
+    assert.strictEqual(getSeerAlignment(ROLES.WOLF).alignmentName, 'ÁC');
+    assert.strictEqual(getSeerAlignment(ROLES.VILLAGER).alignmentName, 'THIỆN');
+
+    const night1Ids = getNightOrderedRoles(1).map((r) => r.id);
+    const night2Ids = getNightOrderedRoles(2).map((r) => r.id);
+    assert.strictEqual(night1Ids[0], ROLES.CUPID, 'Đêm 1 phải gọi Cupid đầu tiên');
+    assert(!night2Ids.includes(ROLES.CUPID), 'Đêm 2 trở đi không gọi lại vai trò first_only (Cupid)');
+    assert.deepStrictEqual(
+      night2Ids.slice(0, 5),
+      [ROLES.BODYGUARD, ROLES.WOLF, ROLES.WITCH, ROLES.SEER, ROLES.PIED_PIPER],
+      'Thứ tự gọi đêm 2 phải chuẩn xác'
+    );
+    results.push('[ARCH-02] RoleRegistry: Đủ 8 vai trò lõi, thứ tự gọi đêm Đêm 1 / Đêm 2+ & alignment Tiên Tri chuẩn xác');
+  }
+
+  // [ARCH-03] RoleRegistry Plugin Extensibility: Cắm thử Sói Đầu Đàn & Người Hóa Sói (Lycan) không sửa code lõi
+  {
+    registerRole({
+      id: 'alpha_wolf_test',
+      name: 'Sói Đầu Đàn (Test)',
+      emoji: '🐺👑',
+      color: '#991B1B',
+      faction: FACTIONS.WOLF,
+      settingsKey: 'numAlphaWolvesTest',
+      maxPerRoom: 1,
+      assignPriority: 5,
+      nightOrder: 30,
+      activeNights: 'every_night',
+      seerAlignment: 'evil',
+      isWolfPack: true,
+    });
+    registerRole({
+      id: 'lycan_test',
+      name: 'Người Hóa Sói (Test)',
+      emoji: '🌕',
+      color: '#64748B',
+      faction: FACTIONS.VILLAGE,
+      settingsKey: 'numLycansTest',
+      maxPerRoom: 1,
+      assignPriority: 65,
+      nightOrder: null,
+      activeNights: 'passive',
+      seerAlignment: 'evil', // Dân nhưng Tiên Tri soi ra ÁC!
+      isWolfPack: false,
+    });
+
+    try {
+      const { room } = createRoom('p1', 'P1', {
+        numWolves: 1,
+        numAlphaWolvesTest: 1,
+        numLycansTest: 1,
+        numSeers: 0,
+        numBodyguards: 0,
+        numWitches: 0,
+        numHunters: 0,
+        numPiedPipers: 0,
+        numCupids: 0,
+      });
+      joinRoom(room.code, 'p2', 'P2');
+      joinRoom(room.code, 'p3', 'P3');
+      joinRoom(room.code, 'p4', 'P4');
+      joinRoom(room.code, 'p5', 'P5');
+      assignRoles(room);
+
+      const players = [...room.players.values()];
+      const alpha = players.find((p) => p.role === 'alpha_wolf_test');
+      const wolf = players.find((p) => p.role === ROLES.WOLF);
+      const lycan = players.find((p) => p.role === 'lycan_test');
+      assert(alpha && wolf && lycan, 'assignRoles phải tự động chia các vai trò plugin mới đăng ký');
+      assert.strictEqual(isWolfTeam(alpha.role), true);
+      assert.strictEqual(isWolfTeam(lycan.role), false);
+      assert.strictEqual(getSeerAlignment(lycan.role).alignmentName, 'ÁC', 'Lycan thuộc phe Dân nhưng Tiên Tri soi ra ÁC');
+
+      // Sói thường phải nhìn thấy Sói Đầu Đàn là đồng minh trong getPlayersData
+      const wolfView = getPlayersData(room, wolf.id);
+      const alphaInWolfView = wolfView.find((p) => p.id === alpha.id);
+      assert.strictEqual(alphaInWolfView.role, 'alpha_wolf_test', 'Bầy Sói tự động nhận diện vai trò Sói mới qua isWolfTeam');
+
+      // Kiểm tra điều kiện thắng: 2 Sói (1 Wolf + 1 Alpha) vs 2 Dân -> Sói thắng ngay lập tức
+      const villagers = players.filter((p) => !isWolfTeam(p.role));
+      villagers[0].alive = false;
+      const winCheck = checkWinCondition(room);
+      assert.strictEqual(winCheck.gameOver, true);
+      assert.strictEqual(winCheck.winner, 'wolves');
+    } finally {
+      unregisterRole('alpha_wolf_test');
+      unregisterRole('lycan_test');
+    }
+    results.push('[ARCH-03] RoleRegistry Plugin: Cắm thử vai trò mới (Sói Đầu Đàn & Lycan) tự động chạy assignRoles, Seer, WolfPack & WinCondition');
+  }
+
+  // [ARCH-04] Client useAnimationQueue tồn tại & đúng cấu trúc
+  {
+    const hookPath = path.join(__dirname, '..', 'hooks', 'useAnimationQueue.js');
+    assert(fs.existsSync(hookPath), 'Thiếu file hooks/useAnimationQueue.js');
+    const hookSrc = fs.readFileSync(hookPath, 'utf8');
+    assert(hookSrc.includes('enqueue') && hookSrc.includes('dequeue') && hookSrc.includes('clearQueue'));
+    results.push('[ARCH-04] Client Foundation: hooks/useAnimationQueue.js sẵn sàng điều phối hàng đợi hoạt ảnh chống đè modal');
+  }
+
+  return results;
+}
+
+function runPhase2SecurityAndBandwidthTests() {
+  const { createRoom, joinRoom, getPlayersData } = require('../server/gameLogic');
+  const { roomStore } = require('../server/roomStore');
+  const {
+    verifyReconnectToken,
+    sanitizeMessage,
+    validateAvatarPayload,
+    createRateLimiter,
+    MAX_MESSAGE_LENGTH,
+  } = require('../server/security');
+
+  const results = [];
+
+  // [SEC-01] Reconnect Token: Sinh token bí mật, ẩn khỏi getPlayersData, chống giả mạo tên
+  {
+    const { room } = createRoom('sec_host', 'HostSec');
+    joinRoom(room.code, 'sec_p2', 'PlayerSec');
+
+    const host = room.players.get('sec_host');
+    const p2 = room.players.get('sec_p2');
+    assert(host.reconnectToken && host.reconnectToken.length === 48, 'Mỗi người chơi phải có reconnectToken 48 ký tự hex');
+    assert(p2.reconnectToken && p2.reconnectToken !== host.reconnectToken, 'Token giữa các người chơi phải khác nhau');
+
+    // Đảm bảo getPlayersData KHÔNG BAO GIỜ lộ reconnectToken cho người khác
+    const publicPlayers = getPlayersData(room, 'sec_p2');
+    for (const pl of publicPlayers) {
+      assert.strictEqual(pl.reconnectToken, undefined, 'getPlayersData tuyệt đối không được để lộ reconnectToken');
+    }
+
+    // Xác thực token đúng / sai / rỗng
+    assert.strictEqual(verifyReconnectToken(host.reconnectToken, host.reconnectToken), true);
+    assert.strictEqual(verifyReconnectToken(host.reconnectToken, p2.reconnectToken), false);
+    assert.strictEqual(verifyReconnectToken(host.reconnectToken, null), false);
+    assert.strictEqual(verifyReconnectToken(host.reconnectToken, 'forged_token'), false);
+    results.push('[SEC-01] Reconnect Token: Sinh token 48-hex riêng, ẩn 100% khỏi getPlayersData & chặn chiếm chỗ bằng tên');
+  }
+
+  // [SEC-02] Rate Limiter: Chống spam chat / tạo phòng & dọn RAM khi disconnect
+  {
+    const limiter = createRateLimiter();
+    // send-message mặc định tối đa 5 tin / 3s
+    for (let i = 0; i < 5; i++) {
+      assert.strictEqual(limiter.check('sock_spam', 'send-message').allowed, true);
+    }
+    const blocked = limiter.check('sock_spam', 'send-message');
+    assert.strictEqual(blocked.allowed, false, 'Tin nhắn thứ 6 liên tiếp trong 3s phải bị chặn');
+    assert(blocked.retryAfterMs >= 100);
+
+    // Socket khác không bị ảnh hưởng
+    assert.strictEqual(limiter.check('sock_normal', 'send-message').allowed, true);
+
+    // Dọn bộ nhớ khi disconnect -> được phép lại từ đầu
+    limiter.clearScope('sock_spam');
+    assert.strictEqual(limiter.check('sock_spam', 'send-message').allowed, true);
+    results.push('[SEC-02] Rate Limiter: Chặn spam vượt ngưỡng (5 tin/3s), cô lập theo socket & tự dọn RAM khi disconnect');
+  }
+
+  // [SEC-03] Input Sanitization & Emoji-Only Avatar Validation
+  {
+    const longMsg = 'A'.repeat(500) + '\u0000\u0007';
+    const clean = sanitizeMessage(longMsg);
+    assert.strictEqual(clean.length, MAX_MESSAGE_LENGTH, 'Tin nhắn quá dài phải bị cắt về tối đa 300 ký tự');
+
+    // Chỉ chấp nhận icon emoji có sẵn, từ chối ảnh base64/URL
+    assert.strictEqual(validateAvatarPayload('🐺').valid, true);
+    assert.strictEqual(validateAvatarPayload('🧙‍♀️').valid, true);
+    assert.strictEqual(validateAvatarPayload('data:image/png;base64,iVBORw0KGgo=').valid, false);
+    assert.strictEqual(validateAvatarPayload('https://evil.com/a.png').valid, false);
+
+    const { error } = createRoom('dos_host', 'DoSHost', {}, 'data:image/png;base64,abc123');
+    assert(error && error.includes('icon'), 'createRoom phải chặn ảnh Base64 và chỉ cho phép icon có sẵn');
+    results.push('[SEC-03] Input & Emoji-Only Avatar: Cắt tin nhắn >300 ký tự, chỉ nhận icon có sẵn & chặn ảnh Base64/URL');
+  }
+
+  // [SEC-04] RoomStore Abstraction & Live Operational Stats
+  {
+    const stats = roomStore.getStats();
+    assert(typeof stats.activeRooms === 'number' && stats.activeRooms >= 1);
+    assert(typeof stats.onlinePlayers === 'number' && stats.onlinePlayers >= 2);
+    assert(typeof stats.waitingRooms === 'number' && typeof stats.activeGames === 'number');
+    results.push('[SEC-04] RoomStore Abstraction: Lớp lưu trữ phòng độc lập & thống kê vận hành (/api/health) hoạt động chuẩn');
+  }
+
+  return results;
 }
 
 main();

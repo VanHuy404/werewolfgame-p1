@@ -109,6 +109,7 @@ const DEFAULT_SETTINGS = {
   piedPiperCharmCount: 2,// 🎶 Số người bị thôi miên mỗi đêm (1 hoặc 2)
   piedPiperRevealDawn: true, // 🎶 Bật/Tắt 5s cả làng nhận biết ai bị thôi miên trước khi sáng
   hunterShootOnHeartbreak: true, // 🏹💔 Bật/Tắt Thợ Săn chết theo người yêu vẫn được bắn trăn trối
+  showRemainingWolvesAfterVote: true, // 🐺 Bật/Tắt hiển thị bảng số Sói còn lại sau khi treo cổ (Tắt để cân bằng khi có Cupid)
   dayDiscussionTime: 60, // Thời gian bàn luận (giây)
   dayVoteTime: 25,       // Thời gian bỏ phiếu (giây)
   nightWolfTime: 90,     // 🐺 Thời gian Ma Sói chọn mồi (giây)

@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  StyleSheet, View, Text, StatusBar, SafeAreaView, Platform, TouchableOpacity,
+  StyleSheet, View, Text, StatusBar, SafeAreaView, Platform, TouchableOpacity, Modal, Animated,
 } from 'react-native';
 import { registerRootComponent } from 'expo';
 import { createSocket } from './utils/socket';
@@ -95,6 +95,51 @@ export default function App() {
   const [charmedHistory, setCharmedHistory] = useState({});
   const [couple, setCouple] = useState([]);
   const [matchHistory, setMatchHistory] = useState([]);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+
+  // Hiệu ứng giọt máu nhỏ xuống cho hộp thoại xác nhận rời trận giữa chừng
+  const bloodDrip1 = useRef(new Animated.Value(0)).current;
+  const bloodDrip2 = useRef(new Animated.Value(0)).current;
+  const bloodDrip3 = useRef(new Animated.Value(0)).current;
+
+  const isLeavingMidGame = currentScreen === 'game' && phase !== 'game_over';
+
+  useEffect(() => {
+    if (!showLeaveConfirm || !isLeavingMidGame) return;
+
+    const createDripLoop = (animVal, delay, duration) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(animVal, {
+            toValue: 1,
+            duration,
+            useNativeDriver: true,
+          }),
+          Animated.timing(animVal, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+
+    const a1 = createDripLoop(bloodDrip1, 0, 1700);
+    const a2 = createDripLoop(bloodDrip2, 550, 2000);
+    const a3 = createDripLoop(bloodDrip3, 1050, 1600);
+    a1.start();
+    a2.start();
+    a3.start();
+
+    return () => {
+      a1.stop();
+      a2.stop();
+      a3.stop();
+      bloodDrip1.setValue(0);
+      bloodDrip2.setValue(0);
+      bloodDrip3.setValue(0);
+    };
+  }, [showLeaveConfirm, isLeavingMidGame]);
 
   // Khởi tạo Socket.io một lần duy nhất
   useEffect(() => {
@@ -119,6 +164,7 @@ export default function App() {
               playerName: parsed.playerName || savedPlayerName || 'Dân Làng',
               oldPlayerId: parsed.playerId,
               customAvatar: parsed.customAvatar || savedAvatar,
+              reconnectToken: parsed.reconnectToken,
             });
           }
         } catch (e) {
@@ -128,7 +174,7 @@ export default function App() {
     });
 
     // Tạo phòng thành công
-    s.on('room-created', ({ roomCode, players, settings, hostId }) => {
+    s.on('room-created', ({ roomCode, players, settings, hostId, reconnectToken }) => {
       setRoomCode(roomCode);
       setPlayers(players);
       setSettings(settings);
@@ -141,11 +187,12 @@ export default function App() {
         playerName: myPlayer?.name || getSessionItem(STORAGE_KEYS.PLAYER_NAME),
         customAvatar: myPlayer?.avatar || getSessionItem(STORAGE_KEYS.PLAYER_AVATAR),
         playerId: s.id,
+        reconnectToken,
       });
     });
 
     // Vào phòng thành công
-    s.on('room-joined', ({ roomCode, players, settings, hostId }) => {
+    s.on('room-joined', ({ roomCode, players, settings, hostId, reconnectToken }) => {
       setRoomCode(roomCode);
       setPlayers(players);
       setSettings(settings);
@@ -158,6 +205,7 @@ export default function App() {
         playerName: myPlayer?.name || getSessionItem(STORAGE_KEYS.PLAYER_NAME),
         customAvatar: myPlayer?.avatar || getSessionItem(STORAGE_KEYS.PLAYER_AVATAR),
         playerId: s.id,
+        reconnectToken,
       });
     });
 
@@ -192,6 +240,7 @@ export default function App() {
         playerName: getSessionItem(STORAGE_KEYS.PLAYER_NAME),
         customAvatar: getSessionItem(STORAGE_KEYS.PLAYER_AVATAR),
         playerId: s.id,
+        reconnectToken: data.reconnectToken,
       });
     });
 
@@ -388,8 +437,14 @@ export default function App() {
     setError(null);
   };
 
-  // Rời phòng
+  // Mở hộp thoại xác nhận trước khi rời phòng
   const handleLeaveRoom = () => {
+    setShowLeaveConfirm(true);
+  };
+
+  // Thực thi rời phòng sau khi người chơi xác nhận
+  const confirmLeaveRoom = () => {
+    setShowLeaveConfirm(false);
     if (socketRef.current) {
       socketRef.current.emit('leave-room');
     }
@@ -506,6 +561,93 @@ export default function App() {
         autoCloseSeconds={6}
         onClose={() => setShowRoleReveal(false)}
       />
+
+      {/* Hộp thoại xác nhận trước khi rời phòng (chống bấm nhầm giữa trận / phòng chờ) */}
+      <Modal
+        visible={showLeaveConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLeaveConfirm(false)}
+      >
+        <View style={styles.confirmOverlay}>
+          <View style={[styles.confirmBox, isLeavingMidGame && styles.confirmBoxMidGame]}>
+            {isLeavingMidGame ? (
+              <View style={styles.bloodTitleWrap}>
+                <Text style={styles.bloodWarningText}>
+                  BẠN CÓ CHẮC CHẮN MUỐN RỜI KHỎI CUỘC CHƠI KHỐC LIỆT NÀY
+                </Text>
+                {/* Hiệu ứng các giọt máu đỏ chảy xuống dưới dòng chữ */}
+                <View style={styles.bloodDripsLayer} pointerEvents="none">
+                  {[
+                    { anim: bloodDrip1, left: '18%', height: 14, width: 5 },
+                    { anim: bloodDrip2, left: '52%', height: 18, width: 6 },
+                    { anim: bloodDrip3, left: '80%', height: 12, width: 4.5 },
+                  ].map((drop, idx) => (
+                    <Animated.View
+                      key={idx}
+                      style={[
+                        styles.bloodDrop,
+                        {
+                          left: drop.left,
+                          width: drop.width,
+                          height: drop.height,
+                          opacity: drop.anim.interpolate({
+                            inputRange: [0, 0.15, 0.85, 1],
+                            outputRange: [0.35, 0.95, 0.85, 0],
+                          }),
+                          transform: [
+                            {
+                              translateY: drop.anim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [0, 22],
+                              }),
+                            },
+                            {
+                              scaleY: drop.anim.interpolate({
+                                inputRange: [0, 0.5, 1],
+                                outputRange: [0.6, 1.35, 0.9],
+                              }),
+                            },
+                          ],
+                        },
+                      ]}
+                    />
+                  ))}
+                </View>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.confirmEmoji}>🚪</Text>
+                <Text style={styles.confirmTitle}>Xác nhận rời phòng?</Text>
+                <Text style={styles.confirmDesc}>
+                  {`Bạn có chắc chắn muốn rời khỏi phòng ${roomCode || ''} không?`}
+                </Text>
+              </>
+            )}
+
+            <View style={styles.confirmBtnFrame}>
+              <TouchableOpacity
+                style={styles.confirmCancelBtn}
+                onPress={() => setShowLeaveConfirm(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.confirmCancelText}>
+                  {isLeavingMidGame ? 'Ở lại' : 'Hủy'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.confirmDangerBtn}
+                onPress={confirmLeaveRoom}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.confirmDangerText}>
+                  {isLeavingMidGame ? '🚪 Rời trận' : 'Rời phòng'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -515,6 +657,129 @@ const styles = StyleSheet.create({
     flex: 1,
     height: Platform.OS === 'web' ? '100vh' : '100%',
     backgroundColor: COLORS.dayBg,
+  },
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(2, 6, 23, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  confirmBox: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#090D16',
+    borderRadius: 18,
+    padding: 22,
+    borderWidth: 1.5,
+    borderColor: '#1E293B',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.65,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  confirmBoxMidGame: {
+    backgroundColor: '#07090F',
+    borderColor: '#450A0A',
+    shadowColor: '#991B1B',
+    shadowOpacity: 0.45,
+  },
+  bloodTitleWrap: {
+    width: '100%',
+    alignItems: 'center',
+    paddingTop: 6,
+    paddingBottom: 26,
+    position: 'relative',
+  },
+  bloodWarningText: {
+    fontSize: 17,
+    lineHeight: 26,
+    fontWeight: '900',
+    color: '#DC2626',
+    textAlign: 'center',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    textShadowColor: 'rgba(127, 29, 29, 0.95)',
+    textShadowOffset: { width: 0, height: 3 },
+    textShadowRadius: 8,
+  },
+  bloodDripsLayer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 8,
+    height: 24,
+  },
+  bloodDrop: {
+    position: 'absolute',
+    top: 0,
+    backgroundColor: '#B91C1C',
+    borderBottomLeftRadius: 99,
+    borderBottomRightRadius: 99,
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 2,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+  },
+  confirmEmoji: {
+    fontSize: 36,
+    marginBottom: 8,
+  },
+  confirmTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#F8FAFC',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  confirmDesc: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#CBD5E1',
+    textAlign: 'center',
+    marginBottom: 18,
+  },
+  confirmBtnFrame: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+    padding: 8,
+    borderRadius: 14,
+    backgroundColor: '#05070D',
+    borderWidth: 1.5,
+    borderColor: '#1E293B',
+  },
+  confirmCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#111827',
+    borderWidth: 1.5,
+    borderColor: '#334155',
+    alignItems: 'center',
+  },
+  confirmCancelText: {
+    color: '#E2E8F0',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  confirmDangerBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#1C0A0D',
+    borderWidth: 1.5,
+    borderColor: '#7F1D1D',
+    alignItems: 'center',
+  },
+  confirmDangerText: {
+    color: '#FCA5A5',
+    fontWeight: '900',
+    fontSize: 14,
   },
 });
 

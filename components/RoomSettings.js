@@ -58,9 +58,163 @@ export default function RoomSettings({
   const [piedPiperCharmCount, setPiedPiperCharmCount] = useState(2);
   const [piedPiperRevealDawn, setPiedPiperRevealDawn] = useState(true);
   const [hunterShootOnHeartbreak, setHunterShootOnHeartbreak] = useState(true);
+  const [showRemainingWolvesAfterVote, setShowRemainingWolvesAfterVote] = useState(true);
   const [dayDiscussionTime, setDayDiscussionTime] = useState(60);
   const [dayVoteTime, setDayVoteTime] = useState(25);
   const [nightWolfTime, setNightWolfTime] = useState(90);
+
+  // Hộp thoại xác nhận chọn Preset nhanh / Reset toàn bộ về 0
+  const [pendingPreset, setPendingPreset] = useState(null);
+
+  const QUICK_PRESETS = [
+    {
+      id: 'beginner',
+      badge: '🟢 Tân Thủ',
+      title: '🟢 Set-up Tân Thủ (5–6 người)',
+      color: '#10B981',
+      rolesNote: '1 🐺 Sói • 1 🔮 Tiên Tri • 1 🛡️ Bảo Vệ • Còn lại 🧑‍🌾 Dân Làng',
+      rulesNote: '🐺 Hiện số Sói sau treo cổ: BẬT (dễ làm quen, không có Phe Thứ 3)',
+      timersNote: '⏱️ Thảo luận: 45s • Bỏ phiếu: 20s • Sói cắn: 60s',
+      values: {
+        numWolves: 1,
+        numSeers: 1,
+        numBodyguards: 1,
+        numWitches: 0,
+        numHunters: 0,
+        numPiedPipers: 0,
+        numCupids: 0,
+        piedPiperCharmCount: 2,
+        piedPiperRevealDawn: false,
+        hunterShootOnHeartbreak: false,
+        showRemainingWolvesAfterVote: true,
+        dayDiscussionTime: 45,
+        dayVoteTime: 20,
+        nightWolfTime: 60,
+      },
+    },
+    {
+      id: 'classic',
+      badge: '⚔️ Cổ Điển',
+      title: '⚔️ Set-up Cổ Điển (7–9 người)',
+      color: '#3B82F6',
+      rolesNote: '2 🐺 Sói • 1 🔮 Tiên Tri • 1 🛡️ Bảo Vệ • 1 🧙‍♀️ Phù Thủy • 1 🏹 Thợ Săn • Còn lại 🧑‍🌾 Dân',
+      rulesNote: '🐺 Hiện số Sói sau treo cổ: BẬT (thuần Sói vs Dân, cân bằng kinh điển)',
+      timersNote: '⏱️ Thảo luận: 60s • Bỏ phiếu: 25s • Sói cắn: 75s',
+      values: {
+        numWolves: 2,
+        numSeers: 1,
+        numBodyguards: 1,
+        numWitches: 1,
+        numHunters: 1,
+        numPiedPipers: 0,
+        numCupids: 0,
+        piedPiperCharmCount: 2,
+        piedPiperRevealDawn: false,
+        hunterShootOnHeartbreak: true,
+        showRemainingWolvesAfterVote: true,
+        dayDiscussionTime: 60,
+        dayVoteTime: 25,
+        nightWolfTime: 75,
+      },
+    },
+    {
+      id: 'cupid',
+      badge: '💘 Uyên Ương',
+      title: '💘 Set-up Uyên Ương (8–10 người)',
+      color: '#EC4899',
+      rolesNote: '2 🐺 Sói • 1 🔮 Tiên Tri • 1 🛡️ Bảo Vệ • 1 🧙‍♀️ Phù Thủy • 1 🏹 Thợ Săn • 1 💘 Cupid',
+      rulesNote: '🐺 Hiện số Sói sau treo cổ: TẮT • 🏹💔 Thợ Săn tuẫn tình được bắn: BẬT',
+      timersNote: '⏱️ Thảo luận: 75s • Bỏ phiếu: 25s • Sói cắn: 90s',
+      values: {
+        numWolves: 2,
+        numSeers: 1,
+        numBodyguards: 1,
+        numWitches: 1,
+        numHunters: 1,
+        numPiedPipers: 0,
+        numCupids: 1,
+        piedPiperCharmCount: 2,
+        piedPiperRevealDawn: false,
+        hunterShootOnHeartbreak: true,
+        showRemainingWolvesAfterVote: false,
+        dayDiscussionTime: 75,
+        dayVoteTime: 25,
+        nightWolfTime: 90,
+      },
+    },
+    {
+      id: 'pied_piper',
+      badge: '🎶 Tiếng Sáo',
+      title: '🎶 Set-up Tiếng Sáo Đêm (8–10 người)',
+      color: '#A855F7',
+      rolesNote: '2 🐺 Sói • 1 🔮 Tiên Tri • 1 🛡️ Bảo Vệ • 1 🧙‍♀️ Phù Thủy • 1 🎶 Người Thổi Sáo',
+      rulesNote: '🐺 Hiện số Sói sau treo cổ: TẮT • 🎶 Thôi miên 2 người/đêm • Mở mắt rạng đông: BẬT',
+      timersNote: '⏱️ Thảo luận: 75s • Bỏ phiếu: 25s • Sói cắn: 90s',
+      values: {
+        numWolves: 2,
+        numSeers: 1,
+        numBodyguards: 1,
+        numWitches: 1,
+        numHunters: 0,
+        numPiedPipers: 1,
+        numCupids: 0,
+        piedPiperCharmCount: 2,
+        piedPiperRevealDawn: true,
+        hunterShootOnHeartbreak: false,
+        showRemainingWolvesAfterVote: false,
+        dayDiscussionTime: 75,
+        dayVoteTime: 25,
+        nightWolfTime: 90,
+      },
+    },
+  ];
+
+  const RESET_PRESET = {
+    id: 'reset',
+    badge: '🔄 Reset',
+    title: '🔄 Đặt lại toàn bộ về 0 (Reset)',
+    color: '#EF4444',
+    isReset: true,
+    rolesNote: 'Tất cả vai trò chức năng (Sói, Tiên Tri, Bảo Vệ, Phù Thủy, Thợ Săn, Thổi Sáo, Cupid) đều về 0',
+    rulesNote: 'TẮT toàn bộ công tắc luật (Hiện số Sói: TẮT • Mở mắt rạng đông: TẮT • Thợ Săn tuẫn tình: TẮT)',
+    timersNote: '⏱️ Giữ thời gian chuẩn: Thảo luận 60s • Bỏ phiếu 25s • Sói cắn 90s',
+    values: {
+      numWolves: 0,
+      numSeers: 0,
+      numBodyguards: 0,
+      numWitches: 0,
+      numHunters: 0,
+      numPiedPipers: 0,
+      numCupids: 0,
+      piedPiperCharmCount: 1,
+      piedPiperRevealDawn: false,
+      hunterShootOnHeartbreak: false,
+      showRemainingWolvesAfterVote: false,
+      dayDiscussionTime: 60,
+      dayVoteTime: 25,
+      nightWolfTime: 90,
+    },
+  };
+
+  const applyPresetValues = (preset) => {
+    if (!preset || !preset.values) return;
+    const v = preset.values;
+    setNumWolves(v.numWolves);
+    setNumSeers(v.numSeers);
+    setNumBodyguards(v.numBodyguards);
+    setNumWitches(v.numWitches);
+    setNumHunters(v.numHunters);
+    setNumPiedPipers(v.numPiedPipers);
+    setNumCupids(v.numCupids);
+    setPiedPiperCharmCount(v.piedPiperCharmCount);
+    setPiedPiperRevealDawn(v.piedPiperRevealDawn);
+    setHunterShootOnHeartbreak(v.hunterShootOnHeartbreak);
+    setShowRemainingWolvesAfterVote(v.showRemainingWolvesAfterVote);
+    setDayDiscussionTime(v.dayDiscussionTime);
+    setDayVoteTime(v.dayVoteTime);
+    setNightWolfTime(v.nightWolfTime);
+    setPendingPreset(null);
+  };
 
   // Thử nghiệm hiệu ứng Tiên Tri Soi (Dành riêng cho Chủ Phòng)
   const [seerDemoVisible, setSeerDemoVisible] = useState(false);
@@ -269,6 +423,7 @@ export default function RoomSettings({
       setPiedPiperCharmCount(initialSettings.piedPiperCharmCount || 2);
       setPiedPiperRevealDawn(initialSettings.piedPiperRevealDawn !== false);
       setHunterShootOnHeartbreak(initialSettings.hunterShootOnHeartbreak !== false);
+      setShowRemainingWolvesAfterVote(initialSettings.showRemainingWolvesAfterVote !== false);
       setDayDiscussionTime(initialSettings.dayDiscussionTime || 60);
       setDayVoteTime(initialSettings.dayVoteTime || 25);
       setNightWolfTime(initialSettings.nightWolfTime || 90);
@@ -309,6 +464,7 @@ export default function RoomSettings({
       piedPiperCharmCount,
       piedPiperRevealDawn,
       hunterShootOnHeartbreak,
+      showRemainingWolvesAfterVote,
       dayDiscussionTime,
       dayVoteTime,
       nightWolfTime,
@@ -333,6 +489,37 @@ export default function RoomSettings({
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Bộ nút chọn nhanh Set-up (Preset 1–4) + nút Reset toàn bộ về 0 */}
+            {!readOnly && (
+              <View style={styles.presetSection}>
+                <View style={styles.presetHeaderRow}>
+                  <Text style={styles.presetSectionTitle}>⚡ Chọn nhanh Set-up</Text>
+                  <TouchableOpacity
+                    style={styles.resetAllBtn}
+                    onPress={() => setPendingPreset(RESET_PRESET)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.resetAllBtnText}>🔄 Reset</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.presetGrid}>
+                  {QUICK_PRESETS.map((preset) => (
+                    <TouchableOpacity
+                      key={preset.id}
+                      style={[
+                        styles.presetChip,
+                        { borderColor: preset.color + '88', backgroundColor: preset.color + '18' },
+                      ]}
+                      onPress={() => setPendingPreset(preset)}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={styles.presetChipText}>{preset.badge}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
             {/* Người tham gia hiện tại (Không giới hạn số người) */}
             <View style={[styles.settingRow, styles.participantsRow]}>
               <View style={styles.settingLeft}>
@@ -509,6 +696,34 @@ export default function RoomSettings({
                 </View>
               </View>
             )}
+
+            {/* Tùy chỉnh luật hiển thị: Hiện số Sói còn lại sau khi treo cổ */}
+            <View style={[styles.subOptionsContainer, { borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.08)', marginTop: 4 }]}>
+              <View style={styles.subOptionRow}>
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <Text style={styles.subOptionLabel}>🐺 Hiện số Sói còn lại sau treo cổ:</Text>
+                  <Text style={{ color: '#94A3B8', fontSize: 11, marginTop: 2 }}>
+                    Khuyên TẮT khi bật Cupid hoặc nhiều Phe Thứ 3 để giữ cân bằng
+                  </Text>
+                </View>
+                <View style={styles.subOptionToggleGroup}>
+                  <TouchableOpacity
+                    style={[styles.subOptionBtn, showRemainingWolvesAfterVote && styles.subOptionBtnActive]}
+                    onPress={() => !readOnly && setShowRemainingWolvesAfterVote(true)}
+                    disabled={readOnly}
+                  >
+                    <Text style={[styles.subOptionBtnText, showRemainingWolvesAfterVote && styles.subOptionBtnTextActive]}>BẬT 🟢</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.subOptionBtn, !showRemainingWolvesAfterVote && styles.subOptionBtnActive]}
+                    onPress={() => !readOnly && setShowRemainingWolvesAfterVote(false)}
+                    disabled={readOnly}
+                  >
+                    <Text style={[styles.subOptionBtnText, !showRemainingWolvesAfterVote && styles.subOptionBtnTextActive]}>TẮT 🔴</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
 
             {/* Số Dân Làng (tính theo số người tham gia thực tế) */}
             <View style={[styles.settingRow, styles.autoRow]}>
@@ -1018,6 +1233,54 @@ export default function RoomSettings({
             )}
           </View>
         </View>
+
+        {/* Hộp thoại xác nhận Set-up Preset / Reset kèm ghi chú chi tiết cấu hình */}
+        <Modal
+          visible={Boolean(pendingPreset)}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPendingPreset(null)}
+        >
+          <View style={styles.presetConfirmOverlay}>
+            <View
+              style={[
+                styles.presetConfirmCard,
+                pendingPreset?.color ? { borderColor: pendingPreset.color } : null,
+              ]}
+            >
+              <Text style={styles.presetConfirmTitle}>
+                {pendingPreset?.title || 'Xác nhận cấu hình'}
+              </Text>
+              <View style={styles.presetNoteBox}>
+                <Text style={styles.presetNoteHeading}>📋 Chi tiết cấu hình sẽ áp dụng:</Text>
+                <Text style={styles.presetNoteLine}>• <Text style={styles.presetNoteBold}>Vai trò:</Text> {pendingPreset?.rolesNote}</Text>
+                <Text style={styles.presetNoteLine}>• <Text style={styles.presetNoteBold}>Luật & Công tắc:</Text> {pendingPreset?.rulesNote}</Text>
+                <Text style={styles.presetNoteLine}>• <Text style={styles.presetNoteBold}>Thời gian:</Text> {pendingPreset?.timersNote}</Text>
+              </View>
+              <View style={styles.presetConfirmBtnRow}>
+                <TouchableOpacity
+                  style={styles.presetCancelBtn}
+                  onPress={() => setPendingPreset(null)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.presetCancelBtnText}>Hủy</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.presetApplyBtn,
+                    { backgroundColor: pendingPreset?.isReset ? '#DC2626' : (pendingPreset?.color || '#6366F1') },
+                  ]}
+                  onPress={() => applyPresetValues(pendingPreset)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.presetApplyBtnText}>
+                    {pendingPreset?.isReset ? '🔄 Xác nhận Reset' : '✅ Áp dụng Set-up'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* Modal chạy thử hiệu ứng Tiên Tri Soi (Dành riêng cho Chủ phòng) */}
         <SeerInspectionModal
@@ -1870,5 +2133,137 @@ const styles = StyleSheet.create({
   subOptionBtnTextActive: {
     color: '#FFFFFF',
     fontWeight: '900',
+  },
+
+  // Bộ nút chọn nhanh Preset + Reset
+  presetSection: {
+    backgroundColor: 'rgba(15, 23, 42, 0.72)',
+    borderRadius: 14,
+    padding: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.25)',
+  },
+  presetHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  presetSectionTitle: {
+    color: '#E2E8F0',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  resetAllBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.18)',
+    borderWidth: 1,
+    borderColor: '#EF4444',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  resetAllBtnText: {
+    color: '#FCA5A5',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  presetGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  presetChip: {
+    flexGrow: 1,
+    minWidth: '47%',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1.2,
+    alignItems: 'center',
+  },
+  presetChipText: {
+    color: '#F8FAFC',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  // Hộp thoại xác nhận áp dụng Preset / Reset
+  presetConfirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(2, 6, 23, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  presetConfirmCard: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#0F172A',
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1.5,
+    borderColor: '#6366F1',
+  },
+  presetConfirmTitle: {
+    color: '#F8FAFC',
+    fontSize: 16,
+    fontWeight: '900',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  presetNoteBox: {
+    backgroundColor: 'rgba(30, 41, 59, 0.85)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.2)',
+    gap: 6,
+  },
+  presetNoteHeading: {
+    color: '#93C5FD',
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  presetNoteLine: {
+    color: '#E2E8F0',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  presetNoteBold: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  presetConfirmBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  presetCancelBtn: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 10,
+    backgroundColor: 'rgba(148, 163, 184, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.3)',
+    alignItems: 'center',
+  },
+  presetCancelBtnText: {
+    color: '#E2E8F0',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  presetApplyBtn: {
+    flex: 1.4,
+    paddingVertical: 11,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  presetApplyBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 13,
   },
 });
